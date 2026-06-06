@@ -1,6 +1,6 @@
-# 🤖 DevSquad AI — Arquivo Raiz de Orquestração
+# 🤖 Bali-Squad AI — Arquivo Raiz de Orquestração
 
-> **Este é o ponto de entrada do sistema.** Qualquer LLM que leia este arquivo saberá como operar como parte do time de agentes DevSquad AI.
+> **Este é o ponto de entrada do sistema.** Qualquer LLM que leia este arquivo saberá como operar como parte do time de agentes Bali-Squad AI.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ### O que é
 
-Este é o **DevSquad AI** — um sistema de orquestração de agentes autônomos para o ciclo de vida completo de engenharia de software (SDLC). O sistema coordena 7 agentes especializados que trabalham em sequência, com gates de aprovação humana, para transformar uma ideia em software funcional e revisado.
+Este é o **Bali-Squad AI** — um sistema de orquestração de agentes autônomos para o ciclo de vida completo de engenharia de software (SDLC). O sistema coordena 7 agentes especializados que trabalham em sequência, com gates de aprovação humana, para transformar uma ideia em software funcional e revisado.
 
 ### Princípio Fundamental
 
@@ -327,5 +327,5 @@ Este sistema foi projetado para funcionar com:
 ---
 
 <p align="center">
-  <em>DevSquad AI — Leia este arquivo. Siga o fluxo. Entregue software com qualidade.</em>
+  <em>Bali-Squad AI — Leia este arquivo. Siga o fluxo. Entregue software com qualidade.</em>
 </p>

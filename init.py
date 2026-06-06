@@ -12,7 +12,7 @@ except ImportError:
 def print_banner():
     banner = """
 ======================================================================
-  [DEVSQUAD AI] -- TIME DE AGENTES SDLC
+  [BALI-SQUAD AI] -- TIME DE AGENTES SDLC
 ======================================================================
   Orquestração de engenharia moderna baseada em agentes autônomos.
   LLM-Agnostic | Security-First | Human-in-the-Loop
@@ -22,10 +22,10 @@ def print_banner():
         print(banner)
     except UnicodeEncodeError:
         # Se mesmo com texto simples falhar, print simplificado
-        print("[DEVSQUAD AI] -- TIME DE AGENTES SDLC")
+        print("[BALI-SQUAD AI] -- TIME DE AGENTES SDLC")
 
 def get_target_directory():
-    print("Este script inicializa o DevSquad AI no diretório do seu projeto.")
+    print("Este script inicializa o Bali-Squad AI no diretório do seu projeto.")
     print("Os agentes, protocolos, templates e guias de governança serão copiados.")
     print("-" * 70)
     
@@ -108,7 +108,7 @@ def initialize_project(src_dir, target_dir):
 def print_success_instructions(target_dir):
     try:
         print("\n" + "=" * 70)
-        print("SUCCESS: DEVSQUAD AI INICIALIZADO COM SUCESSO!")
+        print("SUCCESS: BALI-SQUAD AI INICIALIZADO COM SUCESSO!")
         print("=" * 70)
         print(f"\nDiretorio: {target_dir}\n")
         print("Proximos passos para comecar:")
@@ -119,7 +119,7 @@ def print_success_instructions(target_dir):
         print("\n4. O Orchestrator assumira a execucao e guiara voce por todas as fases do SDLC.")
         print("=" * 70 + "\n")
     except UnicodeEncodeError:
-        print(f"\nDevSquad AI inicializado com sucesso em {target_dir}")
+        print(f"\nBali-Squad AI inicializado com sucesso em {target_dir}")
         print("Abra AGENTS.md e digite 'Novo projeto: [descricao]' no chat.")
 
 def main():

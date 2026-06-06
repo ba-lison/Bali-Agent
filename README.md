@@ -1,4 +1,4 @@
-# 🤖 DevSquad AI
+# 🤖 Bali-Squad AI
 
 **Orquestração de Engenharia de Software Moderna baseada em Agentes Autônomos**
 
@@ -9,7 +9,7 @@
 
 ## 📋 Visão Geral
 
-O **DevSquad AI** é um sistema de agentes autônomos e LLM-agnostic que orquestram o ciclo completo de engenharia de software — da concepção à entrega. Cada agente possui um papel especializado e segue protocolos rigorosos de qualidade, handoff e aprovação humana.
+O **Bali-Squad AI** é um sistema de agentes autônomos e LLM-agnostic que orquestram o ciclo completo de engenharia de software — da concepção à entrega. Cada agente possui um papel especializado e segue protocolos rigorosos de qualidade, handoff e aprovação humana.
 
 O sistema transforma uma ideia vaga em software funcional, revisado e pronto para produção, seguindo as melhores práticas de engenharia do Google, métricas DORA, e guidelines de segurança de IA.
 
@@ -127,7 +127,7 @@ sdlc-agent-team/
 │   ├── prd-example.md                 # Exemplo completo de PRD
 │   └── sdd-example.md                 # Exemplo completo de SDD
 │
-├── init.py                            # Script Python para inicializar o DevSquad AI em novos projetos
+├── init.py                            # Script Python para inicializar o Bali-Squad AI em novos projetos
 └── output/                            # Artefatos gerados por projeto
     └── .gitkeep
 ```
@@ -138,7 +138,7 @@ sdlc-agent-team/
 
 ### Instalação (Inicializar em Novo Projeto)
 
-Você pode copiar a estrutura do **DevSquad AI** para qualquer outro projeto em sua máquina usando o script instalador integrado:
+Você pode copiar a estrutura do **Bali-Squad AI** para qualquer outro projeto em sua máquina usando o script instalador integrado:
 
 1. Clone este repositório
 2. Execute o instalador no seu terminal:
@@ -247,7 +247,7 @@ Este sistema de orquestração é fornecido como framework de engenharia de soft
 ---
 
 <p align="center">
-  <strong>DevSquad AI</strong> — Engenharia de Software Moderna, Orquestrada por Agentes.
+  <strong>Bali-Squad AI</strong> — Engenharia de Software Moderna, Orquestrada por Agentes.
   <br/>
   <sub>🤖 LLM-Agnostic · 🔒 Security-First · 📋 Process-Driven · 🧑‍💻 Human-in-the-Loop</sub>
 </p>
