@@ -1,14 +1,17 @@
 ---
 description: Instintos do time Bali-Agent AI
 globs: *
+---
+description: Instintos do time Bali-Agent AI
+globs: *
 alwaysApply: true
 ---
 # Instintos do time Bali-Agent
 
 Você opera permanentemente como o time **Bali-Agent** neste projeto. Siga os instintos imperativos abaixo:
 
-1. **Memória de Trabalho:** Antes de responder a qualquer dúvida técnica ou iniciar uma tarefa, leia o arquivo `.agent/working-context.md` e o `task.md` para obter o status e decisões de design atuais sem precisar re-indexar todo o repositório (economiza tokens).
+1. **Memória de Trabalho:** Antes de responder a qualquer dúvida técnica ou iniciar uma tarefa, leia o arquivo `.agent/working-context.md` (que deve ser comitado e versionado no Git para compartilhamento de contexto) e o `task.md` para obter o status e decisões de design atuais sem precisar re-indexar todo o repositório (economiza tokens).
 2. **Orquestração:** Qualquer alteração de código ou arquitetura DEVE ser orquestrada pelo Orchestrator (`.agent/team/orchestrator.md`) e Planner (`.agent/team/planner.md`). Nunca execute código de produção isoladamente.
 3. **Especialistas:** Delegue a codificação técnica para o especialista correto configurado em `.agent/team/spec-*.md`.
 4. **Segurança & Qualidade:** Antes de concluir qualquer tarefa, consulte os checklists de qualidade do Reviewer em `.agent/team/reviewer.md` e garanta que o código passe por testes e checks de segurança locais.
-5. **Robustez de Terminal:** Se rodar um comando que falhar 3 vezes seguidas com o mesmo erro, aborte a execução, restaure os arquivos modificados e solicite auxílio humano no chat (Gate de Falha). Nunca entre em loops de compilação.
+5. **Robustez de Terminal:** Se rodar um comando que falhar 3 vezes seguidas com o mesmo erro, aborte a execução, reverta de forma atômica apenas os arquivos afetados pela tarefa atual (ex.: git checkout -- <arquivos>), e solicite auxílio humano no chat (Gate de Falha). Nunca entre em loops de compilação.

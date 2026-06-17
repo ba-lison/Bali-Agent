@@ -179,3 +179,56 @@ def test_installer_flow(tmp_path):
     
     # E garante que o Git Hook foi instalado com sucesso em .git/hooks/pre-commit
     assert (user_project / ".git/hooks/pre-commit").is_file()
+
+
+def test_prevent_secrets_logic(tmp_path):
+    import sys
+    if str(REPO) not in sys.path:
+        sys.path.append(str(REPO))
+    from templates import prevent_secrets
+
+    # 1. Arquivo de extensão perigosa (.pem) deve ser bloqueado
+    pem_file = tmp_path / "key.pem"
+    pem_file.write_text("some content", encoding="utf-8")
+    assert prevent_secrets.scan_file(str(pem_file)) is not None
+
+    # 2. Arquivo .env.example com dados fictícios / placeholders deve ser PERMITIDO
+    env_example = tmp_path / ".env.example"
+    env_example.write_text("STRIPE_KEY=your_stripe_key_placeholder\nDB_PASS=my_dev_password", encoding="utf-8")
+    assert prevent_secrets.scan_file(str(env_example)) is None
+
+    # 3. Arquivo .env.local.template com placeholders deve ser PERMITIDO
+    env_template = tmp_path / ".env.local.template"
+    env_template.write_text("OPENAI_API_KEY=insert-openai-key-here", encoding="utf-8")
+    assert prevent_secrets.scan_file(str(env_template)) is None
+
+    # 4. Arquivo .env com valores limpos/inofensivos (PORT, NODE_ENV, etc.) deve ser PERMITIDO
+    env_clean = tmp_path / ".env"
+    env_clean.write_text("PORT=3000\nNODE_ENV=development\nDEBUG=true", encoding="utf-8")
+    assert prevent_secrets.scan_file(str(env_clean)) is None
+
+    # 5. Arquivo .env com chave secreta real (ex: Stripe live key ou alta entropia) deve ser BLOQUEADO
+    env_blocked = tmp_path / ".env.local"
+    env_blocked.write_text("STRIPE_KEY=" + "sk_live_" + "51Nz8h273hd892h183a9d8a9e2\n", encoding="utf-8")
+    assert prevent_secrets.scan_file(str(env_blocked)) is not None
+
+    # 6. Arquivo .env com senha de alta entropia deve ser BLOQUEADO
+    env_high_entropy = tmp_path / ".env"
+    env_high_entropy.write_text("DB_PASSWORD=" + "9f3d8a9e2c1b" + "4a7d6e5f8b9c0a1b2c3d\n", encoding="utf-8")
+    assert prevent_secrets.scan_file(str(env_high_entropy)) is not None
+
+    # 7. Arquivo python (.py) contendo chave OpenAI real deve ser BLOQUEADO
+    py_blocked = tmp_path / "main.py"
+    py_blocked.write_text("api_key = '" + "sk-" + "proj-" + "AbCdEfGhIjKlMnOpQrStUvWxYz12345678901234'", encoding="utf-8")
+    assert prevent_secrets.scan_file(str(py_blocked)) is not None
+
+    # 8. Banco de dados URL com credenciais locais/placeholders deve ser PERMITIDO
+    db_local = tmp_path / "config.json"
+    db_local.write_text('{"db_url": "postgresql://postgres:postgres@localhost:5432/my_dev_db"}', encoding="utf-8")
+    assert prevent_secrets.scan_file(str(db_local)) is None
+
+    # 9. Banco de dados URL com senha real de alta entropia deve ser BLOQUEADO
+    db_blocked = tmp_path / "config.json"
+    db_blocked.write_text('{"db_url": "postgresql://postgres:' + '9f3d8a9e2c1b' + '@production-db.com:5432/my_prod_db"}', encoding="utf-8")
+    assert prevent_secrets.scan_file(str(db_blocked)) is not None
+

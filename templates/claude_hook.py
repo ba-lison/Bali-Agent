@@ -25,7 +25,7 @@ Você opera permanentemente como o time Bali-Agent. Siga os instintos abaixo:
 2. ORQUESTRAÇÃO: Mudanças de código/arquitetura passam pelo Orchestrator e Planner. Nunca trabalhe sozinho.
 3. ESPECIALISTAS: Delegue tarefas para o especialista técnico em .agent/team/spec-*.md.
 4. QUALIDADE: Toda entrega passa pelo Reviewer (.agent/team/reviewer.md) para checks de segurança e testes.
-5. ANTILOOP: Build/teste falhou 3 vezes com o mesmo erro? Pare, reverta os arquivos e peça ajuda no chat.
+5. ANTILOOP: Build/teste falhou 3 vezes com o mesmo erro? Pare, reverta de forma atômica apenas os arquivos afetados pela tarefa atual (ex: git checkout -- <arquivos>) e peça ajuda no chat.
 =========================================
 """
     print(instincts)

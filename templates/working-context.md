@@ -3,6 +3,9 @@
 > **Nota para as IAs:** Este arquivo é a memória de curto prazo e estado atual do projeto. 
 > Sempre leia este arquivo no início de novas interações para entender o contexto atual de forma compacta.
 > O Orchestrator e o Planner atualizam este arquivo de forma incremental ao final de cada tarefa/gate concluído.
+>
+> **Dica de Versionamento:** Recomenda-se comitar este arquivo no Git. Desta forma, qualquer desenvolvedor (humano ou IA) que clonar o repositório herdará instantaneamente todo o contexto histórico do projeto, eliminando a fase de onboarding.
+
 
 ## 📌 Status Atual do Projeto
 - **Milestone:** {MARCO_ATUAL_OU_SETUP}

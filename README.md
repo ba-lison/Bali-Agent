@@ -169,6 +169,7 @@ Se você estiver inicializando o framework em um projeto que já está ativo e p
 - **Preservação Automática:** O instalador detectará a presença desses arquivos e **nunca** os sobrescreverá. Ele preservará os seus arquivos originais e salvará a constituição de bootstrap do framework em `.agent/bootstrap-AGENTS.md` apenas para fins de referência técnica.
 - **Merge de Regras:** Quando você rodar o comando de configuração `/setup`, o Setup Agent lerá as suas regras originais e anexará de forma limpa no final do `AGENTS.md` a seção `## 🤖 Time de Subagentes Bali-Agent`.
 - **Herança de Governança:** O framework adiciona automaticamente uma cláusula de segurança que obriga qualquer modelo de IA (Codex, Cursor, Claude Code) a herdar e respeitar as regras originais do seu projeto. O time híbrido opera *sob* a governança e as restrições nativas do seu repositório.
+- **Memória de Trabalho Versionada (Recomendado):** Comite o arquivo `.agent/working-context.md` no seu repositório Git. Desta forma, a memória de contexto do projeto é compartilhada: quando qualquer outro desenvolvedor humano clonar o repositório e acionar a IA na máquina dele, a IA herdará instantaneamente todo o histórico de desenvolvimento, decisões técnicas e estado atual do projeto de forma imediata (e com consumo mínimo de tokens).
 
 ---
 
