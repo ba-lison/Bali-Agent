@@ -49,3 +49,10 @@ def test_no_stale_agent_paths():
             if s in txt:
                 offenders.append(f"{md.relative_to(REPO)} -> {s}")
     assert not offenders, f"referências a caminhos antigos: {offenders}"
+
+
+def test_routing_protocol_sections():
+    txt = _read("protocols/routing.md")
+    for h in ["# Protocolo de Roteamento", "## Triagem", "## Processo proporcional",
+              "## Modo Operate", "## Modo Greenfield"]:
+        assert h in txt, f"seção ausente em routing.md: {h!r}"
