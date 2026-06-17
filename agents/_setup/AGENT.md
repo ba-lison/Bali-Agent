@@ -29,7 +29,7 @@ Você é o **Setup Agent**. Sua única missão é inicializar o time de agentes 
      - `.agent/team/orchestrator.md` (instanciado da espinha)
      - `.agent/team/planner.md` (instanciado da espinha)
      - `.agent/team/reviewer.md` (instanciado da espinha)
-     - `.agent/team/spec-<stack>.md` (gerados a partir dos arquétipos em `agents/_specialists/` preenchidos com o escopo e contexto concreto do projeto)
+     - `.agent/team/spec-<stack>.md` (gerados a partir dos arquétipos locais em `.agent/agents/_specialists/` preenchidos com o escopo e contexto concreto do projeto)
      - `.agent/subagent.config.yaml` (o manifesto preenchido)
    - Copie também a pasta `protocols/` para `.agent/protocols/`.
    - **Constituição (`AGENTS.md`)**:

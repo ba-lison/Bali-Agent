@@ -43,7 +43,7 @@ Para mapear a stack tecnológica do projeto, o Setup Agent deve buscar pelos seg
 
 ## Mapeamento de Especialistas
 
-A detecção de stack **direciona** quais arquétipos de `agents/_specialists/` devem ser gerados.
+A detecção de stack **direciona** quais arquétipos locais de `.agent/agents/_specialists/` devem ser gerados.
 Por exemplo, se o projeto for Next.js + Supabase:
 - O Setup Agent propõe instanciar o arquétipo `frontend.md` preenchido com as regras de Next.js (`spec-nextjs.md`).
 - O Setup Agent propõe instanciar o arquétipo `database.md` preenchido com as regras e o schema do Supabase/PostgreSQL (`spec-supabase.md`).
