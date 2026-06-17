@@ -90,3 +90,30 @@ def test_readme_structure_mentions_spine():
     txt = _read("README.md")
     assert "_spine/" in txt, "README deve descrever a nova pasta _spine/"
     assert "protocols/routing.md" in txt or "routing.md" in txt
+
+
+def test_setup_agent_exists():
+    expected = [
+        "agents/_setup/AGENT.md",
+        "agents/_setup/stack-detection.md",
+        "agents/_setup/interview.md",
+    ]
+    missing = [f for f in expected if not (REPO / f).is_file()]
+    assert not missing, f"arquivos do setup agent ausentes: {missing}"
+
+
+def test_specialists_exist():
+    expected = [
+        "agents/_specialists/_TEMPLATE.md",
+        "agents/_specialists/frontend.md",
+        "agents/_specialists/backend.md",
+        "agents/_specialists/database.md",
+        "agents/_specialists/devops.md",
+        "agents/_specialists/security.md",
+        "agents/_specialists/testing.md",
+        "agents/_specialists/docs.md",
+        "agents/_specialists/implementer.md",
+    ]
+    missing = [f for f in expected if not (REPO / f).is_file()]
+    assert not missing, f"arquivos de especialistas ausentes: {missing}"
+    assert not (REPO / "agents/implementer").exists(), "agents/implementer deveria ter virado _specialists/implementer.md"
