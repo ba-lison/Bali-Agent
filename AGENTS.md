@@ -29,13 +29,13 @@ Garantir que todo projeto de software siga um processo de engenharia rigoroso, c
 
 | # | Agente | Emoji | Papel | Arquivo de Definição | Entrada | Saída |
 |---|--------|-------|-------|---------------------|---------|-------|
-| 1 | **Orchestrator** | 🎯 | Maestro do fluxo — gerencia transições, aplica gates, roteia entre agentes | `agents/orchestrator/AGENT.md` | Comando do usuário | Roteamento para agente correto |
+| 1 | **Orchestrator** | 🎯 | Maestro do fluxo — gerencia transições, aplica gates, roteia entre agentes | `agents/_spine/orchestrator/AGENT.md` | Comando do usuário | Roteamento para agente correto |
 | 2 | **Discovery** | 🔍 | Entrevistador — extrai requisitos, contexto, restrições e prioridades | `agents/discovery/AGENT.md` | Descrição inicial do projeto | Documento de Discovery |
 | 3 | **PRD Writer** | 📄 | Analista de Produto — documenta requisitos, escopo, métricas e personas | `agents/prd-writer/AGENT.md` | Documento de Discovery aprovado | PRD completo |
 | 4 | **SDD Architect** | 🏗️ | Arquiteto — projeta arquitetura, diagramas, trade-offs e plano técnico | `agents/sdd-architect/AGENT.md` | PRD aprovado | SDD completo |
-| 5 | **Task Decomposer** | 📋 | Planejador — decompõe SDD em tasks atômicas e ordenadas | `agents/task-decomposer/AGENT.md` | SDD aprovado | Lista de tasks priorizadas |
+| 5 | **Planner** | 📋 | Planejador — decompõe SDD em tasks atômicas e ordenadas | `agents/_spine/planner/AGENT.md` | SDD aprovado | Lista de tasks priorizadas |
 | 6 | **Implementer** | 💻 | Engenheiro — implementa código de produção com testes | `agents/implementer/AGENT.md` | Task individual | Código + testes + PR |
-| 7 | **Reviewer** | 🔎 | Revisor — revisa PRs com checklist de qualidade e segurança | `agents/reviewer/AGENT.md` | PR do Implementer | Review com aprovação/rejeição |
+| 7 | **Reviewer** | 🔎 | Revisor — revisa PRs com checklist de qualidade e segurança | `agents/_spine/reviewer/AGENT.md` | PR do Implementer | Review com aprovação/rejeição |
 
 ### Hierarquia
 
@@ -48,7 +48,7 @@ Garantir que todo projeto de software siga um processo de engenharia rigoroso, c
         │           │                   │
         └───────────┼───────────────────┘
                     │
-              📋 Task Decomposer
+              📋 Planner
                     │
               💻 Implementer
                     │
@@ -307,7 +307,7 @@ Status do projeto
 | SDD | Software Design Document | `templates/sdd.md` | `output/[projeto]/sdd.md` |
 | Tasks | Lista de Tasks | `templates/tasks.md` | `output/[projeto]/tasks.md` |
 | Implementação | Código + Testes | — | Repositório do projeto |
-| Review | Relatório de Review | `agents/reviewer/checklists/pr-checklist.md` | PR do repositório |
+| Review | Relatório de Review | `agents/_spine/reviewer/checklists/pr-checklist.md` | PR do repositório |
 
 ---
 

@@ -73,3 +73,14 @@ def test_constitution_template():
     assert ".agent/subagent.config.yaml" in txt
     assert ".agent/team/" in txt
     assert "reviewer" in txt
+
+
+def test_base_entrypoint_points_to_spine():
+    txt = _read("AGENTS.md")
+    assert "agents/_spine/orchestrator/AGENT.md" in txt
+    assert "agents/_spine/planner/AGENT.md" in txt
+    assert "agents/_spine/reviewer/AGENT.md" in txt
+    # não pode mais referenciar NENHUM caminho antigo (prefixo de diretório),
+    # incluindo a seção 7 que cita agents/reviewer/checklists/...
+    for stale in ["agents/orchestrator/", "agents/task-decomposer/", "agents/reviewer/"]:
+        assert stale not in txt, f"caminho antigo ainda no AGENTS.md: {stale}"
