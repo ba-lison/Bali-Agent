@@ -1,4 +1,4 @@
-# 🎯 Orchestrator — Espinha do Bali-Subagent
+# 🎯 Orchestrator — Espinha do Bali-Agent
 
 > **Tipo:** Agente de espinha (sempre presente)
 > **Versão:** 2.0.0

@@ -1,1 +1,1 @@
-# Pacote de testes do Bali-Subagent AI
+# Pacote de testes do Bali-Agent AI

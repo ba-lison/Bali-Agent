@@ -98,7 +98,7 @@ flowchart TD
 Bali-Agent/
 ├── README.md                          # Este arquivo — visão geral do sistema
 ├── AGENTS.md                          # Arquivo raiz da base (ponto de entrada)
-├── init.py                            # Script Python para inicializar o Bali-Subagent AI no projeto
+├── init.py                            # Script Python para inicializar o Bali-Agent AI no projeto
 │
 ├── agents/                            # Definições dos agentes do framework
 │   ├── _spine/                        # Espinha dorsal fixa (sempre presente)
@@ -160,7 +160,7 @@ Bali-Agent/
 
 ### 📦 Métodos de Instalação (Inicializar em Novo Projeto)
 
-Você pode instalar o framework **Bali-Subagent AI** em qualquer projeto novo de duas formas:
+Você pode instalar o framework **Bali-Agent AI** em qualquer projeto novo de duas formas:
 
 #### Opção A: Instalação 100% via IDE / Inteligência Artificial (Sem Terminal) ── [Recomendado] ✨
 Se você já abriu o seu projeto novo na IDE (Cursor, Claude Code, VS Code com assistente de IA, etc.), você não precisa abrir o console. Basta mandar a instrução no chat da IDE:
@@ -184,7 +184,7 @@ Se preferir o terminal tradicional, você pode instalar clonando o repositório:
 3. Digite o caminho completo do seu projeto destino (ex: `C:\Users\NomeDoUsuario\Documents\jaozinho-zika`) e confirme. O script copiará os arquivos e você poderá excluir a pasta temporária `Bali-Agent`.
 
 > 💡 **Dica de Produtividade (Atalho no PowerShell):** Se você usa o PowerShell no Windows, crie um atalho permanente chamado `bali` rodando o comando a seguir uma única vez:
-> `if (!(Test-Path $PROFILE)) { New-Item -Type File -Force $PROFILE } ; Add-Content -Path $PROFILE -Value 'function bali { python C:\Users\suporte2\Documents\.Inovaxao_Totalcad\.agent\Bali-Subagent-AI\init.py }'`
+> `if (!(Test-Path $PROFILE)) { New-Item -Type File -Force $PROFILE } ; Add-Content -Path $PROFILE -Value 'function bali { python C:\Users\suporte2\Documents\.Inovaxao_Totalcad\.agent\Bali-Agent\init.py }'`
 > Agora, basta digitar `bali` no terminal de qualquer projeto novo para instalá-lo instantaneamente.
 
 #### 🛡️ Coexistência de Regras (Projetos em Andamento / Brownfield)

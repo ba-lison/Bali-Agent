@@ -1,4 +1,4 @@
-# 📋 Planner — Espinha do Bali-Subagent
+# 📋 Planner — Espinha do Bali-Agent
 
 > **Tipo:** Agente de espinha (sempre presente)
 > **Versão:** 2.0.0

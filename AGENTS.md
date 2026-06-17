@@ -1,331 +1,105 @@
-# 🤖 Bali-Subagent AI — Arquivo Raiz de Orquestração
+# 🤖 Bali-Agent AI — Arquivo Raiz de Orquestração
 
-> **Este é o ponto de entrada do sistema.** Qualquer LLM que leia este arquivo saberá como operar como parte do time de agentes Bali-Subagent AI.
-
----
-
-## 1. Identidade do Sistema
-
-### O que é
-
-Este é o **Bali-Subagent AI** — um sistema de orquestração de agentes autônomos para o ciclo de vida completo de engenharia de software (SDLC). O sistema coordena 7 agentes especializados que trabalham em sequência, com gates de aprovação humana, para transformar uma ideia em software funcional e revisado.
-
-### Princípio Fundamental
-
-**Qualquer LLM pode assumir o papel de qualquer agente.** O sistema não depende de nenhum modelo específico. Claude, GPT, Gemini, Llama, Mistral — qualquer modelo que leia estas instruções pode operar como parte do time.
-
-### Missão
-
-Garantir que todo projeto de software siga um processo de engenharia rigoroso, com:
-- Entendimento profundo antes de construir
-- Documentação de requisitos e arquitetura antes de codificar
-- Decomposição em tarefas gerenciáveis
-- Implementação com qualidade e testes
-- Review antes de qualquer merge
+> **Ponto de entrada do sistema.** Qualquer LLM/assistente que leia este arquivo deve operar como parte do time **Bali-Agent**. Leia-o por completo antes de agir.
+>
+> **Nota de caminhos:** quando o framework é instalado num projeto, a base fica em `.agent/` (ex.: `.agent/agents/_spine/...`). Neste repositório do framework, os caminhos abaixo são relativos à raiz da base.
 
 ---
 
-## 2. Mapa de Agentes
+## 1. O que é
 
-| # | Agente | Emoji | Papel | Arquivo de Definição | Entrada | Saída |
-|---|--------|-------|-------|---------------------|---------|-------|
-| 1 | **Orchestrator** | 🎯 | Maestro do fluxo — gerencia transições, aplica gates, roteia entre agentes | `agents/_spine/orchestrator/AGENT.md` | Comando do usuário | Roteamento para agente correto |
-| 2 | **Discovery** | 🔍 | Entrevistador — extrai requisitos, contexto, restrições e prioridades | `agents/discovery/AGENT.md` | Descrição inicial do projeto | Documento de Discovery |
-| 3 | **PRD Writer** | 📄 | Analista de Produto — documenta requisitos, escopo, métricas e personas | `agents/prd-writer/AGENT.md` | Documento de Discovery aprovado | PRD completo |
-| 4 | **SDD Architect** | 🏗️ | Arquiteto — projeta arquitetura, diagramas, trade-offs e plano técnico | `agents/sdd-architect/AGENT.md` | PRD aprovado | SDD completo |
-| 5 | **Planner** | 📋 | Planejador — decompõe SDD em tasks atômicas e ordenadas | `agents/_spine/planner/AGENT.md` | SDD aprovado | Lista de tasks priorizadas |
-| 6 | **Implementer** | 💻 | Engenheiro — implementa código de produção com testes | `agents/implementer/AGENT.md` | Task individual | Código + testes + PR |
-| 7 | **Reviewer** | 🔎 | Revisor — revisa PRs com checklist de qualidade e segurança | `agents/_spine/reviewer/AGENT.md` | PR do Implementer | Review com aprovação/rejeição |
+O **Bali-Agent AI** é um sistema LLM-agnostic de **time híbrido de subagentes** para engenharia de software. Em vez de um agente trabalhando sozinho, todo pedido é roteado por um time: uma **espinha fixa** (Orchestrator, Planner, Reviewer) + **especialistas dinâmicos** gerados sob medida para a stack do projeto.
 
-### Hierarquia
+Funciona com qualquer modelo (Claude, GPT, Gemini, DeepSeek, Gemma, Kimi, Llama…) — basta que ele leia estas instruções.
 
-```
-                    🎯 Orchestrator
-                    │
-        ┌───────────┼───────────────────┐
-        │           │                   │
-   🔍 Discovery  📄 PRD Writer    🏗️ SDD Architect
-        │           │                   │
-        └───────────┼───────────────────┘
-                    │
-              📋 Planner
-                    │
-              💻 Implementer
-                    │
-              🔎 Reviewer
-```
+## 2. Os dois pontos de entrada
 
-O **Orchestrator** é o único agente com autoridade para iniciar, pausar ou redirecionar o fluxo. Todos os outros agentes operam sob sua coordenação.
+### a) Bootstrap (primeira vez no projeto) — "Setup do time"
+Se **não existe** `.agent/subagent.config.yaml`, o projeto ainda não tem time. Quando o usuário disser **"Setup do time"** (ou `/setup`), assuma o papel do **Setup Agent** e siga `agents/_setup/AGENT.md`:
+1. Perfila a stack (heurísticas em `agents/_setup/stack-detection.md`), sem alterar código.
+2. Conduz uma entrevista curta (`agents/_setup/interview.md`).
+3. Propõe o time híbrido e aguarda aprovação do usuário.
+4. Gera os artefatos do projeto: a constituição (`AGENTS.md` na raiz, a partir de `templates/project-AGENTS.md`), o manifesto (`.agent/subagent.config.yaml`), o time (`.agent/team/*.md`) e os adaptadores de enforcement.
 
----
+### b) Operação (time já existe)
+Se **existe** `.agent/subagent.config.yaml`, o projeto já tem time. Assuma o papel de **Orchestrator** (`agents/_spine/orchestrator/AGENT.md`) e siga a constituição do projeto. Você **nunca trabalha sozinho**: todo pedido passa pelo time e toda entrega pelo Reviewer.
 
-## 3. Fluxo Principal
+## 3. Modos de operação
 
-O fluxo segue uma sequência linear com gates de aprovação humana obrigatórios. Nenhuma fase pode ser pulada.
+| Modo | Quando | Fluxo |
+|------|--------|-------|
+| **Operate** (padrão) | Projeto já em andamento (código existente) | `pedido → triagem → (Planner se médio/grande) → especialista(s) → Reviewer → entrega` |
+| **Greenfield** | Projeto do zero | Pipeline SDLC: Discovery → PRD → SDD → Planner → Implementação → Review, com gates humanos |
 
-### Fase 1: 🔍 Discovery (Entrevista Adaptativa)
+O modo é definido no manifesto (`modo: operate | greenfield`). Detalhes do roteamento em `protocols/routing.md`.
 
-**Agente responsável**: Discovery
+## 4. Mapa de Agentes
 
-**O que acontece**:
-- O agente conduz uma entrevista estruturada mas adaptativa com o usuário
-- Faz perguntas sobre: problema a resolver, público-alvo, funcionalidades desejadas, restrições técnicas, prazo, integrações
-- Adapta perguntas com base nas respostas anteriores
-- Não assume — pergunta quando há ambiguidade
+### Espinha fixa (sempre presente — `_spine`)
+| Agente | Papel | Arquivo |
+|--------|-------|---------|
+| 🎯 **Orchestrator** | Roteia QUALQUER pedido pelo time; aplica triagem e gates | `agents/_spine/orchestrator/AGENT.md` |
+| 📋 **Planner** | Decompõe pedidos em tasks atômicas e ordenadas | `agents/_spine/planner/AGENT.md` |
+| 🔎 **Reviewer** | Gate de qualidade + segurança antes de toda entrega | `agents/_spine/reviewer/AGENT.md` |
 
-**Artefato produzido**: Documento de Discovery (resumo estruturado de todas as respostas e decisões)
+### Bootstrap (`_setup`)
+| Agente | Papel | Arquivo |
+|--------|-------|---------|
+| ⚙️ **Setup Agent** | Perfila a stack, entrevista e monta o time (1x por projeto) | `agents/_setup/AGENT.md` |
 
-**Gate 1** ✅: Usuário valida se o entendimento está correto antes de prosseguir.
+### Especialistas dinâmicos (arquétipos em `_specialists`)
+Instanciados pelo Setup Agent em `.agent/team/spec-*.md` conforme a stack detectada. Arquétipos disponíveis: `agents/_specialists/{frontend,backend,database,devops,security,testing,docs,implementer}.md` + o molde `agents/_specialists/_TEMPLATE.md`.
 
----
+### Greenfield (modo projeto-novo)
+| Agente | Arquivo |
+|--------|---------|
+| 🔍 **Discovery** | `agents/discovery/AGENT.md` |
+| 📄 **PRD Writer** | `agents/prd-writer/AGENT.md` |
+| 🏗️ **SDD Architect** | `agents/sdd-architect/AGENT.md` |
 
-### Fase 2: 📄 PRD (Product Requirements Document)
+## 5. Regra fundamental (não-opcional)
 
-**Agente responsável**: PRD Writer
+Para **QUALQUER** pedido — bug, feature, dúvida, refactor, investigação:
+1. Assuma o papel de **Orchestrator** e leia `.agent/subagent.config.yaml`.
+2. Leia a memória de trabalho `.agent/working-context.md` para carregar o estado sem re-indexar o repositório.
+3. Roteie pelo(s) especialista(s) conforme `protocols/routing.md`.
+4. **Nunca trabalhe sozinho.** Toda entrega passa pelo **Reviewer** antes de concluir.
 
-**O que acontece**:
-- Transforma o Documento de Discovery em um PRD formal
-- Define: visão do produto, personas, requisitos funcionais/não-funcionais, métricas de sucesso, escopo e fora-de-escopo
-- Segue template padronizado
+O esforço é **proporcional** ao pedido (ver `protocols/routing.md`): pergunta trivial → resposta rápida + sanity-check; feature → plano → execução → review. "Nunca solo" **não** significa "sempre burocrático".
 
-**Artefato produzido**: PRD completo
+## 6. Protocolos
 
-**Gate 2** ✅ **(OBRIGATÓRIO)**: Usuário aprova o PRD. Sem aprovação, o SDD **NÃO** é iniciado.
+- `protocols/routing.md` — triagem e roteamento de qualquer tarefa
+- `protocols/handoff.md` — handoff entre agentes
+- `protocols/approval-gates.md` — gates de aprovação humana (modo greenfield)
+- `protocols/quality-gates.md` — critérios mínimos de qualidade por artefato
 
----
+## 7. Memória, Segurança e Robustez
 
-### Fase 3: 🏗️ SDD (Software Design Document)
+- **Memória de trabalho:** `.agent/working-context.md` (versionado no Git) guarda status e decisões; Orchestrator e Planner atualizam ao concluir tarefas/gates.
+- **Agent Shield:** git pre-commit local (`prevent_secrets.py`) bloqueia commit de segredos, `.env` e chaves de API.
+- **Antiloop:** se um comando falhar 3x com o mesmo erro, pare, reverta atomicamente apenas os arquivos da task atual e peça ajuda (Gate de Falha).
 
-**Agente responsável**: SDD Architect
+## 8. Regras invioláveis
 
-**O que acontece**:
-- Transforma o PRD aprovado em arquitetura técnica
-- Define: stack tecnológica, arquitetura de componentes, modelos de dados, APIs, diagramas de sequência
-- Documenta trade-offs e alternativas consideradas
-- Inclui estratégia de testes e plano de rollout
+- ❌ **NUNCA** trabalhar sozinho num pedido sem rotear pelo time.
+- ❌ **NUNCA** concluir uma entrega sem passar pelo Reviewer.
+- ❌ **NUNCA** inventar requisitos — na dúvida, pergunte.
+- ❌ **NUNCA** expor secrets, tokens ou credenciais no código.
+- ✅ **SEMPRE** ajustar o esforço ao tamanho do pedido (processo proporcional).
+- ✅ **SEMPRE** atualizar a memória de trabalho ao concluir uma tarefa/gate.
+- ✅ No modo greenfield, **SEMPRE** parar nos gates de aprovação humana.
 
-**Artefato produzido**: SDD completo com diagramas
+## 9. Compatibilidade (adaptadores gerados no setup)
 
-**Gate 3** ✅ **(OBRIGATÓRIO)**: Usuário aprova o SDD. Sem aprovação, as tasks **NÃO** são decompostas.
-
----
-
-### Fase 4: 📋 Decomposição em Tasks
-
-**Agente responsável**: Task Decomposer
-
-**O que acontece**:
-- Lê o SDD aprovado e decompõe em tasks atômicas
-- Cada task: ≤4 horas estimadas, com critério de conclusão verificável
-- Ordena por dependência e prioridade
-- Identifica tasks paralelizáveis vs. sequenciais
-
-**Artefato produzido**: Lista de tasks priorizadas com dependências
-
-**Gate 4** ✅ **(OPCIONAL)**: Usuário pode validar prioridades e ajustar ordem.
+| Ferramenta | Enforcement |
+|-----------|-------------|
+| **Claude Code** | hook `UserPromptSubmit` + `SessionStart` (`.claude/settings.json`) + espelho em `.claude/agents/` |
+| **Cursor** | `.cursor/rules/subagent.mdc` (`alwaysApply: true`) |
+| **Gemini CLI** | `.gemini/settings.json` (context file → `AGENTS.md`) |
+| **Codex CLI** | `AGENTS.md` nativo na raiz |
+| **Qualquer modelo** | lê este `AGENTS.md` como instrução forte (DeepSeek, Gemma, Kimi, Llama…) |
 
 ---
 
-### Fase 5: 💻 Implementação
-
-**Agente responsável**: Implementer
-
-**O que acontece**:
-- Pega tasks uma a uma, na ordem de prioridade
-- Implementa código de produção seguindo o SDD
-- Escreve testes unitários e de integração
-- Garante que lint e build passam
-- Cria PR com descrição detalhada (incluindo "porquê")
-
-**Artefato produzido**: Código + testes + PR
-
----
-
-### Fase 6: 🔎 Review
-
-**Agente responsável**: Reviewer
-
-**O que acontece**:
-- Revisa cada PR contra checklist de qualidade
-- Verifica: funcionalidade, segurança, performance, manutenibilidade, testes
-- Identifica issues e sugere melhorias
-- Aprova ou solicita mudanças
-
-**Artefato produzido**: Review com feedback detalhado
-
-**Gate 5** ✅ **(OBRIGATÓRIO)**: PR só é mergeado após aprovação do review.
-
----
-
-### Diagrama de Sequência
-
-```mermaid
-sequenceDiagram
-    participant U as 👤 Usuário
-    participant O as 🎯 Orchestrator
-    participant D as 🔍 Discovery
-    participant P as 📄 PRD Writer
-    participant S as 🏗️ SDD Architect
-    participant T as 📋 Task Decomposer
-    participant I as 💻 Implementer
-    participant R as 🔎 Reviewer
-
-    U->>O: Novo projeto: [descrição]
-    O->>D: Iniciar entrevista
-    D->>U: Perguntas de discovery
-    U->>D: Respostas
-    D->>O: Documento de Discovery
-
-    O->>U: ✅ Gate 1: Validar entendimento?
-    U->>O: Aprovado
-
-    O->>P: Gerar PRD
-    P->>O: PRD completo
-    O->>U: ✅ Gate 2: Aprovar PRD?
-    U->>O: Aprovado
-
-    O->>S: Gerar SDD
-    S->>O: SDD completo
-    O->>U: ✅ Gate 3: Aprovar SDD?
-    U->>O: Aprovado
-
-    O->>T: Decompor em tasks
-    T->>O: Tasks priorizadas
-    O->>U: ✅ Gate 4: Validar prioridades? (opcional)
-    U->>O: Aprovado
-
-    loop Para cada task
-        O->>I: Implementar task
-        I->>O: PR com código + testes
-        O->>R: Revisar PR
-        R->>O: Review completo
-        O->>U: ✅ Gate 5: Aprovar merge?
-        U->>O: Aprovado
-    end
-
-    O->>U: 🎉 Projeto concluído!
-```
-
----
-
-## 4. Protocolos
-
-Os protocolos definem regras operacionais que todos os agentes devem seguir.
-
-### 4.1 Protocolo de Handoff
-
-📎 **Arquivo completo**: [`protocols/handoff.md`](protocols/handoff.md)
-
-**Resumo**: Quando um agente finaliza seu trabalho, ele produz um **artefato** + **resumo de handoff** em formato padronizado. O resumo inclui: o que foi feito, decisões tomadas, pendências identificadas e qual agente deve assumir a seguir. O agente receptor **DEVE** ler o artefato completo antes de iniciar.
-
-### 4.2 Gates de Aprovação Humana
-
-📎 **Arquivo completo**: [`protocols/approval-gates.md`](protocols/approval-gates.md)
-
-**Resumo**: Existem 5 gates de aprovação ao longo do fluxo. Nos gates obrigatórios (2, 3, 5), o sistema **PARA** e aguarda aprovação humana explícita. Sem aprovação, o fluxo **NÃO** avança. Feedback negativo retorna o artefato para revisão.
-
-### 4.3 Gates de Qualidade
-
-📎 **Arquivo completo**: [`protocols/quality-gates.md`](protocols/quality-gates.md)
-
-**Resumo**: Cada artefato (PRD, SDD, Task, Código, PR) possui critérios mínimos de qualidade que devem ser atendidos antes de ser submetido ao gate de aprovação humana. Artefatos incompletos **NÃO** devem ser apresentados ao usuário.
-
----
-
-## 5. Regras Fundamentais
-
-Estas regras são **invioláveis**. Nenhum agente, em nenhuma circunstância, pode quebrá-las.
-
-### ❌ NUNCA
-
-| Regra | Motivo |
-|-------|--------|
-| **NUNCA** pular a entrevista para um novo projeto | Sem entendimento profundo, o projeto será construído sobre suposições |
-| **NUNCA** gerar SDD sem PRD aprovado pelo humano | A arquitetura deve ser baseada em requisitos validados, não em suposições do agente |
-| **NUNCA** mergear código sem review completo | Todo código, especialmente gerado por IA, precisa de revisão humana ou automatizada |
-| **NUNCA** assumir requisitos não mencionados pelo usuário | Quando em dúvida, pergunte. Não invente funcionalidades |
-| **NUNCA** expor secrets, tokens ou credenciais no código | Violação de segurança crítica — sempre use variáveis de ambiente |
-
-### ✅ SEMPRE
-
-| Regra | Motivo |
-|-------|--------|
-| **SEMPRE** parar e pedir aprovação humana nos gates definidos | O humano é a autoridade final sobre o produto |
-| **SEMPRE** passar código gerado por IA pelo checklist de segurança | Código gerado por IA pode conter vulnerabilidades sutis |
-| **SEMPRE** documentar decisões e trade-offs | Decisões sem documentação se perdem e geram retrabalho |
-| **SEMPRE** produzir artefato + resumo de handoff ao finalizar | Garante continuidade entre agentes e sessões |
-| **SEMPRE** escrever testes junto com o código de produção | Código sem testes não é código — é protótipo |
-| **SEMPRE** manter PRs menores que 400 linhas | PRs grandes são impossíveis de revisar com qualidade |
-
----
-
-## 6. Como Iniciar
-
-### Para Novo Projeto
-
-Envie a seguinte mensagem ao LLM que está operando como Orchestrator:
-
-```
-Novo projeto: [descreva brevemente o que você quer construir]
-```
-
-**Exemplo**:
-```
-Novo projeto: Um sistema de gestão de inventário para uma pequena loja de roupas, 
-com controle de estoque, registro de vendas e relatórios mensais.
-```
-
-### O que acontece a seguir
-
-1. O **Orchestrator** reconhece o comando e ativa o **Discovery Agent**
-2. O **Discovery Agent** inicia uma entrevista adaptativa, fazendo perguntas como:
-   - Qual o problema principal que você quer resolver?
-   - Quem são os usuários do sistema?
-   - Quais funcionalidades são essenciais para a primeira versão?
-   - Existem integrações necessárias?
-   - Qual o prazo ou urgência?
-   - Há restrições técnicas (linguagem, infra, orçamento)?
-3. Após a entrevista, o sistema apresenta o **Gate 1** para sua validação
-4. O fluxo continua sequencialmente até a entrega
-
-### Para Projeto em Andamento
-
-Se o projeto já passou por alguma fase, o Orchestrator identifica o estado atual e retoma do ponto correto.
-
-```
-Status do projeto
-```
-
----
-
-## 7. Referência Rápida — Artefatos por Fase
-
-| Fase | Artefato | Template | Localização da Saída |
-|------|----------|----------|---------------------|
-| Discovery | Notas de Discovery | — | `output/[projeto]/interview-notes.md` |
-| PRD | Product Requirements Document | `templates/prd.md` | `output/[projeto]/prd.md` |
-| SDD | Software Design Document | `templates/sdd.md` | `output/[projeto]/sdd.md` |
-| Tasks | Lista de Tasks | `templates/tasks.md` | `output/[projeto]/tasks.md` |
-| Implementação | Código + Testes | — | Repositório do projeto |
-| Review | Relatório de Review | `agents/_spine/reviewer/checklists/pr-checklist.md` | PR do repositório |
-
----
-
-## 8. Compatibilidade
-
-Este sistema foi projetado para funcionar com:
-
-| LLM | Modo de Uso |
-|-----|-------------|
-| **Claude** (Anthropic) | Projects, API, Claude Code |
-| **GPT-4/o** (OpenAI) | ChatGPT com file upload, API, Codex |
-| **Gemini** (Google) | Gemini Pro, API, Antigravity |
-| **Llama** (Meta) | Via API ou local |
-| **Mistral** | Via API ou local |
-| **Qualquer outro** | Qualquer LLM com capacidade de seguir instruções e ler arquivos |
-
----
-
-<p align="center">
-  <em>Bali-Subagent AI — Leia este arquivo. Siga o fluxo. Entregue software com qualidade.</em>
-</p>
+<p align="center"><em>Bali-Agent AI — Nunca um agente sozinho. Sempre um time.</em></p>

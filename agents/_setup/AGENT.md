@@ -1,4 +1,4 @@
-# ⚙️ Setup Agent — Bootstrap do Bali-Subagent
+# ⚙️ Setup Agent — Bootstrap do Bali-Agent
 
 > **Tipo:** Agente de Meta-Nível (roda uma vez por projeto)
 > **Versão:** 2.0.0
@@ -38,7 +38,7 @@ Você é o **Setup Agent**. Sua única missão é inicializar o time de agentes 
        > *"IMPORTANTE: O time de subagentes do Bali-Agent opera sob a governança e as restrições de arquitetura, padrões de código e design system descritos nas seções anteriores deste arquivo (regras originais do projeto). Nenhuma diretriz do framework anula as regras nativas deste repositório."*
        Se o usuário exigir isolamento total, mantenha o `AGENTS.md` original intocado e salve a constituição de referência como `.agent/bootstrap-AGENTS.md`.
    - Instancie os **Adaptadores de Enforcamento** selecionados no manifesto:
-     - **Claude Code**: Copie `.agent/templates/claude-settings.json` para `.claude/settings.json` (na raiz do projeto), copie `.agent/templates/claude_hook.py` para `.agent/hooks/claude_hook.py` e garanta que seja executável. Espelhe também os agentes gerados de `.agent/team/*.md` para `.claude/agents/*.md` (para torná-los subagentes nativos do Claude Code). Caso o `AGENTS.md` da raiz não contenha as regras de agentes, configure o `claude_hook.py` para ler o `.agent/team/orchestrator.md` ou `.agent/bootstrap-AGENTS.md`.
+     - **Claude Code**: O `init.py` já instala automaticamente o `.claude/settings.json` (ou `.claude/settings.bali-agent.json`, caso o usuário já tenha um) e o `.agent/hooks/claude_hook.py`. Sua tarefa aqui é apenas: (a) confirmar que ambos existem; e (b) espelhar os agentes gerados de `.agent/team/*.md` para `.claude/agents/*.md` (subagentes nativos do Claude Code).
      - **Cursor**: Copie `.agent/templates/cursor-rule.mdc` para `.cursor/rules/subagent.mdc`. Garanta que a regra MDC aponte tanto para o `AGENTS.md` da raiz (preservando regras de design system do usuário) quanto para as regras do time em `.agent/team/`.
      - **Gemini CLI**: Copie `.agent/templates/gemini-settings.json` para `.gemini/settings.json`.
      - **Codex CLI**: Garanta que as regras do time estejam salvas na pasta `.agent/` de forma complementar.

@@ -12,7 +12,7 @@ except ImportError:
 def print_banner():
     banner = """
 ======================================================================
-  [BALI-SUBAGENT AI] -- TIME DE AGENTES HÍBRIDOS (V2)
+  [BALI-AGENT AI] -- TIME DE AGENTES HÍBRIDOS (V2)
 ======================================================================
   Orquestração de engenharia moderna baseada em agentes autônomos.
   LLM-Agnostic | Security-First | Human-in-the-Loop
@@ -21,10 +21,10 @@ def print_banner():
     try:
         print(banner)
     except UnicodeEncodeError:
-        print("[BALI-SUBAGENT AI] -- TIME DE AGENTES HÍBRIDOS (V2)")
+        print("[BALI-AGENT AI] -- TIME DE AGENTES HÍBRIDOS (V2)")
 
 def get_target_directory():
-    print("Este script inicializa o Bali-Subagent AI no diretório do seu projeto.")
+    print("Este script inicializa o Bali-Agent AI no diretório do seu projeto.")
     print("Os agentes, protocolos, templates e guias serão copiados para a pasta .agent/")
     print("-" * 70)
     
@@ -49,7 +49,7 @@ def initialize_project(src_dir, target_dir):
     # Checar idempotência
     manifest_path = os.path.join(agent_dir, "subagent.config.yaml")
     if os.path.exists(manifest_path):
-        print(f"[!] Aviso: Bali-Subagent v2 já está inicializado neste projeto.")
+        print(f"[!] Aviso: Bali-Agent v2 já está inicializado neste projeto.")
         # Se for interativo, perguntamos. Se não for, sobrescrevemos.
         is_interactive = sys.stdin.isatty() and not os.environ.get("PYTEST_CURRENT_TEST")
         if is_interactive:
@@ -133,6 +133,35 @@ def initialize_project(src_dir, target_dir):
         except Exception as e:
             print(f"[!] Erro ao copiar prevent_secrets.py: {e}")
 
+    # 2b. Copiar o hook de re-injecao da constituicao (enforcement Claude Code) para .agent/hooks/
+    src_claude_hook = os.path.join(src_dir, "templates", "claude_hook.py")
+    dest_claude_hook = os.path.join(hooks_dir, "claude_hook.py")
+    if os.path.exists(src_claude_hook):
+        try:
+            shutil.copy2(src_claude_hook, dest_claude_hook)
+            os.chmod(dest_claude_hook, 0o755)
+            print("[x] Hook de constituicao copiado para .agent/hooks/claude_hook.py")
+        except Exception as e:
+            print(f"[!] Erro ao copiar claude_hook.py: {e}")
+
+    # 2c. Instalar o settings.json do Claude Code SEM sobrescrever config existente do usuario
+    src_claude_settings = os.path.join(src_dir, "templates", "claude-settings.json")
+    if os.path.exists(src_claude_settings):
+        claude_dir = os.path.join(target_dir, ".claude")
+        os.makedirs(claude_dir, exist_ok=True)
+        dest_claude_settings = os.path.join(claude_dir, "settings.json")
+        try:
+            if os.path.exists(dest_claude_settings):
+                ref_settings = os.path.join(claude_dir, "settings.bali-agent.json")
+                shutil.copy2(src_claude_settings, ref_settings)
+                print("[!] .claude/settings.json ja existe e NAO foi sobrescrito.")
+                print('    Referencia salva em .claude/settings.bali-agent.json - copie o bloco "hooks" para o seu settings.json.')
+            else:
+                shutil.copy2(src_claude_settings, dest_claude_settings)
+                print("[x] Enforcement Claude Code instalado: .claude/settings.json (hook por turno).")
+        except Exception as e:
+            print(f"[!] Erro ao instalar .claude/settings.json: {e}")
+
     # 3. Se for um repositório Git, injetar o pre-commit Git hook local (Agent Shield)
     git_dir = os.path.join(target_dir, ".git")
     if os.path.isdir(git_dir):
@@ -162,7 +191,7 @@ def initialize_project(src_dir, target_dir):
 def print_success_instructions(target_dir):
     try:
         print("\n" + "=" * 70)
-        print("SUCCESS: BALI-SUBAGENT AI INICIALIZADO COM SUCESSO!")
+        print("SUCCESS: BALI-AGENT AI INICIALIZADO COM SUCESSO!")
         print("=" * 70)
         print(f"\nDiretório: {target_dir}\n")
         print("Próximos passos para começar:")
@@ -173,7 +202,7 @@ def print_success_instructions(target_dir):
         print("\n4. O Setup Agent assumirá a execução, perfilando sua stack e criando o time sob medida.")
         print("=" * 70 + "\n")
     except UnicodeEncodeError:
-        print(f"\nBali-Subagent AI inicializado com sucesso em {target_dir}")
+        print(f"\nBali-Agent AI inicializado com sucesso em {target_dir}")
         print("Abra AGENTS.md e digite 'Setup do time' no chat.")
 
 def main():

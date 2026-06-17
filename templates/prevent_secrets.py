@@ -71,8 +71,8 @@ def is_high_entropy_secret(value):
     placeholders = [
         'placeholder', 'example', 'dummy', 'template', 'your', 'insert', 
         'change', 'todo', 'xxxx', '123456', 'mock', 'fake', 'secret_here', 
-        'token_here', 'password_here', 'key_here', 'config', 'const', 'env', 
-        'process.env', '${', '{{', '}}', ')'
+        'token_here', 'password_here', 'key_here', 
+        'process.env', '${', '{{', '}}'
     ]
     for p in placeholders:
         if p in val_lower:

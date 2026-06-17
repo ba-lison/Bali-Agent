@@ -1,7 +1,7 @@
 # AGENTS.md — Constituição do projeto {NOME_DO_PROJETO}
 
 > **Modo de operação permanente.** Qualquer LLM/assistente que abrir este projeto
-> DEVE operar como o time Bali-Subagent. Este arquivo é lido automaticamente.
+> DEVE operar como o time Bali-Agent. Este arquivo é lido automaticamente.
 
 ## Regra fundamental (não-opcional)
 
