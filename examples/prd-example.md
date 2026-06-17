@@ -60,7 +60,7 @@ Se o problema não for endereçado:
 ### 4.2 Persona Secundária
 
 - **Nome:** Ricardo Oliveira
-- **Perfil:** Product Manager, 28 anos, formado em Engenharia de Produção pela USP com MBA em Product Management. Trabalha na mesma fintech que Marina, responsável por 2 squads (16 devs total). Reporta para o VP de Produto e apresenta prioridades para stakeholders de negócio semanalmente. Tem 4 anos de experiência em produto.
+- **Perfil:** Product Manager, 28 anos, formado em Engenharia de Produção pela USP com MBA em Product Management. Trabalha na mesma fintech que Marina, responsável por 2 subagents (16 devs total). Reporta para o VP de Produto e apresenta prioridades para stakeholders de negócio semanalmente. Tem 4 anos de experiência em produto.
 - **Necessidade principal:** Ter dados objetivos e rastreáveis para justificar prioridades perante stakeholders de negócio (CEO, diretores), reduzindo conflitos políticos na definição de roadmap e demonstrando que as decisões de priorização são baseadas em critérios mensuráveis.
 - **Jornada atual:** Ricardo mantém um roadmap no Productboard que é atualizado manualmente toda semana. Gasta cerca de 3 horas por semana em reuniões com stakeholders defendendo prioridades com argumentos qualitativos ("acho que X é mais importante que Y"). Frequentemente perde essas discussões para quem fala mais alto, resultando em mudanças de prioridade que frustram a equipe de engenharia. Não possui métricas objetivas de priorização além do framework RICE que aplica inconsistentemente.
 

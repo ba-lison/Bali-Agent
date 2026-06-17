@@ -1,15 +1,15 @@
 ---
-titulo: "Bali-Squad v2 — Setup único por projeto + time híbrido obrigatório"
+titulo: "Bali-Subagent v2 — Setup único por projeto + time híbrido obrigatório"
 data: 2026-06-17
 status: aprovado-para-plano
 autor: brainstorming colaborativo
 ---
 
-# Bali-Squad v2 — Design
+# Bali-Subagent v2 — Design
 
 ## 1. Contexto e Problema
 
-O Bali-Squad AI hoje é um **pipeline linear de SDLC para projetos novos**: um time **fixo de 7 agentes**
+O Bali-Subagent AI hoje é um **pipeline linear de SDLC para projetos novos**: um time **fixo de 7 agentes**
 (Orchestrator → Discovery → PRD Writer → SDD Architect → Task Decomposer → Implementer → Reviewer)
 que roda em sequência, com gates de aprovação humana. O Orchestrator detecta a fase atual checando
 artefatos em `output/{projeto}/`.
@@ -33,8 +33,9 @@ não reescrevemos.**
 |---|---------|---------|
 | 1 | Formato de uso | Setup **único** por projeto; depois vira padrão automático |
 | 2 | Composição do time | **Híbrido**: espinha fixa + especialistas dinâmicos por stack |
-| 3 | Alvo / portabilidade | **Universal** (qualquer LLM). Reforço Claude Code via hook = **toggle opcional** |
-| 4 | Caminho | **Evoluir** o repo Bali-Squad-AI existente (Abordagem A) |
+| 3 | Alvo / portabilidade | **Universal** (qualquer LLM). Reforço Claude Code via hook = **padrão**; adaptadores p/ Cursor + Gemini CLI + Codex CLI |
+| 4 | Caminho | **Evoluir** o repo Bali-Subagent-AI existente (Abordagem A) |
+| 5 | Marca | "Squad" → **"Subagent"** em tudo (interno e externo); mantém prefixo "Bali" → **Bali-Subagent** |
 
 ## 3. Conceito central — dois modos unificados
 
@@ -61,7 +62,7 @@ do assistente. O **Setup Agent**:
 2. **Entrevista adaptativa curta** — pula o que já detectou. Pergunta: objetivo atual, restrições,
    **o que NÃO mexer**, convenções de código, e quais especialistas fazem sentido.
 3. **Monta o time híbrido** (seção 5).
-4. **Gera os artefatos no projeto:** `AGENTS.md` (constituição) + `.agent/squad.config.yaml`
+4. **Gera os artefatos no projeto:** `AGENTS.md` (constituição) + `.agent/subagent.config.yaml`
    (manifesto) + `.agent/team/*.md`.
 5. **Gate de aprovação:** apresenta o time proposto; o usuário aprova ou ajusta.
 6. **Idempotente:** ao rodar de novo, detecta o manifesto e oferece **"atualizar time"** quando a
@@ -86,7 +87,7 @@ Exemplos: `spec-nextjs.md`, `spec-supabase.md` (com o schema real embutido), `sp
 Texto universal que qualquer LLM segue, em essência:
 
 > **Modo de operação permanente deste projeto.** Para QUALQUER pedido — bug, feature, dúvida,
-> refactor — você assume o papel de **Orchestrator**, lê `.agent/squad.config.yaml` e roteia a tarefa
+> refactor — você assume o papel de **Orchestrator**, lê `.agent/subagent.config.yaml` e roteia a tarefa
 > para os especialistas em `.agent/team/`. Você **nunca trabalha sozinho**. Toda entrega passa pelo
 > **Reviewer** antes de concluir. Isso não é opcional.
 
@@ -117,7 +118,7 @@ O setup gera o **adaptador mais forte que cada ferramenta-alvo suporta**. Escopo
 | Ferramenta | No escopo? | Adaptador gerado | Força |
 |-----------|-----------|------------------|-------|
 | **Claude Code** | ✅ PADRÃO | hook `UserPromptSubmit` + `SessionStart` no `.claude/settings.json` re-injetando a constituição a cada turno; espelha o time em `.claude/agents/*.md` | **Forte** (re-injeção por turno, garantida pelo harness) |
-| **Cursor** | ✅ | `.cursor/rules/squad.mdc` com `alwaysApply: true` | Médio-forte (regra "always" re-aplicada) |
+| **Cursor** | ✅ | `.cursor/rules/subagent.mdc` com `alwaysApply: true` | Médio-forte (regra "always" re-aplicada) |
 | **Gemini CLI** | ✅ | `.gemini/settings.json` apontando para `AGENTS.md` como context file | Médio (recarrega por sessão; janela grande ajuda) |
 | **Codex CLI** | ✅ | `AGENTS.md` na raiz (já é a camada de instrução nativa) | Médio |
 | Windsurf, outros | ⛔ fora do escopo v2 | (só `AGENTS.md` universal) | Instrução forte (passiva) |
@@ -132,10 +133,10 @@ barato. Modelos são sempre cobertos pelo núcleo universal.
 
 ## 6. Estrutura de arquivos
 
-### 6.1 No repo da base (Bali-Squad-AI)
+### 6.1 No repo da base (Bali-Subagent-AI)
 
 ```
-Bali-Squad-AI/
+Bali-Subagent-AI/
 ├── AGENTS.md                    [REVISADO] ponto de entrada da BASE: explica o sistema e dispara o Setup Agent
 ├── agents/
 │   ├── _setup/
@@ -154,7 +155,7 @@ Bali-Squad-AI/
 │   ├── prd-writer/              [MANTIDO]
 │   └── sdd-architect/           [MANTIDO]
 ├── templates/
-│   ├── squad.config.yaml        [NOVO] manifesto do time montado por projeto
+│   ├── subagent.config.yaml        [NOVO] manifesto do time montado por projeto
 │   ├── project-AGENTS.md        [NOVO] template da constituição que vai p/ a raiz do projeto
 │   ├── prd.md  sdd.md  tasks.md [MANTIDOS]
 ├── protocols/
@@ -162,7 +163,7 @@ Bali-Squad-AI/
 │   ├── handoff.md               [MANTIDO]
 │   ├── approval-gates.md        [MANTIDO]
 │   └── quality-gates.md         [MANTIDO]
-├── examples/                    [MANTIDO] + novos exemplos de squad.config
+├── examples/                    [MANTIDO] + novos exemplos de subagent.config
 └── init.py                      [EVOLUÍDO] instala a base em .agent/ e dispara o Setup Agent
 ```
 
@@ -176,7 +177,7 @@ genérico (`_specialists/`), já que a implementação real fica a cargo do espe
 <projeto>/
 ├── AGENTS.md                    # constituição gerada (raiz, lida por qualquer LLM)
 └── .agent/
-    ├── squad.config.yaml        # stack detectada + time montado + versão da base
+    ├── subagent.config.yaml        # stack detectada + time montado + versão da base
     ├── team/                    # agentes DESTE projeto
     │   ├── orchestrator.md
     │   ├── planner.md
@@ -187,7 +188,7 @@ genérico (`_specialists/`), já que a implementação real fica a cargo do espe
     └── output/                  # planos/reviews por tarefa
 ```
 
-## 7. O manifesto `squad.config.yaml`
+## 7. O manifesto `subagent.config.yaml`
 
 Fonte de verdade do time montado. Estrutura proposta:
 
