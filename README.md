@@ -1,5 +1,7 @@
 # 🤖 Bali-Agent AI
 
+[![tests](https://github.com/ba-lison/Bali-Agent/actions/workflows/tests.yml/badge.svg)](https://github.com/ba-lison/Bali-Agent/actions/workflows/tests.yml)
+
 **Orquestração de Engenharia de Software Moderna baseada em Agentes Autônomos**
 
 > **LLM-Agnostic** — Funciona com Claude, GPT, Gemini, Llama, e qualquer LLM.  
@@ -142,6 +144,8 @@ Bali-Agent/
 │   ├── claude-settings.json           # Adaptador Claude settings JSON
 │   ├── gemini-settings.json           # Adaptador Gemini settings JSON
 │   ├── working-context.md             # Template da memória de trabalho
+│   ├── task.md                        # Template do checklist de tarefa
+│   ├── verify_setup.py                # Verificador determinístico do setup
 │   ├── subagent.config.yaml           # Template de configuração de time
 │   ├── project-AGENTS.md              # Template de constituição de time
 │   ├── prd.md                         # Template do PRD
@@ -150,7 +154,13 @@ Bali-Agent/
 │
 ├── examples/                          # Exemplos práticos
 │   ├── prd-example.md                 # Exemplo completo de PRD
-│   └── sdd-example.md                 # Exemplo completo de SDD
+│   ├── sdd-example.md                 # Exemplo completo de SDD
+│   └── dry-run.md                     # Roteiro de validação end-to-end
+│
+├── tests/                             # Suíte pytest de validação estrutural
+├── requirements-dev.txt               # Dependências de teste (pytest, PyYAML)
+├── .github/workflows/tests.yml        # CI — roda a suíte em push/PR
+├── docs/                              # Specs, planos e handoff
 │
 └── output/                            # Pasta para artefatos locais gerados
     └── .gitkeep
@@ -205,11 +215,11 @@ Após a instalação física (seja por terminal ou via IA):
 1. **Abra o projeto**: Abra o projeto inicializado na sua IDE preferida (Cursor, VS Code, etc.).
 2. **Inicie o Setup**: Abra o chat do assistente de IA e digite:
    ```
-   /setup
+   Setup do time
    ```
-   *(Ou se preferir, use o comando de barra `/setup-time` ou o termo literal "Setup do time").*
+   *(Este é o gatilho que o `AGENTS.md` reconhece. Se quiser, registre um atalho `/setup` na sua IDE apontando para essa instrução.)*
 3. **Responda à Entrevista**: O **Setup Agent** assumirá a execução, rodará o algoritmo de perfilamento de tecnologias (`stack-detection.md`), e conduzirá uma entrevista rápida com você no chat para definir os objetivos do projeto.
-4. **Geração dos Agentes e Regras**: Após sua aprovação, o Setup Agent gerará os agentes especialistas customizados para a sua stack e criará os **Adaptadores de Enforcamento** locais (regras `.mdc` para Cursor e configurações de hooks locais `.claude/settings.json` para Claude Code) de forma automatizada.
+4. **Geração dos Agentes e Regras**: Após sua aprovação, o Setup Agent gerará os agentes especialistas customizados para a sua stack e criará os **Adaptadores de Enforcamento** locais (regras `.mdc` para Cursor e configurações de hooks locais `.claude/settings.json` para Claude Code) de forma automatizada. Ao final, ele roda `python .agent/verify_setup.py` para confirmar que o time e os adaptadores foram instalados corretamente.
 5. **Comande o Time**: Agora o time híbrido está ativo e pronto. Você pode iniciar qualquer tarefa digitando diretamente no chat:
    - *"Orchestrator, preciso criar a tela de login integrada com o Supabase."*
    - Ou usando menção direta no Claude Code: `@orchestrator preciso criar a tela de login.`
@@ -218,7 +228,7 @@ Após a instalação física (seja por terminal ou via IA):
 
 | Comando | Tipo | Descrição |
 |---------|------|-----------|
-| `/setup` ou `/setup-time` | Setup | Inicializa ou atualiza o time perfilando a stack |
+| `Setup do time` | Setup | Inicializa ou atualiza o time perfilando a stack |
 | `Novo projeto: [descrição]` | Greenfield | Inicia ciclo completo de Discovery, PRD, SDD e Tasks |
 | `Status do projeto` | Fluxo | Mostra em qual fase de desenvolvimento o projeto está |
 | `Revisar [artefato]` | Revisão | Solicita ao Reviewer a auditoria de um artefato |
