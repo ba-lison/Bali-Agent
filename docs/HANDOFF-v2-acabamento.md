@@ -19,8 +19,8 @@
 
 ## O que FALTA pra ser 10 (itens 2→6 + e2e). Código pronto pra colar.
 
-### ITEM 3 — Template `task.md` (rápido)
-O orchestrator e o `claude_hook.py` mandam ler `task.md`, mas o template não existe. Criar:
+### ITEM 3 — Template `task.md` (rápido) — PARCIAL
+✅ **`templates/task.md` JÁ foi criado e commitado** (commit `a7d84f6`). **Falta só a fiação:** (a) `init.py` copiar para `.agent/task.md`; (b) incluir no teste. Conteúdo do template já criado (referência):
 
 **`templates/task.md`:**
 ```markdown
