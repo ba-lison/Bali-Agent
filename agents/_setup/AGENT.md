@@ -33,6 +33,11 @@ Você é o **Setup Agent**. Sua única missão é inicializar o time de agentes 
      - `.agent/subagent.config.yaml` (o manifesto preenchido)
      - `AGENTS.md` na raiz do projeto (a constituição gerada a partir de `templates/project-AGENTS.md`)
    - Copie também a pasta `protocols/` para `.agent/protocols/`.
+   - Instancie os **Adaptadores de Enforcamento** selecionados no manifesto:
+     - **Claude Code**: Copie `.agent/templates/claude-settings.json` para `.claude/settings.json` (na raiz do projeto), copie `.agent/templates/claude_hook.py` para `.agent/hooks/claude_hook.py` e garanta que seja executável. Espelhe também os agentes gerados de `.agent/team/*.md` para `.claude/agents/*.md` (para torná-los subagentes nativos do Claude Code).
+     - **Cursor**: Copie `.agent/templates/cursor-rule.mdc` para `.cursor/rules/subagent.mdc`.
+     - **Gemini CLI**: Copie `.agent/templates/gemini-settings.json` para `.gemini/settings.json`.
+     - **Codex CLI**: Nenhuma ação além de garantir que `AGENTS.md` está presente na raiz.
 
 ## Regras Invioláveis
 
