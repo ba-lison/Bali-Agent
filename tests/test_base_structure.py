@@ -128,6 +128,8 @@ def test_templates_exist():
         "templates/working-context.md",
         "templates/prevent_secrets.py",
         "templates/git-pre-commit-shell",
+        "templates/task.md",
+        "templates/verify_setup.py",
     ]
     missing = [f for f in expected if not (REPO / f).is_file()]
     assert not missing, f"templates de enforcamento/segurança ausentes: {missing}"
@@ -179,6 +181,37 @@ def test_installer_flow(tmp_path):
     
     # E garante que o Git Hook foi instalado com sucesso em .git/hooks/pre-commit
     assert (user_project / ".git/hooks/pre-commit").is_file()
+
+
+def test_verify_setup_logic(tmp_path):
+    import sys
+    if str(REPO) not in sys.path:
+        sys.path.append(str(REPO))
+    from templates import verify_setup
+
+    # 1. Sem .agent -> reporta problema
+    assert verify_setup.verify(str(tmp_path))
+
+    # 2. Setup completo -> zero problemas
+    proj = tmp_path / "ok"
+    agent = proj / ".agent"
+    team = agent / "team"
+    team.mkdir(parents=True)
+    (agent / "subagent.config.yaml").write_text(
+        "modo: operate\ntime:\n  espinha: [orchestrator, planner, reviewer]\n"
+        "enforcement_adapters:\n  - claude-code\n", encoding="utf-8")
+    for m in ("orchestrator.md", "planner.md", "reviewer.md", "spec-x.md"):
+        (team / m).write_text("x", encoding="utf-8")
+    (agent / "working-context.md").write_text("x", encoding="utf-8")
+    (agent / "hooks").mkdir()
+    (agent / "hooks" / "claude_hook.py").write_text("x", encoding="utf-8")
+    (proj / ".claude").mkdir()
+    (proj / ".claude" / "settings.json").write_text("{}", encoding="utf-8")
+    assert verify_setup.verify(str(proj)) == []
+
+    # 3. Falta o hook declarado -> reporta
+    (agent / "hooks" / "claude_hook.py").unlink()
+    assert any("claude-code" in p for p in verify_setup.verify(str(proj)))
 
 
 def test_prevent_secrets_logic(tmp_path):

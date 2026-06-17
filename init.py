@@ -119,6 +119,17 @@ def initialize_project(src_dir, target_dir):
             except Exception as e:
                 print(f"[!] Erro ao copiar working-context.md: {e}")
 
+    # 1b. Copiar checklist de tarefa inicial para .agent/task.md se não existir
+    dest_task = os.path.join(agent_dir, "task.md")
+    if not os.path.exists(dest_task):
+        src_task = os.path.join(src_dir, "templates", "task.md")
+        if os.path.exists(src_task):
+            try:
+                shutil.copy2(src_task, dest_task)
+                print("[x] Checklist de tarefa criado: .agent/task.md")
+            except Exception as e:
+                print(f"[!] Erro ao copiar task.md: {e}")
+
     # 2. Criar .agent/hooks/ e copiar prevent_secrets.py para lá
     hooks_dir = os.path.join(agent_dir, "hooks")
     os.makedirs(hooks_dir, exist_ok=True)
@@ -161,6 +172,17 @@ def initialize_project(src_dir, target_dir):
                 print("[x] Enforcement Claude Code instalado: .claude/settings.json (hook por turno).")
         except Exception as e:
             print(f"[!] Erro ao instalar .claude/settings.json: {e}")
+
+    # 2d. Copiar o verificador de setup para .agent/verify_setup.py
+    src_verify = os.path.join(src_dir, "templates", "verify_setup.py")
+    dest_verify = os.path.join(agent_dir, "verify_setup.py")
+    if os.path.exists(src_verify):
+        try:
+            shutil.copy2(src_verify, dest_verify)
+            os.chmod(dest_verify, 0o755)
+            print("[x] Verificador de setup copiado para .agent/verify_setup.py")
+        except Exception as e:
+            print(f"[!] Erro ao copiar verify_setup.py: {e}")
 
     # 3. Se for um repositório Git, injetar o pre-commit Git hook local (Agent Shield)
     git_dir = os.path.join(target_dir, ".git")

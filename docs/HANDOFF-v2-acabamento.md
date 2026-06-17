@@ -17,6 +17,21 @@
 5. `prevent_secrets.py` com allowlist estreitada (removidos `env`/`config`/`const`/`)`).
 6. README: tabela honesta de enforcement por ferramenta + nota de modo Operate vs Greenfield.
 
+## ✅ UPDATE 2026-06-17 (sessão seguinte — CONCLUÍDO)
+Itens **2, 3, 4, 5, 6 FEITOS**; suíte **16/16 verde**:
+- **Item 2:** `templates/verify_setup.py` + cópia no `init.py` (`.agent/verify_setup.py`) + `test_verify_setup_logic`.
+- **Item 3:** fiação do `task.md` (init.py copia para `.agent/task.md`; incluído no `test_templates_exist`).
+- **Item 4:** `gemini-settings.json` corrigido para `{"contextFileName": "AGENTS.md"}` (chave confirmada na doc do Gemini CLI).
+- **Item 5:** CI em `.github/workflows/tests.yml` (roda pytest em push/PR).
+- **Item 6:** README com tabela de enforcement por ferramenta + modo Operate.
+- Setup Agent agora roda `verify_setup.py` ao final.
+
+**Resta só o ITEM 1 (e2e com LLM real):** procedimento documentado em `examples/dry-run.md`. A parte do
+instalador é coberta por `test_installer_flow`; a geração do time pelo LLM e o disparo do hook
+exigem uma execução manual num projeto real (não dá pra automatizar em CI).
+
+---
+
 ## O que FALTA pra ser 10 (itens 2→6 + e2e). Código pronto pra colar.
 
 ### ITEM 3 — Template `task.md` (rápido) — PARCIAL

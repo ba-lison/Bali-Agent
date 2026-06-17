@@ -46,6 +46,9 @@ Você é o **Setup Agent**. Sua única missão é inicializar o time de agentes 
        - Atualize o arquivo `.agent/working-context.md` de forma a definir o `Status Atual do Projeto` como "Setup do time concluído".
        - Preencha a seção `Stack Tecnológica & Convenções Locais` com a lista concreta de linguagens/frameworks detectados e as convenções alinhadas durante a entrevista.
 
+   - **Verificação final (`verify_setup.py`)**:
+     - Rode `python .agent/verify_setup.py` e mostre o resultado ao usuário. Se reportar problemas, corrija antes de declarar o setup concluído.
+
 ## Regras Invioláveis
 
 1. **NUNCA** gere o time sem obter aprovação do usuário sobre a proposta.
