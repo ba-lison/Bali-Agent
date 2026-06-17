@@ -162,6 +162,12 @@ Se preferir o terminal tradicional, você pode instalar clonando o repositório:
 > `if (!(Test-Path $PROFILE)) { New-Item -Type File -Force $PROFILE } ; Add-Content -Path $PROFILE -Value 'function bali { python C:\Users\suporte2\Documents\.Inovaxao_Totalcad\.agent\Bali-Subagent-AI\init.py }'`
 > Agora, basta digitar `bali` no terminal de qualquer projeto novo para instalá-lo instantaneamente.
 
+#### 🛡️ Coexistência de Regras (Projetos em Andamento / Brownfield)
+Se você estiver inicializando o framework em um projeto que já está ativo e possui seus próprios arquivos `README.md` ou `AGENTS.md` na raiz (como regras específicas do seu produto):
+- **Preservação Automática:** O instalador detectará a presença desses arquivos e **nunca** os sobrescreverá. Ele preservará os seus arquivos originais e salvará a constituição de bootstrap do framework em `.agent/bootstrap-AGENTS.md` apenas para fins de referência técnica.
+- **Merge de Regras:** Quando você rodar o comando de configuração `/setup`, o Setup Agent lerá as suas regras originais e anexará de forma limpa no final do `AGENTS.md` a seção `## 🤖 Time de Subagentes Bali-Agent`.
+- **Herança de Governança:** O framework adiciona automaticamente uma cláusula de segurança que obriga qualquer modelo de IA (Codex, Cursor, Claude Code) a herdar e respeitar as regras originais do seu projeto. O time híbrido opera *sob* a governança e as restrições nativas do seu repositório.
+
 ---
 
 ### ⚙️ Início Rápido (Configurar o Time)
