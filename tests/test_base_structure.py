@@ -65,3 +65,11 @@ def test_manifest_template_valid():
     assert "espinha" in data["time"]
     assert {"orchestrator", "planner", "reviewer"}.issubset(set(data["time"]["espinha"]))
     assert "enforcement_adapters" in data
+
+
+def test_constitution_template():
+    txt = _read("templates/project-AGENTS.md").lower()
+    assert "nunca trabalha sozinho" in txt
+    assert ".agent/subagent.config.yaml" in txt
+    assert ".agent/team/" in txt
+    assert "reviewer" in txt
