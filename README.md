@@ -1,4 +1,4 @@
-# 🤖 Bali-Subagent AI
+# 🤖 Bali-Agent AI
 
 **Orquestração de Engenharia de Software Moderna baseada em Agentes Autônomos**
 
@@ -9,17 +9,19 @@
 
 ## 📋 Visão Geral
 
-O **Bali-Subagent AI** é um sistema de agentes autônomos e LLM-agnostic que orquestram o ciclo completo de engenharia de software — da concepção à entrega. Cada agente possui um papel especializado e segue protocolos rigorosos de qualidade, handoff e aprovação humana.
+O **Bali-Agent AI** é um sistema de agentes autônomos e LLM-agnostic que orquestram o ciclo completo de engenharia de software — da concepção à entrega. Cada agente possui um papel especializado e segue protocolos rigorosos de qualidade, handoff e aprovação humana.
 
 O sistema transforma uma ideia vaga em software funcional, revisado e pronto para produção, seguindo as melhores práticas de engenharia do Google, métricas DORA, e guidelines de segurança de IA.
 
 ### Por que usar?
 
-- **Consistência**: Todo projeto segue o mesmo rigor de engenharia, independente da complexidade
-- **Qualidade**: Gates de aprovação humana garantem que nenhum artefato avança sem validação
-- **Rastreabilidade**: Cada decisão é documentada, cada handoff é explícito
-- **Flexibilidade**: Qualquer LLM pode assumir qualquer papel — use o modelo que preferir
-- **Segurança**: Código gerado por IA sempre passa por checklist de segurança antes de merge
+- **Consistência**: Todo projeto segue o mesmo rigor de engenharia, independente da complexidade.
+- **Qualidade**: Gates de aprovação humana garantem que nenhum artefato avança sem validação.
+- **Rastreabilidade**: Cada decisão é documentada, cada handoff é explícito.
+- **Flexibilidade**: Qualquer LLM pode assumir qualquer papel — use o modelo que preferir.
+- **Segurança (Agent Shield)**: Proteção ativa local via Git Pre-commit Hook que impede vazamento de arquivos `.env` e chaves de API.
+- **Economia de Contexto (Token-Saving)**: Memória dinâmica local (`working-context.md`) que evita a releitura de arquivos e previne a amnésia das IAs.
+- **Robustez de Terminal (Antiloop)**: Mecanismo defensivo que interrompe e reverte loops infinitos de tentativas de correção no console após 3 falhas.
 
 ---
 
@@ -93,7 +95,7 @@ flowchart TD
 ## 📁 Estrutura de Diretórios
 
 ```
-Bali-Subagent-AI/
+Bali-Agent/
 ├── README.md                          # Este arquivo — visão geral do sistema
 ├── AGENTS.md                          # Arquivo raiz da base (ponto de entrada)
 │
@@ -265,7 +267,7 @@ Este sistema de orquestração é fornecido como framework de engenharia de soft
 ---
 
 <p align="center">
-  <strong>Bali-Subagent AI</strong> — Engenharia de Software Moderna, Orquestrada por Agentes.
+  <strong>Bali-Agent AI</strong> — Engenharia de Software Moderna, Orquestrada por Agentes.
   <br/>
   <sub>🤖 LLM-Agnostic · 🔒 Security-First · 📋 Process-Driven · 🧑‍💻 Human-in-the-Loop</sub>
 </p>
