@@ -22,3 +22,11 @@ def test_orchestrator_routes_any_task():
     for marker in ["Modo Operate", "Modo Greenfield", ".agent/subagent.config.yaml",
                    "nunca trabalha sozinho", "protocols/routing.md"]:
         assert marker in txt, f"marcador ausente no orchestrator: {marker!r}"
+
+
+def test_planner_decomposes():
+    txt = _read("agents/_spine/planner/AGENT.md")
+    for marker in ["Planner", "tasks atômicas", "critério de conclusão"]:
+        assert marker in txt, f"marcador ausente no planner: {marker!r}"
+    # garante que o antigo caminho não sobrou
+    assert not (REPO / "agents/task-decomposer").exists(), "task-decomposer deveria ter virado _spine/planner"
