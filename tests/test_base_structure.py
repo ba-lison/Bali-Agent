@@ -56,3 +56,12 @@ def test_routing_protocol_sections():
     for h in ["# Protocolo de Roteamento", "## Triagem", "## Processo proporcional",
               "## Modo Operate", "## Modo Greenfield"]:
         assert h in txt, f"seção ausente em routing.md: {h!r}"
+
+
+def test_manifest_template_valid():
+    data = yaml.safe_load(_read("templates/subagent.config.yaml"))
+    assert isinstance(data, dict)
+    assert data.get("modo") in ("operate", "greenfield")
+    assert "espinha" in data["time"]
+    assert {"orchestrator", "planner", "reviewer"}.issubset(set(data["time"]["espinha"]))
+    assert "enforcement_adapters" in data

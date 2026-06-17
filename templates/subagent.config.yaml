@@ -1,0 +1,23 @@
+# Manifesto do time Bali-Subagent (gerado pelo Setup Agent).
+# Este arquivo é a fonte de verdade do time montado para o projeto.
+versao_base: "2.0.0"
+projeto: nome-do-projeto
+modo: operate            # operate | greenfield
+criado_em: "AAAA-MM-DDTHH:MM:SS-03:00"
+stack_detectada:
+  - linguagem: exemplo-typescript
+    framework: exemplo-next.js
+    sinais: ["package.json"]
+nao_mexer:
+  - "exemplo: migrations legadas em db/legacy/"
+time:
+  espinha:
+    - orchestrator
+    - planner
+    - reviewer
+  especialistas:
+    - id: spec-exemplo
+      arquivo: .agent/team/spec-exemplo.md
+      escopo: "descreva o escopo do especialista"
+enforcement_adapters:
+  - claude-code          # PADRÃO: re-injeta a constituição a cada turno via hook
