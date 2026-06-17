@@ -87,7 +87,7 @@ flowchart TD
 | 3 | **📄 PRD Writer** | Analista de Produto | Transforma descobertas em PRD completo com escopo, métricas, personas e requisitos | `agents/prd-writer/AGENT.md` |
 | 4 | **🏗️ SDD Architect** | Arquiteto de Software | Projeta arquitetura técnica, diagramas, trade-offs e estratégia de implementação | `agents/sdd-architect/AGENT.md` |
 | 5 | **📋 Planner** | Planejador de Tarefas | Decompõe SDD/pedidos em tasks atômicas (<4h) com dependências | `agents/_spine/planner/AGENT.md` |
-| 6 | **💻 Implementer** | Engenheiro de Software | Implementa código de produção seguindo SDD e tasks, com testes e documentação | `agents/implementer/AGENT.md` |
+| 6 | **💻 Implementer** | Engenheiro de Software | Implementa código de produção seguindo SDD e tasks, com testes e documentação | `agents/_specialists/implementer.md` |
 | 7 | **🔎 Reviewer** | Revisor de Código | Revisa entregas/PRs com checklist de qualidade, segurança e performance | `agents/_spine/reviewer/AGENT.md` |
 
 ---
@@ -98,26 +98,50 @@ flowchart TD
 Bali-Agent/
 ├── README.md                          # Este arquivo — visão geral do sistema
 ├── AGENTS.md                          # Arquivo raiz da base (ponto de entrada)
+├── init.py                            # Script Python para inicializar o Bali-Subagent AI no projeto
 │
 ├── agents/                            # Definições dos agentes do framework
 │   ├── _spine/                        # Espinha dorsal fixa (sempre presente)
-│   │   ├── orchestrator/AGENT.md      # Identidade e regras do Orchestrator (roteia qualquer pedido)
-│   │   ├── planner/AGENT.md           # Identidade e critérios do Planner (absorve Task Decomposer)
+│   │   ├── orchestrator/AGENT.md      # Identidade e regras do Orchestrator
+│   │   ├── planner/AGENT.md           # Identidade e critérios do Planner
 │   │   └── reviewer/AGENT.md          # Identidade e checklists do Reviewer
+│   │
+│   ├── _setup/                        # Módulo de inicialização e profiling do time
+│   │   ├── AGENT.md                   # Setup Agent
+│   │   ├── stack-detection.md         # Heurísticas de detecção de stack
+│   │   └── interview.md               # Roteiro da entrevista adaptativa
+│   │
+│   ├── _specialists/                  # Templates e Especialistas técnicos locais
+│   │   ├── _TEMPLATE.md               # Molde base de prompt de especialista
+│   │   ├── implementer.md             # Especialista de engenharia/clean code
+│   │   ├── frontend.md                # Especialista frontend
+│   │   ├── backend.md                 # Especialista backend
+│   │   ├── database.md                # Especialista banco de dados
+│   │   ├── devops.md                  # Especialista devops/infraestrutura
+│   │   ├── security.md                # Especialista segurança
+│   │   ├── testing.md                 # Especialista testes e QA
+│   │   └── docs.md                    # Especialista documentação técnica
+│   │
 │   ├── discovery/AGENT.md             # Discovery Agent (modo greenfield)
 │   ├── prd-writer/AGENT.md            # PRD Writer Agent (modo greenfield)
-│   ├── sdd-architect/AGENT.md         # SDD Architect Agent (modo greenfield)
-│   └── implementer/AGENT.md           # Implementer Agent (modo greenfield)
+│   └── sdd-architect/AGENT.md         # SDD Architect Agent (modo greenfield)
 │
 ├── protocols/                         # Protocolos de operação do time
-│   ├── routing.md                     # Protocolo de roteamento proporcional (novo)
+│   ├── routing.md                     # Protocolo de roteamento proporcional
 │   ├── handoff.md                     # Protocolo de handoff entre agentes
 │   ├── approval-gates.md              # Gates de aprovação humana
 │   └── quality-gates.md               # Critérios de qualidade por artefato
 │
-├── templates/                         # Templates de artefatos e manifestos
-│   ├── subagent.config.yaml           # Manifesto de configuração do time (novo)
-│   ├── project-AGENTS.md              # Constituição que vai para a raiz do projeto (novo)
+├── templates/                         # Templates de enforcamento e segurança
+│   ├── prevent_secrets.py             # Script de prevenção de vazamento de segredos (Agent Shield)
+│   ├── git-pre-commit-shell           # Pre-commit hook shell script
+│   ├── cursor-rule.mdc                # Adaptador Cursor Rules (.mdc)
+│   ├── claude_hook.py                 # Adaptador Claude hook python
+│   ├── claude-settings.json           # Adaptador Claude settings JSON
+│   ├── gemini-settings.json           # Adaptador Gemini settings JSON
+│   ├── working-context.md             # Template da memória de trabalho
+│   ├── subagent.config.yaml           # Template de configuração de time
+│   ├── project-AGENTS.md              # Template de constituição de time
 │   ├── prd.md                         # Template do PRD
 │   ├── sdd.md                         # Template do SDD
 │   └── tasks.md                       # Template de tasks
@@ -126,8 +150,7 @@ Bali-Agent/
 │   ├── prd-example.md                 # Exemplo completo de PRD
 │   └── sdd-example.md                 # Exemplo completo de SDD
 │
-├── init.py                            # Script Python para inicializar o Bali-Subagent AI no projeto
-└── output/                            # Artefatos gerados (modo greenfield local)
+└── output/                            # Pasta para artefatos locais gerados
     └── .gitkeep
 ```
 
