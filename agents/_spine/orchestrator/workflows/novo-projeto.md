@@ -42,7 +42,7 @@ O usuário envia uma mensagem contendo a intenção de iniciar um novo projeto. 
    ├── interview-notes.md    # (será criado pelo Discovery)
    ├── prd.md                # (será criado pelo PRD Writer)
    ├── sdd.md                # (será criado pelo SDD Architect)
-   └── tasks.md              # (será criado pelo Task Decomposer)
+   └── tasks.md              # (será criado pelo Planner)
    ```
 
 3. **Inicializar o arquivo de estado** `.estado.yaml`:
@@ -112,7 +112,7 @@ O usuário envia uma mensagem contendo a intenção de iniciar um novo projeto. 
 ### Agente Responsável: Discovery
 
 O agente Discovery:
-- Conduz uma entrevista **adaptativa** com o usuário (veja [AGENT.md](../../discovery/AGENT.md))
+- Conduz uma entrevista **adaptativa** com o usuário (veja [AGENT.md](../../../discovery/AGENT.md))
 - Pula perguntas cujas respostas já foram fornecidas no contexto
 - Agrupa perguntas quando possível (máximo 3 por mensagem)
 - Faz follow-ups inteligentes baseados nas respostas
@@ -386,16 +386,16 @@ Por favor, revise o SDD e responda:
 
 ### Ações do Orquestrador
 
-1. **Preparar contexto para o Task Decomposer:**
+1. **Preparar contexto para o Planner:**
    ```yaml
-   agente: task-decomposer
+   agente: planner
    projeto: {nome-projeto}
    input_primario: "output/{nome-projeto}/sdd.md"
    input_secundario: "output/{nome-projeto}/prd.md"
    output_esperado: "output/{nome-projeto}/tasks.md"
    ```
 
-2. **Invocar o agente Task Decomposer**
+2. **Invocar o agente Planner**
 
 3. **Verificar qualidade:**
    - Todas as tasks têm critérios de aceitação?
@@ -403,9 +403,9 @@ Por favor, revise o SDD e responda:
    - Estimativas de esforço presentes?
    - Prioridades definidas (P0, P1, P2)?
 
-### Agente Responsável: Task Decomposer
+### Agente Responsável: Planner
 
-O agente Task Decomposer:
+O agente Planner:
 - Lê o SDD como fonte primária
 - Referencia o PRD para critérios de aceitação
 - Decompõe a implementação em tasks atômicas e implementáveis

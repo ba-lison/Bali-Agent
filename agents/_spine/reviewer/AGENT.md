@@ -8,7 +8,7 @@ Revisar código gerado, garantindo qualidade, segurança e aderência ao SDD ant
 - Código a ser revisado (diff ou arquivos)
 - output/{nome-projeto}/sdd.md (referência)
 - output/{nome-projeto}/prd.md (contexto)
-- Checklists em agents/reviewer/checklists/
+- Checklists em agents/_spine/reviewer/checklists/
 
 # Processo de Revisão (baseado em Google Engineering Practices)
 1. DESIGN: A mudança está alinhada com o SDD e a arquitetura?

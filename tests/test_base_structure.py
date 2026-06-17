@@ -37,3 +37,15 @@ def test_reviewer_in_spine():
     assert (REPO / "agents/_spine/reviewer/checklists/pr-checklist.md").is_file()
     assert (REPO / "agents/_spine/reviewer/checklists/security-checklist.md").is_file()
     assert not (REPO / "agents/reviewer").exists(), "reviewer deveria estar em _spine"
+
+
+def test_no_stale_agent_paths():
+    # nenhum arquivo do framework deve apontar para os caminhos antigos da espinha
+    stale = ["agents/orchestrator/", "agents/task-decomposer/", "agents/reviewer/"]
+    offenders = []
+    for md in (REPO / "agents").rglob("*.md"):
+        txt = md.read_text(encoding="utf-8")
+        for s in stale:
+            if s in txt:
+                offenders.append(f"{md.relative_to(REPO)} -> {s}")
+    assert not offenders, f"referências a caminhos antigos: {offenders}"
