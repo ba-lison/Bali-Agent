@@ -27,6 +27,8 @@ O sistema transforma uma ideia vaga em software funcional, revisado e pronto par
 
 ## 🔄 Fluxo do Ciclo de Vida
 
+> **Dois modos.** O diagrama abaixo é o fluxo **Greenfield** (projeto do zero). Para projetos **já em andamento** (modo **Operate** — o padrão), o time **não** roda esse pipeline linear: ele faz a triagem do pedido e roteia direto pelo(s) especialista(s) + Reviewer (ver `protocols/routing.md`). Resumo do Operate: `pedido → triagem → (Planner se médio/grande) → especialista(s) → Reviewer → entrega`.
+
 ```mermaid
 flowchart TD
     START["🚀 Novo Projeto"]
@@ -222,6 +224,24 @@ Após a instalação física (seja por terminal ou via IA):
 | `Revisar [artefato]` | Revisão | Solicita ao Reviewer a auditoria de um artefato |
 | `Aprovar [artefato]` | Fluxo | Aprova o artefato atual e avança para próxima fase |
 | `Feedback: [detalhes]` | Fluxo | Envia observações para revisão de um artefato |
+
+---
+
+## ⚖️ Enforcement & Agnosticismo
+
+O **comportamento do time** (orquestrar, rotear, nunca-solo, review) é **100% agnóstico**: qualquer LLM que leia o `AGENTS.md` opera como o time — Claude, GPT, Gemini, DeepSeek, Gemma, Kimi, Llama, etc.
+
+O que **varia por ferramenta** é a *força do enforcement* (a garantia de que o modelo não "esquece" o time numa sessão longa) e se existem **subagentes reais**:
+
+| Ferramenta | Força do enforcement | Subagentes reais? |
+|-----------|----------------------|-------------------|
+| **Claude Code** | 🟢 Forte — hook re-injeta a constituição a cada turno (`.claude/settings.json`) | ✅ Sim (`.claude/agents/`) |
+| **Cursor** | 🟢 Forte — regra `.mdc` com `alwaysApply: true` | ⚠️ Simulado (1 modelo, vários papéis) |
+| **Gemini CLI** | 🟡 Médio — recarrega o `AGENTS.md` por sessão | ⚠️ Simulado |
+| **Codex CLI** | 🟡 Médio — `AGENTS.md` nativo na raiz | ⚠️ Simulado |
+| **Modelo cru (API / Ollama)** | 🟠 Fraco — lê o `AGENTS.md`, mas sem re-injeção automática | ⚠️ Simulado |
+
+> Em ferramentas sem subagentes nativos, "o time" é **um único modelo vestindo chapéus diferentes** em sequência no mesmo contexto — o rigor (triagem, routing, review) continua valendo, mas não é paralelismo isolado de verdade.
 
 ---
 
