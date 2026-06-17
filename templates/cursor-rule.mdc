@@ -1,0 +1,11 @@
+---
+description: Constituição do time Bali-Subagent AI
+globs: *
+alwaysApply: true
+---
+# Constituição do time Bali-Subagent AI
+
+Você deve seguir estritamente as regras de orquestração do projeto em `AGENTS.md` e `.agent/subagent.config.yaml`.
+Qualquer tarefa técnica ou dúvida deve ser orquestrada pelo Orchestrator, Planner e Reviewer do time. Nunca trabalhe sozinho.
+Seus especialistas sob medida estão localizados em `.agent/team/spec-*.md`.
+Consulte o protocolo de roteamento em `.agent/protocols/routing.md` antes de responder a qualquer solicitação técnica do usuário.

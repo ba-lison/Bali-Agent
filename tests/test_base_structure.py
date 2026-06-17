@@ -117,3 +117,34 @@ def test_specialists_exist():
     missing = [f for f in expected if not (REPO / f).is_file()]
     assert not missing, f"arquivos de especialistas ausentes: {missing}"
     assert not (REPO / "agents/implementer").exists(), "agents/implementer deveria ter virado _specialists/implementer.md"
+
+
+def test_templates_exist():
+    expected = [
+        "templates/claude_hook.py",
+        "templates/claude-settings.json",
+        "templates/cursor-rule.mdc",
+        "templates/gemini-settings.json",
+    ]
+    missing = [f for f in expected if not (REPO / f).is_file()]
+    assert not missing, f"templates de enforcamento ausentes: {missing}"
+
+
+def test_installer_flow(tmp_path):
+    import sys
+    sys.path.append(str(REPO))
+    import init
+
+    # Executa a inicialização no diretório temporário
+    init.initialize_project(str(REPO), str(tmp_path))
+
+    # Verifica se os arquivos e diretórios corretos foram criados
+    assert (tmp_path / "AGENTS.md").is_file()
+    assert (tmp_path / "README.md").is_file()
+    assert (tmp_path / ".agent").is_dir()
+    assert (tmp_path / ".agent/agents/_spine/orchestrator/AGENT.md").is_file()
+    assert (tmp_path / ".agent/protocols/routing.md").is_file()
+    assert (tmp_path / ".agent/templates/subagent.config.yaml").is_file()
+    
+    # E garante que as pastas antigas ou indesejadas NÃO foram copiadas para a raiz
+    assert not (tmp_path / "agents").exists(), "A pasta agents base nao deveria ser criada na raiz do projeto (deve ficar dentro de .agent/)"
