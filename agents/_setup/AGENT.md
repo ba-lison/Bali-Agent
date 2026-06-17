@@ -42,6 +42,9 @@ Você é o **Setup Agent**. Sua única missão é inicializar o time de agentes 
      - **Cursor**: Copie `.agent/templates/cursor-rule.mdc` para `.cursor/rules/subagent.mdc`. Garanta que a regra MDC aponte tanto para o `AGENTS.md` da raiz (preservando regras de design system do usuário) quanto para as regras do time em `.agent/team/`.
      - **Gemini CLI**: Copie `.agent/templates/gemini-settings.json` para `.gemini/settings.json`.
      - **Codex CLI**: Garanta que as regras do time estejam salvas na pasta `.agent/` de forma complementar.
+     - **Memória de Trabalho (`.agent/working-context.md`)**:
+       - Atualize o arquivo `.agent/working-context.md` de forma a definir o `Status Atual do Projeto` como "Setup do time concluído".
+       - Preencha a seção `Stack Tecnológica & Convenções Locais` com a lista concreta de linguagens/frameworks detectados e as convenções alinhadas durante a entrevista.
 
 ## Regras Invioláveis
 

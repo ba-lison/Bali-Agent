@@ -108,6 +108,47 @@ def initialize_project(src_dir, target_dir):
             except Exception as e:
                 print(f"[!] Erro ao copiar {dest_file}: {e}")
             
+    # 1. Copiar working-context.md inicial para .agent/working-context.md se não existir
+    dest_working_context = os.path.join(agent_dir, "working-context.md")
+    if not os.path.exists(dest_working_context):
+        src_working_context = os.path.join(src_dir, "templates", "working-context.md")
+        if os.path.exists(src_working_context):
+            try:
+                shutil.copy2(src_working_context, dest_working_context)
+                print("[x] Memória de trabalho criada: .agent/working-context.md")
+            except Exception as e:
+                print(f"[!] Erro ao copiar working-context.md: {e}")
+
+    # 2. Criar .agent/hooks/ e copiar prevent_secrets.py para lá
+    hooks_dir = os.path.join(agent_dir, "hooks")
+    os.makedirs(hooks_dir, exist_ok=True)
+    src_prevent_secrets = os.path.join(src_dir, "templates", "prevent_secrets.py")
+    dest_prevent_secrets = os.path.join(hooks_dir, "prevent_secrets.py")
+    if os.path.exists(src_prevent_secrets):
+        try:
+            shutil.copy2(src_prevent_secrets, dest_prevent_secrets)
+            # Damos permissão de execução
+            os.chmod(dest_prevent_secrets, 0o755)
+            print("[x] Script prevent_secrets.py de segurança copiado para .agent/hooks/")
+        except Exception as e:
+            print(f"[!] Erro ao copiar prevent_secrets.py: {e}")
+
+    # 3. Se for um repositório Git, injetar o pre-commit Git hook local (Agent Shield)
+    git_dir = os.path.join(target_dir, ".git")
+    if os.path.isdir(git_dir):
+        git_hooks_dir = os.path.join(git_dir, "hooks")
+        os.makedirs(git_hooks_dir, exist_ok=True)
+        src_shell_hook = os.path.join(src_dir, "templates", "git-pre-commit-shell")
+        dest_shell_hook = os.path.join(git_hooks_dir, "pre-commit")
+        if os.path.exists(src_shell_hook):
+            try:
+                shutil.copy2(src_shell_hook, dest_shell_hook)
+                # Damos permissão de execução ao pre-commit hook
+                os.chmod(dest_shell_hook, 0o755)
+                print("[x] Agent Shield ativado: Git Pre-commit Hook instalado com sucesso!")
+            except Exception as e:
+                print(f"[!] Erro ao configurar Git Pre-commit Hook: {e}")
+
     # Garantir criação do output/.gitkeep dentro de .agent/
     output_dir = os.path.join(agent_dir, "output")
     os.makedirs(output_dir, exist_ok=True)

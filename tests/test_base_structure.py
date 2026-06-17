@@ -125,9 +125,12 @@ def test_templates_exist():
         "templates/claude-settings.json",
         "templates/cursor-rule.mdc",
         "templates/gemini-settings.json",
+        "templates/working-context.md",
+        "templates/prevent_secrets.py",
+        "templates/git-pre-commit-shell",
     ]
     missing = [f for f in expected if not (REPO / f).is_file()]
-    assert not missing, f"templates de enforcamento ausentes: {missing}"
+    assert not missing, f"templates de enforcamento/segurança ausentes: {missing}"
 
 
 def test_installer_flow(tmp_path):
@@ -135,13 +138,15 @@ def test_installer_flow(tmp_path):
     sys.path.append(str(REPO))
     import init
 
-    # Cenário 1: Instalação em pasta vazia
+    # Cenário 1: Instalação em pasta vazia (sem Git)
     init.initialize_project(str(REPO), str(tmp_path))
 
     # Verifica se os arquivos e diretórios corretos foram criados
     assert (tmp_path / "AGENTS.md").is_file()
     assert (tmp_path / "README.md").is_file()
     assert (tmp_path / ".agent").is_dir()
+    assert (tmp_path / ".agent/working-context.md").is_file()
+    assert (tmp_path / ".agent/hooks/prevent_secrets.py").is_file()
     assert (tmp_path / ".agent/agents/_spine/orchestrator/AGENT.md").is_file()
     assert (tmp_path / ".agent/protocols/routing.md").is_file()
     assert (tmp_path / ".agent/templates/subagent.config.yaml").is_file()
@@ -149,9 +154,12 @@ def test_installer_flow(tmp_path):
     # E garante que as pastas antigas ou indesejadas NÃO foram copiadas para a raiz
     assert not (tmp_path / "agents").exists(), "A pasta agents base nao deveria ser criada na raiz do projeto (deve ficar dentro de .agent/)"
 
-    # Cenário 2: Instalação em projeto Brownfield (já possui arquivos customizados do usuário)
+    # Cenário 2: Instalação em projeto Brownfield (com Git e arquivos customizados do usuário)
     user_project = tmp_path / "user_project"
     user_project.mkdir()
+    
+    # Simula pasta .git do projeto do usuário
+    (user_project / ".git").mkdir()
     
     user_readme = user_project / "README.md"
     user_readme.write_text("User Custom README content", encoding="utf-8")
@@ -168,3 +176,6 @@ def test_installer_flow(tmp_path):
 
     # E garante que o bootstrap foi salvo na pasta .agent/ para referência
     assert (user_project / ".agent/bootstrap-AGENTS.md").is_file()
+    
+    # E garante que o Git Hook foi instalado com sucesso em .git/hooks/pre-commit
+    assert (user_project / ".git/hooks/pre-commit").is_file()

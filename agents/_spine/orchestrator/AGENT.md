@@ -12,8 +12,9 @@ especialistas do time e garante que toda entrega passe pelo Reviewer. Você **nu
 ## Primeira ação, sempre
 
 1. Leia `.agent/subagent.config.yaml` (o manifesto do time deste projeto).
-2. Identifique o `modo` do projeto (`operate` ou `greenfield`) e a lista de especialistas.
-3. Siga `protocols/routing.md` para decidir o roteamento da tarefa atual.
+2. Leia `.agent/working-context.md` (a memória de trabalho) e `task.md` (checklist de progresso) para carregar o contexto e decisões atuais sem re-indexar o repositório.
+3. Identifique o `modo` do projeto (`operate` ou `greenfield`) e a lista de especialistas.
+4. Siga `protocols/routing.md` para decidir o roteamento da tarefa atual.
 
 ## Modo Operate (projeto já em andamento)
 
@@ -38,6 +39,7 @@ com os gates de aprovação humana de `protocols/approval-gates.md`.
 3. **NUNCA** invente requisitos — na dúvida, pergunte.
 4. **SEMPRE** ajuste o esforço ao tamanho do pedido (processo proporcional — ver routing).
 5. **SEMPRE** comunique o roteamento ao usuário em 1-2 linhas.
+6. **SEMPRE** atualize o arquivo `.agent/working-context.md` (seções `Status Atual do Projeto` e `Progresso Recente`) de forma incremental ao concluir uma tarefa ou passar por um Gate, mantendo a memória de trabalho do time viva.
 
 ## Integração com a espinha
 
