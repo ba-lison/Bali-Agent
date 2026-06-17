@@ -61,8 +61,8 @@ do assistente. O **Setup Agent**:
 2. **Entrevista adaptativa curta** — pula o que já detectou. Pergunta: objetivo atual, restrições,
    **o que NÃO mexer**, convenções de código, e quais especialistas fazem sentido.
 3. **Monta o time híbrido** (seção 5).
-4. **Gera os artefatos no projeto:** `AGENTS.md` (constituição) + `.squad/squad.config.yaml`
-   (manifesto) + `.squad/team/*.md`.
+4. **Gera os artefatos no projeto:** `AGENTS.md` (constituição) + `.agent/squad.config.yaml`
+   (manifesto) + `.agent/team/*.md`.
 5. **Gate de aprovação:** apresenta o time proposto; o usuário aprova ou ajusta.
 6. **Idempotente:** ao rodar de novo, detecta o manifesto e oferece **"atualizar time"** quando a
    stack mudou (ex.: passou a usar Supabase).
@@ -86,8 +86,8 @@ Exemplos: `spec-nextjs.md`, `spec-supabase.md` (com o schema real embutido), `sp
 Texto universal que qualquer LLM segue, em essência:
 
 > **Modo de operação permanente deste projeto.** Para QUALQUER pedido — bug, feature, dúvida,
-> refactor — você assume o papel de **Orchestrator**, lê `.squad/squad.config.yaml` e roteia a tarefa
-> para os especialistas em `.squad/team/`. Você **nunca trabalha sozinho**. Toda entrega passa pelo
+> refactor — você assume o papel de **Orchestrator**, lê `.agent/squad.config.yaml` e roteia a tarefa
+> para os especialistas em `.agent/team/`. Você **nunca trabalha sozinho**. Toda entrega passa pelo
 > **Reviewer** antes de concluir. Isso não é opcional.
 
 ### 5.4 Anti-burocracia (processo proporcional)
@@ -99,14 +99,36 @@ A constituição obriga a rotear *sempre*, mas com **esforço proporcional ao pe
 
 Isso evita que "sempre o time" vire lentidão para coisa pequena.
 
-### 5.5 Toggle Claude Code (opcional, hard enforcement)
+### 5.5 Reforço por ferramenta (enforcement adapters)
 
-`python init.py --claude-code` adicionalmente:
-- Espelha o time em `.claude/agents/*.md` (subagentes nativos do Claude Code).
-- Instala um hook `UserPromptSubmit` no `.claude/settings.json` que injeta a constituição a cada turno
-  → o "obrigatório" passa a ser garantido pelo harness, não só pela instrução.
+**Problema que isto resolve:** `AGENTS.md`/`CLAUDE.md` são instrução **passiva** — lidas no início da
+sessão. Em sessão longa, quando o contexto enche, o assistente **resume/compacta** o histórico e a
+constituição pode "diluir", fazendo o modelo voltar a trabalhar sozinho. A blindagem é re-injetar a
+regra a cada turno, via mecanismo que o **harness executa** (não depende da vontade do modelo).
 
-Fora do Claude Code, a constituição continua valendo como instrução forte (modo universal).
+**Distinção crítica — modelo ≠ ferramenta:** o reforço é por **harness/ferramenta**, não por
+**modelo**. Modelos (Claude, Gemini, DeepSeek, Gemma3/4, Kimi, Llama…) são **todos cobertos de graça**
+pelo `AGENTS.md` universal — qualquer modelo que receba o arquivo segue a constituição. Runtimes de
+modelo (ex.: Ollama) também não enforçam nada sozinhos; quem lê e re-injeta é o front-end por cima
+deles. Portanto **não há adaptador por modelo** — só por ferramenta.
+
+O setup gera o **adaptador mais forte que cada ferramenta-alvo suporta**. Escopo decidido:
+
+| Ferramenta | No escopo? | Adaptador gerado | Força |
+|-----------|-----------|------------------|-------|
+| **Claude Code** | ✅ PADRÃO | hook `UserPromptSubmit` + `SessionStart` no `.claude/settings.json` re-injetando a constituição a cada turno; espelha o time em `.claude/agents/*.md` | **Forte** (re-injeção por turno, garantida pelo harness) |
+| **Cursor** | ✅ | `.cursor/rules/squad.mdc` com `alwaysApply: true` | Médio-forte (regra "always" re-aplicada) |
+| **Gemini CLI** | ✅ | `.gemini/settings.json` apontando para `AGENTS.md` como context file | Médio (recarrega por sessão; janela grande ajuda) |
+| **Codex CLI** | ✅ | `AGENTS.md` na raiz (já é a camada de instrução nativa) | Médio |
+| Windsurf, outros | ⛔ fora do escopo v2 | (só `AGENTS.md` universal) | Instrução forte (passiva) |
+| Qualquer modelo (DeepSeek/Gemma/Kimi/…) | n/a | coberto pelo `AGENTS.md` universal | Instrução forte (passiva) |
+
+**Decisão:** Claude Code é instalado **por padrão**; Cursor, Gemini CLI e Codex CLI também entram no
+escopo v2. Demais ferramentas ficam fora (YAGNI) — quando necessário, adicionar novo adaptador é
+barato. Modelos são sempre cobertos pelo núcleo universal.
+
+> ⚠️ Nota de precisão: as capacidades de hook/config dessas CLIs evoluem rápido (conhecimento até
+> jan/2026). Antes de implementar um adaptador específico, validar a sintaxe atual da ferramenta-alvo.
 
 ## 6. Estrutura de arquivos
 
@@ -141,7 +163,7 @@ Bali-Squad-AI/
 │   ├── approval-gates.md        [MANTIDO]
 │   └── quality-gates.md         [MANTIDO]
 ├── examples/                    [MANTIDO] + novos exemplos de squad.config
-└── init.py                      [EVOLUÍDO] instala em .squad/ + flag --claude-code
+└── init.py                      [EVOLUÍDO] instala a base em .agent/ e dispara o Setup Agent
 ```
 
 Observação: os antigos `agents/task-decomposer/` e `agents/implementer/` são reposicionados — o
@@ -153,7 +175,7 @@ genérico (`_specialists/`), já que a implementação real fica a cargo do espe
 ```
 <projeto>/
 ├── AGENTS.md                    # constituição gerada (raiz, lida por qualquer LLM)
-└── .squad/
+└── .agent/
     ├── squad.config.yaml        # stack detectada + time montado + versão da base
     ├── team/                    # agentes DESTE projeto
     │   ├── orchestrator.md
@@ -189,12 +211,13 @@ time:
     - reviewer
   especialistas:
     - id: spec-nextjs
-      arquivo: .squad/team/spec-nextjs.md
+      arquivo: .agent/team/spec-nextjs.md
       escopo: "app router, RSC, rotas"
     - id: spec-supabase
-      arquivo: .squad/team/spec-supabase.md
+      arquivo: .agent/team/spec-supabase.md
       escopo: "schema, RLS, edge functions"
-claude_code: false   # true se rodado com --claude-code
+enforcement_adapters:   # adaptadores de reforço instalados (ver seção 5.5)
+  - claude-code          # PADRÃO: re-injeta a constituição a cada turno via hook
 ```
 
 ## 8. Fora de escopo (YAGNI)
@@ -208,13 +231,14 @@ claude_code: false   # true se rodado com --claude-code
 
 ## 9. Critérios de sucesso
 
-1. Rodar o setup em um **projeto existente** gera `AGENTS.md` + `.squad/` com espinha + ao menos um
+1. Rodar o setup em um **projeto existente** gera `AGENTS.md` + `.agent/` com espinha + ao menos um
    especialista coerente com a stack detectada.
 2. Rodar o setup em um **projeto vazio** entra no modo greenfield (pipeline SDLC atual preservado).
 3. Após o setup, abrir o projeto em qualquer LLM e fazer um pedido qualquer faz o assistente operar
    como Orchestrator e rotear pelo time (verificável pela resposta seguir o protocolo de routing).
 4. O setup é **idempotente**: rodar de novo não duplica, oferece atualizar.
-5. Com `--claude-code`, os subagentes aparecem em `.claude/agents/` e o hook injeta a constituição.
+5. Por padrão (Claude Code), os subagentes aparecem em `.claude/agents/` e o hook re-injeta a
+   constituição a cada turno; adaptadores de Cursor/Gemini CLI/Codex são gerados conforme declarado.
 6. Nada do fluxo greenfield atual quebra (regressão zero nos artefatos PRD/SDD/tasks).
 
 ## 10. Riscos e mitigações
