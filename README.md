@@ -133,48 +133,63 @@ Bali-Subagent-AI/
 
 ## 🚀 Como Usar
 
-### Instalação (Inicializar em Novo Projeto)
+### 📦 Métodos de Instalação (Inicializar em Novo Projeto)
 
-Você pode copiar a estrutura do **Bali-Subagent AI** para qualquer outro projeto em sua máquina usando o script instalador integrado:
+Você pode instalar o framework **Bali-Subagent AI** em qualquer projeto novo de duas formas:
 
-1. Clone este repositório
-2. Execute o instalador no seu terminal:
+#### Opção A: Instalação 100% via IDE / Inteligência Artificial (Sem Terminal) ── [Recomendado] ✨
+Se você já abriu o seu projeto novo na IDE (Cursor, Claude Code, VS Code com assistente de IA, etc.), você não precisa abrir o console. Basta mandar a instrução no chat da IDE:
+
+> *"Por favor, baixe o framework do repositório `https://github.com/ba-lison/Bali-Agent.git` e instale ele aqui na pasta do meu projeto."*
+
+A IA lerá a instrução e executará o download, a extração das pastas base (`.agent/`) e o arquivo de bootstrap (`AGENTS.md`) diretamente na raiz do seu projeto por conta própria.
+
+#### Opção B: Instalação Tradicional (Via Terminal) 💻
+Se preferir o terminal tradicional, você pode instalar clonando o repositório:
+
+1. Baixe o repositório na sua máquina:
    ```bash
+   git clone https://github.com/ba-lison/Bali-Agent.git
+   ```
+2. Acesse a pasta e execute o script de instalação integrado:
+   ```bash
+   cd Bali-Agent
    python init.py
    ```
-3. Insira o caminho absoluto para o projeto onde você quer instalar o time de agentes e confirme.
+3. Digite o caminho completo do seu projeto destino (ex: `C:\Users\NomeDoUsuario\Documents\jaozinho-zika`) e confirme. O script copiará os arquivos e você poderá excluir a pasta temporária `Bali-Agent`.
+
+> 💡 **Dica de Produtividade (Atalho no PowerShell):** Se você usa o PowerShell no Windows, crie um atalho permanente chamado `bali` rodando o comando a seguir uma única vez:
+> `if (!(Test-Path $PROFILE)) { New-Item -Type File -Force $PROFILE } ; Add-Content -Path $PROFILE -Value 'function bali { python C:\Users\suporte2\Documents\.Inovaxao_Totalcad\.agent\Bali-Subagent-AI\init.py }'`
+> Agora, basta digitar `bali` no terminal de qualquer projeto novo para instalá-lo instantaneamente.
 
 ---
 
-### Início Rápido
+### ⚙️ Início Rápido (Configurar o Time)
+
+Após a instalação física (seja por terminal ou via IA):
 
 1. **Abra o projeto**: Abra o projeto inicializado na sua IDE preferida (Cursor, VS Code, etc.).
-2. **Carregue o sistema**: Abra ou anexe o arquivo `AGENTS.md` (na raiz do seu projeto) ao chat do seu assistente de IA preferido.
-3. **Inicie a execução**: Envie o comando:
-
+2. **Inicie o Setup**: Abra o chat do assistente de IA e digite:
    ```
-   Novo projeto: [descrição breve do que você quer construir]
+   /setup
    ```
+   *(Ou se preferir, use o comando de barra `/setup-time` ou o termo literal "Setup do time").*
+3. **Responda à Entrevista**: O **Setup Agent** assumirá a execução, rodará o algoritmo de perfilamento de tecnologias (`stack-detection.md`), e conduzirá uma entrevista rápida com você no chat para definir os objetivos do projeto.
+4. **Geração dos Agentes e Regras**: Após sua aprovação, o Setup Agent gerará os agentes especialistas customizados para a sua stack e criará os **Adaptadores de Enforcamento** locais (regras `.mdc` para Cursor e configurações de hooks locais `.claude/settings.json` para Claude Code) de forma automatizada.
+5. **Comande o Time**: Agora o time híbrido está ativo e pronto. Você pode iniciar qualquer tarefa digitando diretamente no chat:
+   - *"Orchestrator, preciso criar a tela de login integrada com o Supabase."*
+   - Ou usando menção direta no Claude Code: `@orchestrator preciso criar a tela de login.`
 
-4. **Siga o fluxo**: O Orchestrator assume e guia você por cada fase:
-   - 🔍 Entrevista Discovery para entender as necessidades reais (pula perguntas redundantes)
-   - 📄 PRD para documentar os requisitos do produto
-   - 🏗️ SDD para arquitetar a solução técnica e mapear trade-offs
-   - 📋 Tasks para fatiar em tarefas atômicas (<4h)
-   - 💻 Código para a implementação guiada
-   - 🔎 Review para checagem de qualidade e segurança
+### 📋 Comandos Disponíveis no Chat
 
-5. **Aprove nos gates**: Sempre que o sistema pedir aprovação, revise o artefato gerado na pasta `output/{projeto}/` e dê seu feedback.
-
-### Comandos Disponíveis
-
-| Comando | Descrição |
-|---------|-----------|
-| `Novo projeto: [descrição]` | Inicia ciclo completo desde a entrevista |
-| `Status do projeto` | Mostra em qual fase o projeto está |
-| `Revisar [artefato]` | Solicita review de um artefato específico |
-| `Aprovar [artefato]` | Aprova o artefato atual e avança para próxima fase |
-| `Feedback: [detalhes]` | Fornece feedback para revisão do artefato atual |
+| Comando | Tipo | Descrição |
+|---------|------|-----------|
+| `/setup` ou `/setup-time` | Setup | Inicializa ou atualiza o time perfilando a stack |
+| `Novo projeto: [descrição]` | Greenfield | Inicia ciclo completo de Discovery, PRD, SDD e Tasks |
+| `Status do projeto` | Fluxo | Mostra em qual fase de desenvolvimento o projeto está |
+| `Revisar [artefato]` | Revisão | Solicita ao Reviewer a auditoria de um artefato |
+| `Aprovar [artefato]` | Fluxo | Aprova o artefato atual e avança para próxima fase |
+| `Feedback: [detalhes]` | Fluxo | Envia observações para revisão de um artefato |
 
 ---
 
