@@ -1,14 +1,14 @@
-# Bali-Subagent v2 — Plano 1: Fundação (reorg + espinha + protocolos + templates)
+# Bali-Agent v2 — Plano 1: Fundação (reorg + espinha + protocolos + templates)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Reestruturar o framework Bali-Subagent para o modelo híbrido — criar a espinha fixa (`_spine`: orchestrator, planner, reviewer), o protocolo de roteamento, e os templates de constituição e manifesto — deixando uma base internamente consistente, validada por testes.
+**Goal:** Reestruturar o framework Bali-Agent para o modelo híbrido — criar a espinha fixa (`_spine`: orchestrator, planner, reviewer), o protocolo de roteamento, e os templates de constituição e manifesto — deixando uma base internamente consistente, validada por testes.
 
 **Architecture:** O framework é majoritariamente conteúdo markdown (definições de agentes, protocolos, templates) mais um instalador Python (`init.py`). Esta fundação reposiciona os agentes existentes numa "espinha" (`agents/_spine/`), adiciona o protocolo de roteamento que faz qualquer tarefa passar pelo time, e cria os dois templates que o Setup Agent (Plano 2) vai materializar no projeto do usuário: a constituição (`project-AGENTS.md`) e o manifesto (`subagent.config.yaml`). A validação é feita por um harness pytest que checa a estrutura e a sanidade do YAML.
 
 **Tech Stack:** Markdown (conteúdo dos agentes/protocolos), YAML (manifesto), Python 3 + pytest + PyYAML (harness de validação).
 
-**Spec de referência:** [`docs/superpowers/specs/2026-06-17-bali-subagent-v2-design.md`](../specs/2026-06-17-bali-subagent-v2-design.md)
+**Spec de referência:** [`docs/superpowers/specs/2026-06-17-bali-agent-v2-design.md`](../specs/2026-06-17-bali-agent-v2-design.md)
 
 **Escopo deste plano (Plano 1):** seções 5.1 (espinha), 4 (constituição/manifesto como templates), e o protocolo de routing da seção 5.3/5.4. **Fora deste plano:** Setup Agent + `_specialists` (Plano 2); evolução do `init.py` + adaptadores de enforcement (Plano 3). Os agentes do modo greenfield (`discovery/`, `prd-writer/`, `sdd-architect/`, `implementer/`) ficam intactos aqui — `implementer/` vira arquétipo de especialista só no Plano 2.
 
@@ -141,7 +141,7 @@ git mv agents/orchestrator agents/_spine/orchestrator
 Substituir TODO o conteúdo do arquivo por:
 
 ```markdown
-# 🎯 Orchestrator — Espinha do Bali-Subagent
+# 🎯 Orchestrator — Espinha do Bali-Agent
 
 > **Tipo:** Agente de espinha (sempre presente)
 > **Versão:** 2.0.0
@@ -242,7 +242,7 @@ git mv agents/task-decomposer agents/_spine/planner
 Substituir TODO o conteúdo por:
 
 ```markdown
-# 📋 Planner — Espinha do Bali-Subagent
+# 📋 Planner — Espinha do Bali-Agent
 
 > **Tipo:** Agente de espinha (sempre presente)
 > **Versão:** 2.0.0
@@ -497,7 +497,7 @@ Expected: FAIL.
 - [ ] **Step 3: Criar `templates/subagent.config.yaml`**
 
 ```yaml
-# Manifesto do time Bali-Subagent (gerado pelo Setup Agent).
+# Manifesto do time Bali-Agent (gerado pelo Setup Agent).
 # Este arquivo é a fonte de verdade do time montado para o projeto.
 versao_base: "2.0.0"
 projeto: nome-do-projeto
@@ -566,7 +566,7 @@ Expected: FAIL.
 # AGENTS.md — Constituição do projeto {NOME_DO_PROJETO}
 
 > **Modo de operação permanente.** Qualquer LLM/assistente que abrir este projeto
-> DEVE operar como o time Bali-Subagent. Este arquivo é lido automaticamente.
+> DEVE operar como o time Bali-Agent. Este arquivo é lido automaticamente.
 
 ## Regra fundamental (não-opcional)
 

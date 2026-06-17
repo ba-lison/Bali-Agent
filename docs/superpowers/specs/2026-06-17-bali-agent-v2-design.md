@@ -1,15 +1,15 @@
 ---
-titulo: "Bali-Subagent v2 — Setup único por projeto + time híbrido obrigatório"
+titulo: "Bali-Agent v2 — Setup único por projeto + time híbrido obrigatório"
 data: 2026-06-17
 status: aprovado-para-plano
 autor: brainstorming colaborativo
 ---
 
-# Bali-Subagent v2 — Design
+# Bali-Agent v2 — Design
 
 ## 1. Contexto e Problema
 
-O Bali-Subagent AI hoje é um **pipeline linear de SDLC para projetos novos**: um time **fixo de 7 agentes**
+O Bali-Agent AI hoje é um **pipeline linear de SDLC para projetos novos**: um time **fixo de 7 agentes**
 (Orchestrator → Discovery → PRD Writer → SDD Architect → Task Decomposer → Implementer → Reviewer)
 que roda em sequência, com gates de aprovação humana. O Orchestrator detecta a fase atual checando
 artefatos em `output/{projeto}/`.
@@ -34,8 +34,8 @@ não reescrevemos.**
 | 1 | Formato de uso | Setup **único** por projeto; depois vira padrão automático |
 | 2 | Composição do time | **Híbrido**: espinha fixa + especialistas dinâmicos por stack |
 | 3 | Alvo / portabilidade | **Universal** (qualquer LLM). Reforço Claude Code via hook = **padrão**; adaptadores p/ Cursor + Gemini CLI + Codex CLI |
-| 4 | Caminho | **Evoluir** o repo Bali-Subagent-AI existente (Abordagem A) |
-| 5 | Marca | "Squad" → **"Subagent"** em tudo (interno e externo); mantém prefixo "Bali" → **Bali-Subagent** |
+| 4 | Caminho | **Evoluir** o repo Bali-Agent existente (Abordagem A) |
+| 5 | Marca | Termo evoluiu "Squad" → "Subagent" → **"Agent"** (interno e externo); prefixo "Bali" mantido → **Bali-Agent** |
 
 ## 3. Conceito central — dois modos unificados
 
@@ -133,10 +133,10 @@ barato. Modelos são sempre cobertos pelo núcleo universal.
 
 ## 6. Estrutura de arquivos
 
-### 6.1 No repo da base (Bali-Subagent-AI)
+### 6.1 No repo da base (Bali-Agent)
 
 ```
-Bali-Subagent-AI/
+Bali-Agent/
 ├── AGENTS.md                    [REVISADO] ponto de entrada da BASE: explica o sistema e dispara o Setup Agent
 ├── agents/
 │   ├── _setup/
