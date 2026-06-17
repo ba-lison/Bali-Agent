@@ -84,3 +84,9 @@ def test_base_entrypoint_points_to_spine():
     # incluindo a seção 7 que cita agents/reviewer/checklists/...
     for stale in ["agents/orchestrator/", "agents/task-decomposer/", "agents/reviewer/"]:
         assert stale not in txt, f"caminho antigo ainda no AGENTS.md: {stale}"
+
+
+def test_readme_structure_mentions_spine():
+    txt = _read("README.md")
+    assert "_spine/" in txt, "README deve descrever a nova pasta _spine/"
+    assert "protocols/routing.md" in txt or "routing.md" in txt

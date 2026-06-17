@@ -80,45 +80,42 @@ flowchart TD
 
 | # | Agente | Papel | Responsabilidade | Arquivo |
 |---|--------|-------|------------------|---------|
-| 1 | **🎯 Orchestrator** | Maestro do Fluxo | Gerencia o ciclo de vida, roteia entre agentes, aplica gates de aprovação | `agents/orchestrator/AGENT.md` |
+| 1 | **🎯 Orchestrator** | Maestro do Fluxo | Gerencia o ciclo de vida, roteia entre agentes, aplica gates de aprovação | `agents/_spine/orchestrator/AGENT.md` |
 | 2 | **🔍 Discovery** | Entrevistador | Conduz entrevista adaptativa para extrair requisitos, contexto e restrições do projeto | `agents/discovery/AGENT.md` |
 | 3 | **📄 PRD Writer** | Analista de Produto | Transforma descobertas em PRD completo com escopo, métricas, personas e requisitos | `agents/prd-writer/AGENT.md` |
 | 4 | **🏗️ SDD Architect** | Arquiteto de Software | Projeta arquitetura técnica, diagramas, trade-offs e estratégia de implementação | `agents/sdd-architect/AGENT.md` |
-| 5 | **📋 Task Decomposer** | Planejador de Tarefas | Decompõe SDD em tasks atômicas (<4h), ordenadas por dependência e prioridade | `agents/task-decomposer/AGENT.md` |
+| 5 | **📋 Planner** | Planejador de Tarefas | Decompõe SDD/pedidos em tasks atômicas (<4h) com dependências | `agents/_spine/planner/AGENT.md` |
 | 6 | **💻 Implementer** | Engenheiro de Software | Implementa código de produção seguindo SDD e tasks, com testes e documentação | `agents/implementer/AGENT.md` |
-| 7 | **🔎 Reviewer** | Revisor de Código | Revisa PRs com checklist de qualidade, segurança, performance e manutenibilidade | `agents/reviewer/AGENT.md` |
+| 7 | **🔎 Reviewer** | Revisor de Código | Revisa entregas/PRs com checklist de qualidade, segurança e performance | `agents/_spine/reviewer/AGENT.md` |
 
 ---
 
 ## 📁 Estrutura de Diretórios
 
 ```
-sdlc-agent-team/
+Bali-Subagent-AI/
 ├── README.md                          # Este arquivo — visão geral do sistema
-├── AGENTS.md                          # Arquivo raiz que qualquer LLM lê ao iniciar
+├── AGENTS.md                          # Arquivo raiz da base (ponto de entrada)
 │
-├── agents/                            # Definições de cada agente
-│   ├── orchestrator/
-│   │   └── AGENT.md                   # Identidade, regras e fluxo do Orchestrator
-│   ├── discovery/
-│   │   └── AGENT.md                   # Identidade e roteiro do Discovery Agent
-│   ├── prd-writer/
-│   │   └── AGENT.md                   # Identidade e template do PRD Writer
-│   ├── sdd-architect/
-│   │   └── AGENT.md                   # Identidade e template do SDD Architect
-│   ├── task-decomposer/
-│   │   └── AGENT.md                   # Identidade e critérios do Task Decomposer
-│   ├── implementer/
-│   │   └── AGENT.md                   # Identidade e padrões do Implementer
-│   └── reviewer/
-│       └── AGENT.md                   # Identidade e checklists do Reviewer
+├── agents/                            # Definições dos agentes do framework
+│   ├── _spine/                        # Espinha dorsal fixa (sempre presente)
+│   │   ├── orchestrator/AGENT.md      # Identidade e regras do Orchestrator (roteia qualquer pedido)
+│   │   ├── planner/AGENT.md           # Identidade e critérios do Planner (absorve Task Decomposer)
+│   │   └── reviewer/AGENT.md          # Identidade e checklists do Reviewer
+│   ├── discovery/AGENT.md             # Discovery Agent (modo greenfield)
+│   ├── prd-writer/AGENT.md            # PRD Writer Agent (modo greenfield)
+│   ├── sdd-architect/AGENT.md         # SDD Architect Agent (modo greenfield)
+│   └── implementer/AGENT.md           # Implementer Agent (modo greenfield)
 │
-├── protocols/                         # Protocolos de operação
+├── protocols/                         # Protocolos de operação do time
+│   ├── routing.md                     # Protocolo de roteamento proporcional (novo)
 │   ├── handoff.md                     # Protocolo de handoff entre agentes
-│   ├── approval-gates.md             # Gates de aprovação humana
-│   └── quality-gates.md              # Critérios de qualidade por artefato
+│   ├── approval-gates.md              # Gates de aprovação humana
+│   └── quality-gates.md               # Critérios de qualidade por artefato
 │
-├── templates/                         # Templates de artefatos
+├── templates/                         # Templates de artefatos e manifestos
+│   ├── subagent.config.yaml           # Manifesto de configuração do time (novo)
+│   ├── project-AGENTS.md              # Constituição que vai para a raiz do projeto (novo)
 │   ├── prd.md                         # Template do PRD
 │   ├── sdd.md                         # Template do SDD
 │   └── tasks.md                       # Template de tasks
@@ -127,8 +124,8 @@ sdlc-agent-team/
 │   ├── prd-example.md                 # Exemplo completo de PRD
 │   └── sdd-example.md                 # Exemplo completo de SDD
 │
-├── init.py                            # Script Python para inicializar o Bali-Subagent AI em novos projetos
-└── output/                            # Artefatos gerados por projeto
+├── init.py                            # Script Python para inicializar o Bali-Subagent AI no projeto
+└── output/                            # Artefatos gerados (modo greenfield local)
     └── .gitkeep
 ```
 
