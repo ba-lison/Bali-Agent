@@ -94,8 +94,17 @@ def initialize_project(src_dir, target_dir):
         dest_path = os.path.join(target_dir, dest_file)
         if os.path.exists(src_path):
             try:
-                shutil.copy2(src_path, dest_path)
-                print(f"[x] Arquivo copiado para raiz: {dest_file}")
+                if os.path.exists(dest_path):
+                    if dest_file == "AGENTS.md":
+                        # Copia como bootstrap-AGENTS.md dentro de .agent/ para referência
+                        bootstrap_dest = os.path.join(agent_dir, "bootstrap-AGENTS.md")
+                        shutil.copy2(src_path, bootstrap_dest)
+                        print(f"[x] AGENTS.md existente preservado na raiz. Bootstrap de referência copiado para .agent/bootstrap-AGENTS.md")
+                    else:
+                        print(f"[x] README.md existente preservado na raiz do projeto (não sobrescrito).")
+                else:
+                    shutil.copy2(src_path, dest_path)
+                    print(f"[x] Arquivo copiado para raiz: {dest_file}")
             except Exception as e:
                 print(f"[!] Erro ao copiar {dest_file}: {e}")
             

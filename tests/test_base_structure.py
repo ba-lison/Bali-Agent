@@ -135,7 +135,7 @@ def test_installer_flow(tmp_path):
     sys.path.append(str(REPO))
     import init
 
-    # Executa a inicialização no diretório temporário
+    # Cenário 1: Instalação em pasta vazia
     init.initialize_project(str(REPO), str(tmp_path))
 
     # Verifica se os arquivos e diretórios corretos foram criados
@@ -148,3 +148,23 @@ def test_installer_flow(tmp_path):
     
     # E garante que as pastas antigas ou indesejadas NÃO foram copiadas para a raiz
     assert not (tmp_path / "agents").exists(), "A pasta agents base nao deveria ser criada na raiz do projeto (deve ficar dentro de .agent/)"
+
+    # Cenário 2: Instalação em projeto Brownfield (já possui arquivos customizados do usuário)
+    user_project = tmp_path / "user_project"
+    user_project.mkdir()
+    
+    user_readme = user_project / "README.md"
+    user_readme.write_text("User Custom README content", encoding="utf-8")
+    
+    user_agents = user_project / "AGENTS.md"
+    user_agents.write_text("User Custom AGENTS rules", encoding="utf-8")
+
+    # Inicializa o framework nesse projeto pré-existente
+    init.initialize_project(str(REPO), str(user_project))
+
+    # Garante que os arquivos originais do usuário NÃO foram sobrescritos
+    assert user_readme.read_text(encoding="utf-8") == "User Custom README content"
+    assert user_agents.read_text(encoding="utf-8") == "User Custom AGENTS rules"
+
+    # E garante que o bootstrap foi salvo na pasta .agent/ para referência
+    assert (user_project / ".agent/bootstrap-AGENTS.md").is_file()
