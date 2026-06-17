@@ -30,3 +30,10 @@ def test_planner_decomposes():
         assert marker in txt, f"marcador ausente no planner: {marker!r}"
     # garante que o antigo caminho não sobrou
     assert not (REPO / "agents/task-decomposer").exists(), "task-decomposer deveria ter virado _spine/planner"
+
+
+def test_reviewer_in_spine():
+    assert (REPO / "agents/_spine/reviewer/AGENT.md").is_file()
+    assert (REPO / "agents/_spine/reviewer/checklists/pr-checklist.md").is_file()
+    assert (REPO / "agents/_spine/reviewer/checklists/security-checklist.md").is_file()
+    assert not (REPO / "agents/reviewer").exists(), "reviewer deveria estar em _spine"
