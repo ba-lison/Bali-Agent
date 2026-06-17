@@ -14,3 +14,11 @@ def test_spine_files_exist():
     ]
     missing = [f for f in expected if not (REPO / f).is_file()]
     assert not missing, f"arquivos da espinha ausentes: {missing}"
+
+
+def test_orchestrator_routes_any_task():
+    txt = _read("agents/_spine/orchestrator/AGENT.md")
+    # Deve operar nos dois modos e rotear QUALQUER pedido pelo time
+    for marker in ["Modo Operate", "Modo Greenfield", ".agent/subagent.config.yaml",
+                   "nunca trabalha sozinho", "protocols/routing.md"]:
+        assert marker in txt, f"marcador ausente no orchestrator: {marker!r}"
