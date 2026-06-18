@@ -436,5 +436,179 @@ class TestRuntimeEngine(unittest.TestCase):
             self.assertIn("Auto-Save Fallback", new_content)
             self.assertIn("orchestrator -> planner", new_content)
 
+
+# ─── Testes: _run_llm retry com backoff exponencial ───────────────────────────
+
+class TestRunLlmRetry(unittest.TestCase):
+    """Testa retry com backoff exponencial na função _run_llm do bali_runtime."""
+
+    def setUp(self):
+        import importlib
+        import sys
+        REPO = Path(__file__).resolve().parents[1]
+        runtime_path = str(REPO / "templates" / "runtime")
+        if runtime_path not in sys.path:
+            sys.path.insert(0, runtime_path)
+        import bali_runtime
+        self.bali_runtime = bali_runtime
+
+    def test_run_llm_succeeds_on_first_attempt(self):
+        """Sem falha: subprocess retorna 0, nenhum retry."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            prompt_path = Path(tmpdir) / "p.md"
+            output_path = Path(tmpdir) / "o.md"
+            prompt_path.write_text("prompt", encoding="utf-8")
+
+            mock_proc = MagicMock()
+            mock_proc.returncode = 0
+            mock_proc.stderr = ""
+
+            with patch("subprocess.run", return_value=mock_proc) as mock_run, \
+                 patch("bali_runtime._time.sleep") as mock_sleep:
+                self.bali_runtime._run_llm("cmd {prompt_file}", prompt_path, output_path, "test-agent")
+                self.assertEqual(mock_run.call_count, 1)
+                mock_sleep.assert_not_called()
+
+    def test_run_llm_retries_on_failure_then_succeeds(self):
+        """Falha na tentativa 1, sucesso na tentativa 2."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            prompt_path = Path(tmpdir) / "p.md"
+            output_path = Path(tmpdir) / "o.md"
+            prompt_path.write_text("prompt", encoding="utf-8")
+
+            fail_proc = MagicMock()
+            fail_proc.returncode = 1
+            fail_proc.stderr = "transient error"
+
+            ok_proc = MagicMock()
+            ok_proc.returncode = 0
+            ok_proc.stderr = ""
+
+            with patch("subprocess.run", side_effect=[fail_proc, ok_proc]) as mock_run, \
+                 patch("bali_runtime._time.sleep") as mock_sleep:
+                self.bali_runtime._run_llm("cmd {prompt_file}", prompt_path, output_path, "test-agent")
+                self.assertEqual(mock_run.call_count, 2)
+                mock_sleep.assert_called_once_with(2)  # primeiro delay
+
+    def test_run_llm_exhausts_all_attempts(self):
+        """Falha em todas as 3 tentativas → RuntimeError."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            prompt_path = Path(tmpdir) / "p.md"
+            output_path = Path(tmpdir) / "o.md"
+            prompt_path.write_text("prompt", encoding="utf-8")
+
+            fail_proc = MagicMock()
+            fail_proc.returncode = 1
+            fail_proc.stderr = "error"
+
+            with patch("subprocess.run", return_value=fail_proc) as mock_run, \
+                 patch("bali_runtime._time.sleep") as mock_sleep:
+                with self.assertRaises(RuntimeError):
+                    self.bali_runtime._run_llm("cmd {prompt_file}", prompt_path, output_path, "test-agent")
+                self.assertEqual(mock_run.call_count, 3)
+                # Delays: 2s e 4s (entre tentativas 1→2 e 2→3; não há sleep após a última)
+                sleep_calls = [c[0][0] for c in mock_sleep.call_args_list]
+                self.assertEqual(sleep_calls, [2, 4])
+
+    def test_run_llm_file_not_found_not_retried(self):
+        """FileNotFoundError (binário não encontrado) não deve ser retentatado."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            prompt_path = Path(tmpdir) / "p.md"
+            output_path = Path(tmpdir) / "o.md"
+            prompt_path.write_text("prompt", encoding="utf-8")
+
+            with patch("subprocess.run", side_effect=FileNotFoundError("not found")) as mock_run, \
+                 patch("bali_runtime._time.sleep") as mock_sleep:
+                with self.assertRaises(FileNotFoundError):
+                    self.bali_runtime._run_llm("nonexistent_cmd {prompt_file}", prompt_path, output_path, "test-agent")
+                self.assertEqual(mock_run.call_count, 1)
+                mock_sleep.assert_not_called()
+
+
+# ─── Testes: HandoffBus ────────────────────────────────────────────────────────
+
+class TestHandoffBus(unittest.TestCase):
+    """Testa HandoffBus: envio, recebimento, auditabilidade de mensagens lidas."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp_dir = tempfile.mkdtemp()
+        # Aponta o bus para diretório temporário
+        self._original_bus_path = run._HANDOFF_BUS_PATH
+        run._HANDOFF_BUS_PATH = os.path.join(self.tmp_dir, "handoff_bus.json")
+
+    def tearDown(self):
+        run._HANDOFF_BUS_PATH = self._original_bus_path
+        import shutil
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_send_message_creates_bus_file(self):
+        """send_handoff cria o arquivo handoff_bus.json se não existir."""
+        result = run._handoff_bus_send("orchestrator", "reviewer", "Contexto importante")
+        self.assertIn("reviewer", result)
+        self.assertTrue(os.path.exists(run._HANDOFF_BUS_PATH))
+
+    def test_send_message_has_unique_id_and_required_fields(self):
+        """Cada mensagem tem id único, timestamp, from, to, content, read=False."""
+        run._handoff_bus_send("planner", "reviewer", "Plano pronto")
+        with open(run._HANDOFF_BUS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self.assertEqual(len(data), 1)
+        msg = data[0]
+        self.assertIn("id", msg)
+        self.assertIn("timestamp", msg)
+        self.assertEqual(msg["from"], "planner")
+        self.assertEqual(msg["to"], "reviewer")
+        self.assertEqual(msg["content"], "Plano pronto")
+        self.assertFalse(msg["read"])
+
+    def test_receive_returns_pending_messages(self):
+        """receive retorna apenas mensagens não-lidas para o agente correto."""
+        run._handoff_bus_send("planner", "reviewer", "msg A")
+        run._handoff_bus_send("planner", "orchestrator", "msg B")
+        result = run._handoff_bus_receive("reviewer")
+        self.assertIn("msg A", result)
+        self.assertNotIn("msg B", result)
+
+    def test_receive_marks_messages_as_read(self):
+        """Mensagens recebidas ficam com read=True mas NÃO são deletadas."""
+        run._handoff_bus_send("planner", "reviewer", "msg para revisar")
+        run._handoff_bus_receive("reviewer")
+        with open(run._HANDOFF_BUS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # A mensagem ainda existe no bus
+        self.assertEqual(len(data), 1)
+        self.assertTrue(data[0]["read"])
+
+    def test_receive_empty_bus_returns_no_pending_message(self):
+        """Quando não há mensagens pendentes, retorna mensagem de vazio."""
+        result = run._handoff_bus_receive("reviewer")
+        self.assertIn("Nenhuma mensagem pendente", result)
+
+    def test_second_receive_returns_empty_after_read(self):
+        """Após primeira leitura, segunda chamada não retorna a mesma mensagem."""
+        run._handoff_bus_send("planner", "reviewer", "msg única")
+        run._handoff_bus_receive("reviewer")
+        result = run._handoff_bus_receive("reviewer")
+        self.assertIn("Nenhuma mensagem pendente", result)
+
+    def test_execute_tool_send_handoff_integration(self):
+        """execute_tool('send_handoff', ...) chama _handoff_bus_send corretamente."""
+        with patch.dict(os.environ, {"BALI_CURRENT_AGENT": "spec-frontend"}):
+            result = run.execute_tool("send_handoff", {
+                "to_agent": "reviewer",
+                "message": "Frontend pronto para revisão"
+            })
+        self.assertIn("reviewer", result)
+        with open(run._HANDOFF_BUS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self.assertEqual(data[0]["from"], "spec-frontend")
+        self.assertEqual(data[0]["to"], "reviewer")
+
+
 if __name__ == "__main__":
     unittest.main()

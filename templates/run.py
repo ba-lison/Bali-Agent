@@ -137,6 +137,27 @@ TOOLS = [
                 "required": ["query"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_handoff",
+            "description": "Envia uma mensagem estruturada para outro subagente via HandoffBus. Use quando precisar coordenar ou transferir contexto entre subagentes sem precisar de uma nova invocação completa.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to_agent": {
+                        "type": "string",
+                        "description": "Nome do agente destinatário (ex: 'reviewer', 'planner', 'spec-frontend')."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Conteúdo da mensagem ou contexto a transferir."
+                    }
+                },
+                "required": ["to_agent", "message"]
+            }
+        }
     }
 ]
 
@@ -387,7 +408,79 @@ def execute_tool(name, args):
         except Exception as e:
             return f"Erro ao acessar memória: {e}"
 
+    elif name == "send_handoff":
+        to_agent = args.get("to_agent")
+        message = args.get("message")
+        if not to_agent or not message:
+            return "Erro: parâmetros 'to_agent' ou 'message' ausentes."
+
+        from_agent = os.environ.get("BALI_CURRENT_AGENT", "orchestrator")
+        result = _handoff_bus_send(from_agent, to_agent, message)
+        return result
+
     return f"Erro: Ferramenta '{name}' desconhecida."
+
+
+# ─── HandoffBus ────────────────────────────────────────────────────────────────
+# Canal de message-passing entre subagentes via .agent/output/handoff_bus.json
+# Mensagens lidas ficam marcadas read=true (não deletadas) para auditabilidade.
+
+_HANDOFF_BUS_PATH = os.path.join(".agent", "output", "handoff_bus.json")
+
+
+def _handoff_bus_load():
+    """Carrega o bus do disco. Retorna lista vazia se não existir."""
+    if not os.path.exists(_HANDOFF_BUS_PATH):
+        return []
+    try:
+        with open(_HANDOFF_BUS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _handoff_bus_save(messages):
+    """Salva o bus atomicamente via tmp + os.replace."""
+    os.makedirs(os.path.dirname(_HANDOFF_BUS_PATH), exist_ok=True)
+    tmp = _HANDOFF_BUS_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(messages, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, _HANDOFF_BUS_PATH)
+
+
+def _handoff_bus_send(from_agent, to_agent, content):
+    """Grava mensagem no bus. Retorna confirmação com ID."""
+    messages = _handoff_bus_load()
+    msg_id = f"{int(time.time() * 1000)}-{from_agent}-{to_agent}"
+    entry = {
+        "id": msg_id,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "from": from_agent,
+        "to": to_agent,
+        "content": content,
+        "read": False,
+    }
+    messages.append(entry)
+    _handoff_bus_save(messages)
+    return f"Mensagem enviada para '{to_agent}' (id={msg_id})."
+
+
+def _handoff_bus_receive(agent_name):
+    """Retorna mensagens não-lidas para agent_name e as marca como lidas."""
+    messages = _handoff_bus_load()
+    pending = [m for m in messages if m.get("to") == agent_name and not m.get("read")]
+    if not pending:
+        return "Nenhuma mensagem pendente no HandoffBus."
+    for m in messages:
+        if m.get("to") == agent_name and not m.get("read"):
+            m["read"] = True
+    _handoff_bus_save(messages)
+    lines = []
+    for m in pending:
+        lines.append(f"[{m['timestamp']}] DE {m['from']}: {m['content']}")
+    return "\n".join(lines)
+
 
 def run_agent_loop(agent_name, prompt, max_loops=5):
     agent_prompt = load_agent_prompt(agent_name)

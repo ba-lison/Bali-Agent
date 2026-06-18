@@ -19,6 +19,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time as _time
 
 
 SPINE = ("orchestrator", "planner", "reviewer")
@@ -389,23 +390,58 @@ def _write_prompt(run_dir, agent_name, agent_path, task, prior_output):
 
 
 def _run_llm(command_template, prompt_path, output_path, agent_name):
+    """Executa o LLM CLI com retry exponencial para erros transitórios.
+
+    Tentativas: 3 (delays: 2s, 4s, 8s).
+    FileNotFoundError (binário não encontrado) não é retentatado — é erro fatal.
+    """
     command = command_template.format(
         prompt_file=str(prompt_path),
         output_file=str(output_path),
         agent=agent_name,
     )
-    with output_path.open("w", encoding="utf-8") as out:
-        completed = subprocess.run(
-            command if os.name == "nt" else shlex.split(command),
-            shell=(os.name == "nt"),
-            stdout=out,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-    if completed.returncode != 0:
-        raise RuntimeError(
-            f"LLM command failed for {agent_name} with exit {completed.returncode}: {completed.stderr}"
-        )
+    max_attempts = 3
+    delay = 2
+    last_error = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with output_path.open("w", encoding="utf-8") as out:
+                completed = subprocess.run(
+                    command if os.name == "nt" else shlex.split(command),
+                    shell=(os.name == "nt"),
+                    stdout=out,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+            if completed.returncode == 0:
+                return
+            last_error = RuntimeError(
+                f"LLM command failed for {agent_name} (attempt {attempt}/{max_attempts}) "
+                f"with exit {completed.returncode}: {completed.stderr}"
+            )
+            if attempt < max_attempts:
+                print(
+                    f"[!] {last_error}. Aguardando {delay}s antes de tentar novamente...",
+                    file=sys.stderr,
+                )
+                _time.sleep(delay)
+                delay *= 2
+        except FileNotFoundError:
+            # Binário não encontrado — erro fatal, não retentar
+            raise
+        except Exception as exc:
+            last_error = exc
+            if attempt < max_attempts:
+                print(
+                    f"[!] Erro inesperado ao executar LLM (attempt {attempt}/{max_attempts}): {exc}. "
+                    f"Aguardando {delay}s...",
+                    file=sys.stderr,
+                )
+                _time.sleep(delay)
+                delay *= 2
+
+    raise last_error
 
 
 def _build_chain(agents, workflow, specialist):

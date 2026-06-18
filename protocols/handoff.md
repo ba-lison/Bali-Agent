@@ -230,3 +230,104 @@ flowchart TD
 <p align="center">
   <em>Um handoff bem feito é a diferença entre um projeto fluido e um projeto caótico.</em>
 </p>
+
+---
+
+## 9. HandoffBus — Comunicação Direta entre Subagentes
+
+> **Propósito**: Permitir que subagentes se comuniquem de forma assíncrona, sem precisar de uma nova invocação completa via Orchestrator, preservando rastreabilidade total.
+
+### 9.1 Visão Geral
+
+O HandoffBus é um canal de message-passing baseado em arquivo JSON (`.agent/output/handoff_bus.json`). Ele complementa o fluxo de handoff estruturado do §2 para casos onde um agente precisa transferir contexto pontual para outro agente que já está sendo invocado em paralelo ou em cadeia.
+
+```mermaid
+flowchart LR
+    A["Agente A\n(executa tarefa)"] -->|"send_handoff\n(to_agent=B, message=...)"| BUS[".agent/output/\nhandoff_bus.json"]
+    BUS -->|"receive_messages\n(agent_name=B)"| B["Agente B\n(recebe contexto)"]
+    BUS -->|"mensagens lidas\nficam com read=true"| AUDIT["📋 Auditoria"]
+```
+
+### 9.2 Ferramenta `send_handoff`
+
+Disponível no array `TOOLS` de `templates/run.py`. Todo agente do loop agêntico pode usá-la.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `to_agent` | string | Nome do agente destinatário (ex: `"reviewer"`, `"spec-frontend"`) |
+| `message` | string | Conteúdo da mensagem ou contexto a transferir |
+
+**Exemplo de uso pelo agente:**
+
+```json
+{
+  "tool": "send_handoff",
+  "to_agent": "reviewer",
+  "message": "Implementei o endpoint POST /api/pedidos. Arquivo principal: src/api/pedidos.py. Atenção: a validação de estoque ainda não está coberta por testes — issue #42."
+}
+```
+
+### 9.3 Formato do `handoff_bus.json`
+
+```json
+[
+  {
+    "id": "1719000000000-planner-reviewer",
+    "timestamp": "2025-06-18T09:30:00",
+    "from": "planner",
+    "to": "reviewer",
+    "content": "Plano de tasks concluído. Ver output/tasks.md. Atenção ao item 3: dependência de auth.",
+    "read": false
+  },
+  {
+    "id": "1719000001000-spec-frontend-reviewer",
+    "timestamp": "2025-06-18T09:31:00",
+    "from": "spec-frontend",
+    "to": "reviewer",
+    "content": "Componente Login.tsx refatorado. Não alterei o schema de props — compatível com versão anterior.",
+    "read": true
+  }
+]
+```
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | string | ID único: `<timestamp_ms>-<from>-<to>` |
+| `timestamp` | string | ISO 8601 do momento do envio |
+| `from` | string | Agente que enviou (usa `BALI_CURRENT_AGENT` env, default: `orchestrator`) |
+| `to` | string | Agente destinatário |
+| `content` | string | Conteúdo da mensagem |
+| `read` | boolean | `false` = pendente, `true` = já lido (mensagem não é deletada — auditabilidade) |
+
+### 9.4 Como receber mensagens
+
+Use a função `_handoff_bus_receive(agent_name)` (disponível internamente no runtime):
+
+```python
+# Dentro do agente no run_agent_loop:
+mensagens = _handoff_bus_receive("reviewer")
+# Retorna todas as mensagens não-lidas para "reviewer"
+# Marca automaticamente como read=true no bus
+```
+
+### 9.5 Regras do HandoffBus
+
+| # | Regra | Motivo |
+|---|-------|--------|
+| 1 | **Mensagens lidas NÃO são deletadas** | Auditabilidade — `read=true` preserva o histórico |
+| 2 | **Não substitui o handoff estruturado** (§2) | Para transições de fase com artefato, use sempre o YAML de handoff |
+| 3 | **Use para contexto pontual**, não para o artefato completo | O artefato vai via arquivo salvo em disco — a mensagem é o resumo/alerta |
+| 4 | **`from_agent` é automático** via env `BALI_CURRENT_AGENT` | O agente não precisa se auto-identificar manualmente |
+| 5 | **IDs são únicos por timestamp em ms** | Garante rastreabilidade mesmo com múltiplos agentes simultâneos |
+
+### 9.6 Diferença entre HandoffBus e Handoff Estruturado
+
+| Dimensão | Handoff Estruturado (§2) | HandoffBus (§9) |
+|----------|-------------------------|-----------------|
+| **Formato** | YAML com campos obrigatórios | JSON livre via ferramenta |
+| **Mediador** | Orchestrator obrigatório | Direto agente → agente |
+| **Gatilho** | Transição de fase | Qualquer ponto da execução |
+| **Artefato** | Referencia arquivo em disco | Mensagem inline |
+| **Gate humano** | Possível (§3.3) | Não — assíncrono |
+| **Uso ideal** | Fim de fase (Discovery→PRD, PRD→SDD) | Alertas, contexto pontual, notas de revisão |
+

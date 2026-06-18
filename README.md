@@ -1,6 +1,7 @@
 # Bali-Agent AI
 
 [![tests](https://github.com/ba-lison/Bali-Agent/actions/workflows/tests.yml/badge.svg)](https://github.com/ba-lison/Bali-Agent/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/LICENSE)
 
 Bali-Agent e um framework agnostico de LLM para engenharia de software com subagentes reais. Ele instala uma camada `.agent/` no projeto, cria um time base reutilizavel, conecta esse time aos adapters das ferramentas conhecidas e usa o Bali Runtime como fallback universal quando a IDE, CLI ou LLM nao oferece subagentes nativos.
 
@@ -298,3 +299,7 @@ O framework esta desenhado para:
 - funcionar de forma agnostica a LLM, IDE e CLI;
 - registrar memoria de forma curada;
 - manter humano no loop para aprovar PRD, SDD e entregas relevantes.
+
+## License
+
+Distribuído sob a licença [MIT](LICENSE). Copyright (c) 2025 Alison Cruz.
