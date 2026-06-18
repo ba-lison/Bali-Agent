@@ -14,6 +14,10 @@ import yaml
 import urllib.request
 import urllib.error
 import subprocess
+import shlex
+import re
+import difflib
+import time
 
 # Log helper printing to stderr to preserve stdout for final output
 def log(msg):
@@ -211,13 +215,90 @@ def execute_tool(name, args):
             return "Erro: parâmetro 'command' ausente."
             
         # Agent Shield - Segurança Ativa na Execução do Loop
-        dangerous_keywords = ["rm ", "del ", "format ", "curl ", "wget ", "sh ", "bash ", "powershell "]
-        safe_prefixes = ("pytest", "python", "npm", "pip", "cargo", "go", "git status", "git diff", "git log", "dir", "ls", "echo")
+        try:
+            tokens = shlex.split(command)
+        except Exception:
+            tokens = []
+            
+        dangerous_cmds = {"rm", "del", "format", "curl", "wget", "sh", "bash", "powershell"}
+        is_dangerous = False
         
-        is_dangerous = any(kw in command.lower() for kw in dangerous_keywords)
-        is_safe = command.strip().startswith(safe_prefixes)
+        def check_dangerous_token(tok):
+            tk = tok.lower().strip()
+            words = re.split(r'[/\\]', tk)
+            base_cmd = words[-1]
+            if base_cmd.endswith(".exe"):
+                base_cmd = base_cmd[:-4]
+            subwords = re.split(r'[-_.]', base_cmd)
+            for sw in subwords:
+                if sw in dangerous_cmds:
+                    return True
+            return False
+
+        for tok in tokens:
+            if check_dangerous_token(tok):
+                is_dangerous = True
+                break
+                
+        chaining_ops = {";", "&&", "||", "|", "&"}
+        has_chaining = False
+        for tok in tokens:
+            if any(op in tok for op in chaining_ops):
+                has_chaining = True
+                break
+                
+        subcommands = []
+        current = []
+        for tok in tokens:
+            contains_op = any(op in tok for op in chaining_ops)
+            if contains_op:
+                parts = re.split(r'(&&|\|\||[;|&])', tok)
+                for part in parts:
+                    if not part:
+                        continue
+                    if part in chaining_ops:
+                        if current:
+                            subcommands.append(current)
+                            current = []
+                    else:
+                        current.append(part)
+            else:
+                if tok in chaining_ops:
+                    if current:
+                        subcommands.append(current)
+                        current = []
+                else:
+                    current.append(tok)
+        if current:
+            subcommands.append(current)
+            
+        safe_executables = {"pytest", "python", "npm", "pip", "cargo", "go", "git", "dir", "ls", "echo"}
+        validation_passed = True
         
-        if is_dangerous or not is_safe:
+        if not subcommands:
+            validation_passed = False
+            
+        for sub in subcommands:
+            if not sub:
+                validation_passed = False
+                break
+            exec_name = sub[0].lower().strip()
+            if exec_name.endswith(".exe"):
+                exec_name = exec_name[:-4]
+            exec_name = re.split(r'[/\\]', exec_name)[-1]
+            
+            if exec_name not in safe_executables:
+                validation_passed = False
+                break
+                
+            if exec_name == "git":
+                if len(sub) < 2 or sub[1].lower().strip() not in {"status", "diff", "log"}:
+                    validation_passed = False
+                    break
+                    
+        is_safe = validation_passed and not is_dangerous
+        
+        if not is_safe:
             log(f"Alerta de Segurança: Comando '{command}' considerado potencialmente perigoso ou não-padrão.")
             approval_msg = f"O agente solicitou a execução do seguinte comando considerado sensível/não-padrão:\n  > {command}\n\nVocê autoriza a execução? (S/N)"
             print(f"\n[AGENT SHIELD - EXECUÇÃO SENSÍVEL]\n{approval_msg}")
@@ -254,8 +335,8 @@ def execute_tool(name, args):
         return run_agent_loop(agent_name, prompt)
 
     elif name == "search_memory":
-        query = args.get("query", "").lower()
-        if not query:
+        query_text = args.get("query", "")
+        if not query_text:
             return "Erro: parâmetro 'query' ausente."
         
         memory_path = os.path.join(".agent", "memory.md")
@@ -268,14 +349,31 @@ def execute_tool(name, args):
                 
             entries = content.split("## ")
             matching_entries = []
+            
+            query_words = [w for w in re.findall(r'[a-zA-Z0-9]+', query_text.lower()) if len(w) >= 3]
+            
             for entry in entries:
                 if not entry.strip():
                     continue
-                if query in entry.lower():
+                
+                matched = False
+                if query_text.lower() in entry.lower():
+                    matched = True
+                else:
+                    entry_words = [w for w in re.findall(r'[a-zA-Z0-9]+', entry.lower()) if len(w) >= 3]
+                    for qw in query_words:
+                        for ew in entry_words:
+                            if difflib.SequenceMatcher(None, qw, ew).ratio() >= 0.8:
+                                matched = True
+                                break
+                        if matched:
+                            break
+                            
+                if matched:
                     matching_entries.append("## " + entry.strip())
                     
             if not matching_entries:
-                return f"Nenhuma entrada histórica encontrada na busca por: '{query}'"
+                return f"Nenhuma entrada histórica encontrada na busca por: '{query_text}'"
                 
             return "\n\n".join(matching_entries)
         except Exception as e:
@@ -287,10 +385,43 @@ def run_agent_loop(agent_name, prompt, max_loops=5):
     agent_prompt = load_agent_prompt(agent_name)
     system_prompt = f"{agent_prompt}\n\nVocê é o especialista '{agent_name}'. Execute a tarefa usando as ferramentas disponíveis."
     
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": prompt}
-    ]
+    session_id = os.environ.get("BALI_SESSION_ID", agent_name)
+    sessions_dir = os.path.join(".agent", "sessions")
+    os.makedirs(sessions_dir, exist_ok=True)
+    checkpoint_path = os.path.join(sessions_dir, f"{session_id}.json")
+    
+    def save_checkpoint(msgs):
+        try:
+            with open(checkpoint_path, "w", encoding="utf-8") as f:
+                json.dump(msgs, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            log_error(f"Erro ao salvar checkpoint: {e}")
+
+    class CheckpointList(list):
+        def append(self, item):
+            super().append(item)
+            save_checkpoint(self)
+        def extend(self, iterable):
+            super().extend(iterable)
+            save_checkpoint(self)
+
+    if os.path.exists(checkpoint_path):
+        try:
+            with open(checkpoint_path, "r", encoding="utf-8") as f:
+                messages = CheckpointList(json.load(f))
+        except Exception as e:
+            log_error(f"Erro ao carregar checkpoint: {e}")
+            messages = CheckpointList([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ])
+            save_checkpoint(messages)
+    else:
+        messages = CheckpointList([
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ])
+        save_checkpoint(messages)
     
     loop_count = 0
     while loop_count < max_loops:
@@ -375,6 +506,14 @@ def run_agent_loop(agent_name, prompt, max_loops=5):
                 
     return f"Erro: Limite de loops do subagente '{agent_name}' atingido."
 
+def validate_working_context(content):
+    if not content:
+        return False
+    has_title = "# Working Context" in content
+    has_status = ("Status Atual" in content) or ("Milestone" in content)
+    has_progress = ("Progresso Recente" in content) or ("Recent Progress" in content)
+    return has_title and has_status and has_progress
+
 def save_context_auto(user_instruction, history_messages):
     log("Salvando memória de trabalho de forma automatizada...")
     working_context = load_working_context()
@@ -429,6 +568,10 @@ def save_context_auto(user_instruction, history_messages):
             cleaned = cleaned[:-3]
         cleaned = cleaned.strip()
         
+        if not validate_working_context(cleaned):
+            log_error("Falha na validação do working-context.md: estrutura markdown inválida ou cabeçalhos ausentes.")
+            return
+            
         try:
             context_path = os.path.join(".agent", "working-context.md")
             with open(context_path, "w", encoding="utf-8") as f:
@@ -518,18 +661,41 @@ def call_llm_api(messages, tools=None):
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
 
-    try:
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=120) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8")
-        log_error(f"Erro de HTTP na chamada de API: {e.code} - {e.reason}\nBody: {error_body}")
-        return None
-    except Exception as e:
-        log_error(f"Erro de conexão na chamada de API: {e}")
-        return None
+    max_attempts = 5
+    delay = 1
+    
+    for attempt in range(1, max_attempts + 1):
+        try:
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=120) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            error_body = ""
+            try:
+                error_body = e.read().decode("utf-8")
+            except Exception:
+                pass
+            log_error(f"Erro de HTTP na chamada de API (Tentativa {attempt}/{max_attempts}): {e.code} - {e.reason}\nBody: {error_body}")
+            if e.code == 429 or e.code == 503 or (e.code >= 500 and e.code < 600):
+                if attempt < max_attempts:
+                    log(f"Aguardando {delay} segundos antes de tentar novamente...")
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                else:
+                    return None
+            else:
+                return None
+        except Exception as e:
+            log_error(f"Erro de conexão na chamada de API (Tentativa {attempt}/{max_attempts}): {e}")
+            if attempt < max_attempts:
+                log(f"Aguardando {delay} segundos antes de tentar novamente...")
+                time.sleep(delay)
+                delay *= 2
+                continue
+            else:
+                return None
 
 def main():
     if len(sys.argv) < 2:

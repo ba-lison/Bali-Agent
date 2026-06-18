@@ -5,6 +5,64 @@ import os
 import sys
 import json
 
+def extract_critical_sections(content):
+    lines = content.splitlines()
+    sections = []
+    
+    current_header = None
+    current_level = 0
+    current_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            if current_header is not None or current_lines:
+                sections.append((current_header, current_level, current_lines))
+            
+            level = 0
+            for char in stripped:
+                if char == '#':
+                    level += 1
+                else:
+                    break
+            header_name = stripped[level:].strip()
+            current_header = header_name
+            current_level = level
+            current_lines = [line]
+        else:
+            current_lines.append(line)
+            
+    if current_header is not None or current_lines:
+        sections.append((current_header, current_level, current_lines))
+        
+    extracted = []
+    
+    for header, level, slines in sections:
+        if header is None:
+            content_str = "\n".join(slines).strip()
+            if content_str:
+                extracted.append(content_str)
+            continue
+            
+        lower_header = header.lower()
+        is_target = False
+        
+        if level == 1 or "working context" in lower_header:
+            is_target = True
+        elif "status atual" in lower_header or "milestone" in lower_header:
+            is_target = True
+        elif "stack tecnol" in lower_header:
+            is_target = True
+        elif "progresso recente" in lower_header or "recent progress" in lower_header:
+            is_target = True
+        elif "bugs conhecidos" in lower_header or "known bugs" in lower_header:
+            is_target = True
+            
+        if is_target:
+            extracted.append("\n".join(slines).strip())
+            
+    return "\n\n".join(extracted).strip()
+
 def main():
     # Tenta obter a memória de trabalho para injetar o estado atual
     payload = {}
@@ -26,11 +84,22 @@ def main():
     if os.path.exists(working_context):
         try:
             with open(working_context, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                # Pega as primeiras 25 linhas (resumo do status e stack) para economizar tokens
-                context_content = "".join(lines[:25])
+                content = f.read()
+            
+            dynamic_content = extract_critical_sections(content)
+            if dynamic_content:
+                context_content = dynamic_content
+            else:
+                # fallback
+                lines = content.splitlines()
+                context_content = "\n".join(lines[:25])
         except Exception:
-            pass
+            try:
+                with open(working_context, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    context_content = "".join(lines[:25])
+            except Exception:
+                pass
 
     instincts = """
 === SYSTEM REMINDER: TIME BALI-AGENT ===

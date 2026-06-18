@@ -156,5 +156,190 @@ class TestRuntimeEngine(unittest.TestCase):
                 self.assertIn("corrigido o fluxo de login", result)
                 self.assertNotIn("setup validado", result)
 
+    def test_checkpoint_persistence(self):
+        import tempfile
+        original_join = os.path.join
+        with tempfile.TemporaryDirectory() as tmpdir:
+            session_id = "test_session_123"
+            def mock_join(*args):
+                if len(args) >= 2 and args[0] == ".agent" and args[1] == "sessions":
+                    return os.path.join(tmpdir, *args[1:])
+                return original_join(*args)
+
+            with patch("os.path.join", side_effect=mock_join):
+                with patch.dict(os.environ, {"BALI_SESSION_ID": session_id}):
+                    mock_response = {
+                        "choices": [{
+                            "message": {
+                                "role": "assistant",
+                                "content": "Done"
+                            }
+                        }]
+                    }
+                    with patch("run.call_llm_api", return_value=mock_response):
+                        with patch("run.load_agent_prompt", return_value="System Prompt"):
+                            res = run.run_agent_loop("test_agent", "start task", max_loops=1)
+                            self.assertEqual(res, "Done")
+                            
+                            checkpoint_path = os.path.join(tmpdir, "sessions", f"{session_id}.json")
+                            self.assertTrue(os.path.exists(checkpoint_path))
+                            
+                            with open(checkpoint_path, "r", encoding="utf-8") as f:
+                                saved_messages = json.load(f)
+                                
+                            self.assertEqual(saved_messages[0]["role"], "system")
+                            self.assertEqual(saved_messages[1]["role"], "user")
+                            self.assertEqual(saved_messages[2]["role"], "assistant")
+                            
+                            mock_response_2 = {
+                                "choices": [{
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": "Resume Done"
+                                    }
+                                }]
+                            }
+                            with patch("run.call_llm_api", return_value=mock_response_2):
+                                res2 = run.run_agent_loop("test_agent", "start task", max_loops=1)
+                                self.assertEqual(res2, "Resume Done")
+                                
+                                with open(checkpoint_path, "r", encoding="utf-8") as f:
+                                    resaved_messages = json.load(f)
+                                self.assertTrue(len(resaved_messages) > 3)
+                                self.assertEqual(resaved_messages[3]["role"], "assistant")
+                                self.assertEqual(resaved_messages[3]["content"], "Resume Done")
+
+    def test_fuzzy_search_memory(self):
+        mock_memory_content = (
+            "## 2026-06-18T08:00:00 - task - setup validado\n"
+            "- **Summary:** time base e adapters verificados\n\n"
+            "## 2026-06-18T08:10:00 - commit - autenticacao\n"
+            "- **Summary:** corrected login error\n"
+        )
+        with patch("os.path.exists", return_value=True):
+            with patch("builtins.open", unittest.mock.mock_open(read_data=mock_memory_content)):
+                result = run.execute_tool("search_memory", {"query": "erro"})
+                self.assertIn("autenticacao", result)
+                self.assertIn("corrected login error", result)
+                self.assertNotIn("setup validado", result)
+
+    def test_auto_save_validation(self):
+        valid_context = (
+            "# Working Context\n"
+            "## Status Atual\n"
+            "Tudo verde.\n"
+            "## Progresso Recente\n"
+            "- Setup concluído\n"
+        )
+        invalid_context_1 = "No title here"
+        invalid_context_2 = (
+            "# Working Context\n"
+            "No status and no progress headers"
+        )
+        
+        self.assertTrue(run.validate_working_context(valid_context))
+        self.assertFalse(run.validate_working_context(invalid_context_1))
+        self.assertFalse(run.validate_working_context(invalid_context_2))
+        
+        with patch("run.load_working_context", return_value="some context"):
+            with patch("run.call_llm_api", return_value={"choices": [{"message": {"content": invalid_context_2}}]}):
+                with patch("builtins.open", unittest.mock.mock_open()) as mock_file:
+                    run.save_context_auto("instruction", [])
+                    mock_file.assert_not_called()
+                    
+        with patch("run.load_working_context", return_value="some context"):
+            with patch("run.call_llm_api", return_value={"choices": [{"message": {"content": valid_context}}]}):
+                with patch("builtins.open", unittest.mock.mock_open()) as mock_file:
+                    run.save_context_auto("instruction", [])
+                    mock_file.assert_called_once()
+                    args, kwargs = mock_file.call_args
+                    self.assertIn("working-context.md", args[0])
+
+    def test_claude_hook_dynamic_extraction(self):
+        import claude_hook
+        mock_context = (
+            "# Working Context\n"
+            "Some general description.\n"
+            "\n"
+            "## Status Atual\n"
+            "Atualmente implementando testes.\n"
+            "\n"
+            "## Stack Tecnológica\n"
+            "- Python\n"
+            "\n"
+            "## Progresso Recente\n"
+            "- Código modificado\n"
+            "\n"
+            "## Bugs Conhecidos\n"
+            "- Nenhum no momento\n"
+            "\n"
+            "## Seção Extra Não Crítica\n"
+            "Esta seção não deve ser incluída no extrato.\n"
+        )
+        
+        extracted = claude_hook.extract_critical_sections(mock_context)
+        
+        self.assertIn("Working Context", extracted)
+        self.assertIn("Status Atual", extracted)
+        self.assertIn("Stack Tecnológica", extracted)
+        self.assertIn("Progresso Recente", extracted)
+        self.assertIn("Bugs Conhecidos", extracted)
+        self.assertNotIn("Seção Extra Não Crítica", extracted)
+
+    @patch("builtins.input", return_value="n")
+    def test_agent_shield_command_chaining(self, mock_input):
+        result = run.execute_tool("run_command", {"command": "pytest && rm -rf ."})
+        self.assertIn("rejeitada pelo usuário", result)
+        
+    @patch("builtins.input", return_value="n")
+    def test_agent_shield_unauthorized_git(self, mock_input):
+        result = run.execute_tool("run_command", {"command": "git push"})
+        self.assertIn("rejeitada pelo usuário", result)
+        
+    @patch("subprocess.run")
+    def test_agent_shield_authorized_git(self, mock_run):
+        mock_proc = MagicMock()
+        mock_proc.stdout = "On branch main"
+        mock_proc.stderr = ""
+        mock_run.return_value = mock_proc
+        
+        result = run.execute_tool("run_command", {"command": "git status"})
+        self.assertIn("On branch main", result)
+        mock_run.assert_called_once_with("git status", shell=True, capture_output=True, text=True, timeout=60)
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_call_llm_api_retry_backoff(self, mock_urlopen, mock_sleep):
+        import urllib.error
+        response_success = MagicMock()
+        response_success.__enter__.return_value = response_success
+        response_success.read.return_value = json.dumps({
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": "sucesso após retry"
+                }
+            }]
+        }).encode("utf-8")
+        
+        err_429 = urllib.error.HTTPError("url", 429, "Too Many Requests", {}, None)
+        err_503 = urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None)
+        
+        mock_urlopen.side_effect = [err_429, err_503, response_success]
+        
+        os.environ["BALI_LLM_PROVIDER"] = "openai"
+        os.environ["BALI_LLM_MODEL"] = "gpt-4o"
+        os.environ["BALI_API_KEY"] = "fake-key"
+        
+        messages = [{"role": "user", "content": "olá"}]
+        res = run.call_llm_api(messages)
+        
+        self.assertIsNotNone(res)
+        self.assertEqual(res["choices"][0]["message"]["content"], "sucesso após retry")
+        self.assertEqual(mock_urlopen.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_sleep.assert_any_call(1)
+        mock_sleep.assert_any_call(2)
+
 if __name__ == "__main__":
     unittest.main()
