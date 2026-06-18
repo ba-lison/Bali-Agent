@@ -1,327 +1,281 @@
-# 🤖 Bali-Agent AI
+# Bali-Agent AI
 
 [![tests](https://github.com/ba-lison/Bali-Agent/actions/workflows/tests.yml/badge.svg)](https://github.com/ba-lison/Bali-Agent/actions/workflows/tests.yml)
 
-**Orquestração de Engenharia de Software Moderna baseada em Agentes Autônomos**
+Bali-Agent e um framework agnostico de LLM para engenharia de software com subagentes reais. Ele instala uma camada `.agent/` no projeto, cria um time base reutilizavel, conecta esse time aos adapters das ferramentas conhecidas e usa o Bali Runtime como fallback universal quando a IDE, CLI ou LLM nao oferece subagentes nativos.
 
-> **LLM-Agnostic** — Funciona com Claude, GPT, Gemini, Llama, e qualquer LLM.  
-> Nenhum vendor lock-in. Nenhuma dependência de modelo específico.
+## Objetivo Master
 
----
+O objetivo master do Bali-Agent e simples: **subagentes reais sempre**.
 
-## 📋 Visão Geral
+O framework nao foi feito para um unico chat interpretar papeis. Ele foi feito para criar, chamar, persistir e reutilizar subagentes especializados do projeto. O modelo pode mudar. A IDE pode mudar. O CLI pode mudar. O contrato nao muda.
 
-O **Bali-Agent AI** é um sistema de agentes autônomos e LLM-agnostic que orquestram o ciclo completo de engenharia de software — da concepção à entrega. Cada agente possui um papel especializado e segue protocolos rigorosos de qualidade, handoff e aprovação humana.
+- Claude Code, Codex, OpenCode, Antigravity, Cursor, Gemini, Ollama ou qualquer LLM podem operar o mesmo projeto.
+- Se a ferramenta tiver subagentes nativos, o setup cria os arquivos no formato dessa ferramenta.
+- Se a ferramenta nao tiver subagentes nativos, o Bali Runtime executa subagentes isolados por prompt, arquivo de saida e processo/comando.
+- Se faltar um especialista, o Orchestrator cria um novo `spec-*`, salva em `.agent/team/`, atualiza o manifesto e espelha esse agente nos adapters suportados.
+- Se nao existe adapter nem runtime funcional, o framework deve falhar fechado em vez de fingir que um role-play e um subagente.
 
-O sistema transforma uma ideia vaga em software funcional, revisado e pronto para produção, seguindo as melhores práticas de engenharia do Google, métricas DORA, e guidelines de segurança de IA.
+## O Que Ele Instala
 
-### Por que usar?
+Em um projeto alvo, o setup materializa esta base:
 
-- **Consistência**: Todo projeto segue o mesmo rigor de engenharia, independente da complexidade.
-- **Qualidade**: Gates de aprovação humana garantem que nenhum artefato avança sem validação.
-- **Rastreabilidade**: Cada decisão é documentada, cada handoff é explícito.
-- **Flexibilidade**: Qualquer LLM pode assumir qualquer papel — use o modelo que preferir.
-- **Segurança (Agent Shield)**: Proteção ativa local via Git Pre-commit Hook que impede vazamento de arquivos `.env` e chaves de API.
-- **Economia de Contexto (Token-Saving)**: Memória dinâmica local (`working-context.md`) que evita a releitura de arquivos e previne a amnésia das IAs.
-- **Robustez de Terminal (Antiloop)**: Mecanismo defensivo que interrompe e reverte loops infinitos de tentativas de correção no console após 3 falhas.
+```text
+.agent/
+  AGENTS.md
+  adapters/
+  agents/
+    _setup/
+    _specialists/
+    _spine/
+  hooks/
+  memory.md
+  protocols/
+    memory.md
+    routing.md
+    subagents.md
+  runtime/
+    bali_runtime.py
+  subagent.config.yaml
+  team/
+    orchestrator.md
+    discovery.md
+    prd-writer.md
+    sdd-architect.md
+    planner.md
+    reviewer.md
+    spec-implementer.md
+  templates/
+  working-context.md
+```
 
----
+Tambem cria ou ajusta arquivos de integracao no projeto:
 
-## 🔄 Fluxo do Ciclo de Vida
+| Ambiente | O que o Bali-Agent cria |
+| --- | --- |
+| Claude Code | `CLAUDE.md`, `.claude/agents/*.md`, `.claude/settings.json` com hooks de contexto |
+| Codex | `.codex/config.toml`, `.codex/agents/*.toml` |
+| OpenCode | `opencode.json`, `.opencode/agents/*.md` |
+| Antigravity | `.antigravity/skills/bali-agent/SKILL.md` e contrato de subagents/background subagents quando disponivel |
+| Cursor | `.cursor/rules/bali-agent.mdc` |
+| Gemini CLI | `.gemini/settings.json` |
+| Ollama ou API crua | `.agent/runtime/bali_runtime.py` com `BALI_LLM_COMMAND` |
 
-> **Dois modos.** O diagrama abaixo é o fluxo **Greenfield** (projeto do zero). Para projetos **já em andamento** (modo **Operate** — o padrão), o time **não** roda esse pipeline linear: ele faz a triagem do pedido e roteia direto pelo(s) especialista(s) + Reviewer (ver `protocols/routing.md`). Resumo do Operate: `pedido → triagem → (Planner se médio/grande) → especialista(s) → Reviewer → entrega`.
+O arquivo `AGENTS.md` da raiz passa a ser a constituicao operacional do projeto. Em projeto existente, o setup preserva arquivos do usuario e grava o bootstrap em `.agent/bootstrap-AGENTS.md`.
+
+## Time Base
+
+A espinha fixa fica em `_spine/`:
+
+- `orchestrator`: recebe todo pedido, escolhe o fluxo, chama subagentes e nunca trabalha sozinho.
+- `planner`: quebra trabalho em tarefas atomicas quando a tarefa precisa de decomposicao.
+- `reviewer`: revisa entrega, risco, testes e aderencia ao objetivo antes da resposta final.
+
+O time base de produto fica em `.agent/team/`:
+
+- `discovery`: entrevista, leitura de contexto e clarificacao de problema.
+- `prd-writer`: transforma discovery em PRD.
+- `sdd-architect`: transforma PRD em SDD e arquitetura.
+- `spec-implementer`: especialista generico inicial para implementacao.
+
+Especialistas permanentes do projeto usam o prefixo `spec-*`, por exemplo `spec-payments`, `spec-auth`, `spec-rendering`, `spec-mobile`. Eles nao morrem no fim da sessao: ficam salvos em `.agent/team/`, entram em `.agent/subagent.config.yaml` e sao espelhados nos adapters nativos quando possivel.
+
+Nao existe um "recrutador" separado por padrao. Essa responsabilidade fica no Orchestrator porque criar outro subagente fixo so para recrutar aumentaria complexidade sem ganho real. Quando o Orchestrator detecta uma lacuna de especialidade, ele cria o novo especialista reutilizavel.
+
+## Fluxo Do Ciclo De Vida
+
+O Bali-Agent tem dois fluxos oficiais: projeto novo e projeto existente.
+
+### Projeto Novo
+
+Em greenfield, o objetivo e sair de uma ideia pouco definida para uma base implementavel com documentos, plano e time criado.
 
 ```mermaid
 flowchart TD
-    START["🚀 Novo Projeto"]
-    DISCOVERY["🔍 Entrevista Discovery"]
-    GATE1{"✅ Gate 1\nValidação do Entendimento"}
-    PRD["📄 Geração do PRD"]
-    GATE2{"✅ Gate 2\nAprovação do PRD"}
-    SDD["🏗️ Arquitetura SDD"]
-    GATE3{"✅ Gate 3\nAprovação do SDD"}
-    TASKS["📋 Decomposição em Tasks"]
-    GATE4{"✅ Gate 4\nValidação de Prioridades\n(opcional)"}
-    IMPL["💻 Implementação"]
-    REVIEW["🔎 PR Review"]
-    GATE5{"✅ Gate 5\nAprovação do PR"}
-    DONE["✅ Entrega"]
-
-    START --> DISCOVERY
-    DISCOVERY --> GATE1
-    GATE1 -- Aprovado --> PRD
-    GATE1 -- Feedback --> DISCOVERY
-    PRD --> GATE2
-    GATE2 -- Aprovado --> SDD
-    GATE2 -- Feedback --> PRD
-    SDD --> GATE3
-    GATE3 -- Aprovado --> TASKS
-    GATE3 -- Feedback --> SDD
-    TASKS --> GATE4
-    GATE4 -- Aprovado --> IMPL
-    GATE4 -- Feedback --> TASKS
-    IMPL --> REVIEW
-    REVIEW --> GATE5
-    GATE5 -- Aprovado --> DONE
-    GATE5 -- Feedback --> IMPL
-
-    style START fill:#6366f1,color:#fff,stroke:#4f46e5
-    style DONE fill:#22c55e,color:#fff,stroke:#16a34a
-    style GATE1 fill:#f59e0b,color:#000,stroke:#d97706
-    style GATE2 fill:#f59e0b,color:#000,stroke:#d97706
-    style GATE3 fill:#f59e0b,color:#000,stroke:#d97706
-    style GATE4 fill:#f59e0b,color:#000,stroke:#d97706
-    style GATE5 fill:#f59e0b,color:#000,stroke:#d97706
-    style DISCOVERY fill:#8b5cf6,color:#fff,stroke:#7c3aed
-    style PRD fill:#3b82f6,color:#fff,stroke:#2563eb
-    style SDD fill:#3b82f6,color:#fff,stroke:#2563eb
-    style TASKS fill:#3b82f6,color:#fff,stroke:#2563eb
-    style IMPL fill:#10b981,color:#fff,stroke:#059669
-    style REVIEW fill:#ef4444,color:#fff,stroke:#dc2626
+  A["Instalar Bali-Agent"] --> B["Setup Agent cria .agent/"]
+  B --> C["Discovery entrevista o humano"]
+  C --> D["PRD Writer gera PRD"]
+  D --> E{"Humano aprova PRD?"}
+  E -- "Nao" --> C
+  E -- "Sim" --> F["SDD Architect gera SDD"]
+  F --> G{"Humano aprova SDD?"}
+  G -- "Nao" --> F
+  G -- "Sim" --> H["Planner decompõe tasks"]
+  H --> I["Orchestrator chama spec-*"]
+  I --> J["Implementacao e testes"]
+  J --> K["Reviewer faz gate"]
+  K --> L{"Aprovado?"}
+  L -- "Nao" --> H
+  L -- "Sim" --> M["Memoria curada e handoff"]
 ```
 
----
+Passos esperados:
 
-## 🧑‍💼 Time de Agentes
+1. Rodar o setup no diretorio do novo projeto.
+2. Discovery coleta contexto, objetivos, restricoes e criterios de sucesso.
+3. PRD Writer gera o PRD.
+4. Humano aprova ou corrige o PRD.
+5. SDD Architect gera o SDD.
+6. Humano aprova ou corrige o SDD.
+7. Planner quebra em tarefas pequenas.
+8. Orchestrator chama especialistas existentes ou cria novos `spec-*`.
+9. Reviewer bloqueia entrega fraca antes de commit, PR ou resposta final.
+10. Bali Runtime registra apenas memoria curada relevante.
 
-| # | Agente | Papel | Responsabilidade | Arquivo |
-|---|--------|-------|------------------|---------|
-| 1 | **🎯 Orchestrator** | Maestro do Fluxo | Gerencia o ciclo de vida, roteia entre agentes, aplica gates de aprovação | `agents/_spine/orchestrator/AGENT.md` |
-| 2 | **🔍 Discovery** | Entrevistador | Conduz entrevista adaptativa para extrair requisitos, contexto e restrições do projeto | `agents/discovery/AGENT.md` |
-| 3 | **📄 PRD Writer** | Analista de Produto | Transforma descobertas em PRD completo com escopo, métricas, personas e requisitos | `agents/prd-writer/AGENT.md` |
-| 4 | **🏗️ SDD Architect** | Arquiteto de Software | Projeta arquitetura técnica, diagramas, trade-offs e estratégia de implementação | `agents/sdd-architect/AGENT.md` |
-| 5 | **📋 Planner** | Planejador de Tarefas | Decompõe SDD/pedidos em tasks atômicas (<4h) com dependências | `agents/_spine/planner/AGENT.md` |
-| 6 | **💻 Implementer** | Engenheiro de Software | Implementa código de produção seguindo SDD e tasks, com testes e documentação | `agents/_specialists/implementer.md` |
-| 7 | **🔎 Reviewer** | Revisor de Código | Revisa entregas/PRs com checklist de qualidade, segurança e performance | `agents/_spine/reviewer/AGENT.md` |
+### Projeto Existente
 
----
+Em brownfield, o objetivo e entrar em um repositorio real sem destruir as regras existentes e montar um time que entende aquele sistema.
 
-## 📁 Estrutura de Diretórios
-
-```
-Bali-Agent/
-├── README.md                          # Este arquivo — visão geral do sistema
-├── AGENTS.md                          # Arquivo raiz da base (ponto de entrada)
-├── init.py                            # Script Python para inicializar o Bali-Agent AI no projeto
-│
-├── agents/                            # Definições dos agentes do framework
-│   ├── _spine/                        # Espinha dorsal fixa (sempre presente)
-│   │   ├── orchestrator/AGENT.md      # Identidade e regras do Orchestrator
-│   │   ├── planner/AGENT.md           # Identidade e critérios do Planner
-│   │   └── reviewer/AGENT.md          # Identidade e checklists do Reviewer
-│   │
-│   ├── _setup/                        # Módulo de inicialização e profiling do time
-│   │   ├── AGENT.md                   # Setup Agent
-│   │   ├── stack-detection.md         # Heurísticas de detecção de stack
-│   │   └── interview.md               # Roteiro da entrevista adaptativa
-│   │
-│   ├── _specialists/                  # Templates e Especialistas técnicos locais
-│   │   ├── _TEMPLATE.md               # Molde base de prompt de especialista
-│   │   ├── implementer.md             # Especialista de engenharia/clean code
-│   │   ├── frontend.md                # Especialista frontend
-│   │   ├── backend.md                 # Especialista backend
-│   │   ├── database.md                # Especialista banco de dados
-│   │   ├── devops.md                  # Especialista devops/infraestrutura
-│   │   ├── security.md                # Especialista segurança
-│   │   ├── testing.md                 # Especialista testes e QA
-│   │   └── docs.md                    # Especialista documentação técnica
-│   │
-│   ├── discovery/AGENT.md             # Discovery Agent (modo greenfield)
-│   ├── prd-writer/AGENT.md            # PRD Writer Agent (modo greenfield)
-│   └── sdd-architect/AGENT.md         # SDD Architect Agent (modo greenfield)
-│
-├── protocols/                         # Protocolos de operação do time
-│   ├── routing.md                     # Protocolo de roteamento proporcional
-│   ├── handoff.md                     # Protocolo de handoff entre agentes
-│   ├── approval-gates.md              # Gates de aprovação humana
-│   └── quality-gates.md               # Critérios de qualidade por artefato
-│
-├── templates/                         # Templates de enforcamento e segurança
-│   ├── prevent_secrets.py             # Script de prevenção de vazamento de segredos (Agent Shield)
-│   ├── git-pre-commit-shell           # Pre-commit hook shell script
-│   ├── cursor-rule.mdc                # Adaptador Cursor Rules (.mdc)
-│   ├── claude_hook.py                 # Adaptador Claude hook python
-│   ├── claude-settings.json           # Adaptador Claude settings JSON
-│   ├── gemini-settings.json           # Adaptador Gemini settings JSON
-│   ├── working-context.md             # Template da memória de trabalho
-│   ├── task.md                        # Template do checklist de tarefa
-│   ├── verify_setup.py                # Verificador determinístico do setup
-│   ├── subagent.config.yaml           # Template de configuração de time
-│   ├── project-AGENTS.md              # Template de constituição de time
-│   ├── prd.md                         # Template do PRD
-│   ├── sdd.md                         # Template do SDD
-│   └── tasks.md                       # Template de tasks
-│
-├── examples/                          # Exemplos práticos
-│   ├── prd-example.md                 # Exemplo completo de PRD
-│   ├── sdd-example.md                 # Exemplo completo de SDD
-│   └── dry-run.md                     # Roteiro de validação end-to-end
-│
-├── tests/                             # Suíte pytest de validação estrutural
-├── requirements-dev.txt               # Dependências de teste (pytest, PyYAML)
-├── .github/workflows/tests.yml        # CI — roda a suíte em push/PR
-├── docs/                              # Specs, planos e handoff
-│
-└── output/                            # Pasta para artefatos locais gerados
-    └── .gitkeep
+```mermaid
+flowchart TD
+  A["Repositorio existente"] --> B["Instalar Bali-Agent"]
+  B --> C["Preservar README.md e AGENTS.md existentes"]
+  C --> D["Criar .agent/bootstrap-AGENTS.md"]
+  D --> E["Detectar stack e estrutura"]
+  E --> F["Criar time base em modo operate"]
+  F --> G["Criar especialistas iniciais da stack"]
+  G --> H["Configurar adapters da ferramenta atual"]
+  H --> I["Orchestrator recebe tarefa"]
+  I --> J{"Existe especialista certo?"}
+  J -- "Sim" --> K["Chamar especialista reutilizavel"]
+  J -- "Nao" --> L["Criar spec-* permanente"]
+  L --> K
+  K --> M["Reviewer revisa"]
+  M --> N["Atualizar estado vivo e memoria curada"]
 ```
 
----
+Passos esperados:
 
-## 🚀 Como Usar
+1. O setup preserva arquivos ja existentes do projeto.
+2. A camada `.agent/` recebe os protocolos, templates, runtime e adapters.
+3. O manifesto `.agent/subagent.config.yaml` inicia em `mode: operate`.
+4. O time base e criado mesmo quando o projeto ja tem codigo.
+5. Especialistas iniciais sao criados a partir da stack detectada.
+6. Durante tarefas reais, o Orchestrator cria novos `spec-*` se a stack, dominio ou risco exigir.
+7. O Reviewer fecha o ciclo antes de resposta final, commit ou PR.
+8. `.agent/working-context.md` guarda estado vivo; `.agent/memory.md` guarda historico curado.
 
-### 📦 Métodos de Instalação (Inicializar em Novo Projeto)
+## Memoria
 
-Você pode instalar o framework **Bali-Agent AI** em qualquer projeto novo de duas formas:
+Bali-Agent separa memoria operacional de historico reutilizavel.
 
-#### Opção A: Instalação 100% via IDE / Inteligência Artificial (Sem Terminal) ── [Recomendado] ✨
-Se você já abriu o seu projeto novo na IDE (Cursor, Claude Code, VS Code com assistente de IA, etc.), você não precisa abrir o console. Basta mandar a instrução no chat da IDE:
+- `.agent/working-context.md`: estado vivo do trabalho atual, handoff, riscos imediatos e proximas acoes. Nao e historico permanente.
+- `.agent/memory.md`: historico curado de decisoes, commits, PRs, incidentes, aprendizados e verificacoes importantes.
 
-> *"Por favor, baixe o framework do repositório `https://github.com/ba-lison/Bali-Agent.git` e instale ele aqui na pasta do meu projeto."*
+Registro curado pelo runtime:
 
-A IA lerá a instrução e executará o download, a extração das pastas base (`.agent/`) e o arquivo de bootstrap (`AGENTS.md`) diretamente na raiz do seu projeto por conta própria.
+```bash
+python .agent/runtime/bali_runtime.py remember \
+  --kind commit \
+  --title "corrige fluxo de autenticacao" \
+  --ref "abc1234" \
+  --summary "ajusta expiracao de sessao e cobre regressao" \
+  --files "src/auth/session.ts, tests/auth/session.test.ts" \
+  --tests "pytest"
+```
 
-#### Opção B: Instalação Tradicional (Via Terminal) 💻
-Se preferir o terminal tradicional, você pode instalar clonando o repositório:
+O comando `remember` rejeita texto com cara de segredo. A regra e registrar o que ajuda o proximo trabalho, nao despejar log bruto.
 
-1. Baixe o repositório na sua máquina:
-   ```bash
-   git clone https://github.com/ba-lison/Bali-Agent.git
-   ```
-2. Acesse a pasta e execute o script de instalação integrado:
-   ```bash
-   cd Bali-Agent
-   python init.py
-   ```
-3. Digite o caminho completo do seu projeto destino (ex: `C:\Users\NomeDoUsuario\Documents\jaozinho-zika`) e confirme. O script copiará os arquivos e você poderá excluir a pasta temporária `Bali-Agent`.
+## Como Usar
 
-> 💡 **Dica de Produtividade (Atalho no PowerShell):** Se você usa o PowerShell no Windows, crie um atalho permanente chamado `bali` rodando o comando a seguir uma única vez:
-> `if (!(Test-Path $PROFILE)) { New-Item -Type File -Force $PROFILE } ; Add-Content -Path $PROFILE -Value 'function bali { python C:\Users\suporte2\Documents\.Inovaxao_Totalcad\.agent\Bali-Agent\init.py }'`
-> Agora, basta digitar `bali` no terminal de qualquer projeto novo para instalá-lo instantaneamente.
+Clonar o framework:
 
-#### 🛡️ Coexistência de Regras (Projetos em Andamento / Brownfield)
-Se você estiver inicializando o framework em um projeto que já está ativo e possui seus próprios arquivos `README.md` ou `AGENTS.md` na raiz (como regras específicas do seu produto):
-- **Preservação Automática:** O instalador detectará a presença desses arquivos e **nunca** os sobrescreverá. Ele preservará os seus arquivos originais e salvará a constituição de bootstrap do framework em `.agent/bootstrap-AGENTS.md` apenas para fins de referência técnica.
-- **Merge de Regras:** Quando você rodar o comando de configuração `/setup`, o Setup Agent lerá as suas regras originais e anexará de forma limpa no final do `AGENTS.md` a seção `## 🤖 Time de Subagentes Bali-Agent`.
-- **Herança de Governança:** O framework adiciona automaticamente uma cláusula de segurança que obriga qualquer modelo de IA (Codex, Cursor, Claude Code) a herdar e respeitar as regras originais do seu projeto. O time híbrido opera *sob* a governança e as restrições nativas do seu repositório.
-- **Memória de Trabalho Versionada (Recomendado):** Comite o arquivo `.agent/working-context.md` no seu repositório Git. Desta forma, a memória de contexto do projeto é compartilhada: quando qualquer outro desenvolvedor humano clonar o repositório e acionar a IA na máquina dele, a IA herdará instantaneamente todo o histórico de desenvolvimento, decisões técnicas e estado atual do projeto de forma imediata (e com consumo mínimo de tokens).
+```bash
+git clone https://github.com/ba-lison/Bali-Agent.git
+cd Bali-Agent
+```
 
----
+Instalar em um projeto alvo:
 
-### ⚙️ Início Rápido (Configurar o Time)
+```bash
+python init.py /caminho/do/projeto
+```
 
-Após a instalação física (seja por terminal ou via IA):
+Validar a instalacao no projeto alvo:
 
-1. **Abra o projeto**: Abra o projeto inicializado na sua IDE preferida (Cursor, VS Code, etc.).
-2. **Inicie o Setup**: Abra o chat do assistente de IA e digite:
-   ```
-   Setup do time
-   ```
-   *(Este é o gatilho que o `AGENTS.md` reconhece. Se quiser, registre um atalho `/setup` na sua IDE apontando para essa instrução.)*
-3. **Responda à Entrevista**: O **Setup Agent** assumirá a execução, rodará o algoritmo de perfilamento de tecnologias (`stack-detection.md`), e conduzirá uma entrevista rápida com você no chat para definir os objetivos do projeto.
-4. **Geração dos Agentes e Regras**: Após sua aprovação, o Setup Agent gerará os agentes especialistas customizados para a sua stack e criará os **Adaptadores de Enforcamento** locais (regras `.mdc` para Cursor e configurações de hooks locais `.claude/settings.json` para Claude Code) de forma automatizada. Ao final, ele roda `python .agent/verify_setup.py` para confirmar que o time e os adaptadores foram instalados corretamente.
-5. **Comande o Time**: Agora o time híbrido está ativo e pronto. Você pode iniciar qualquer tarefa digitando diretamente no chat:
-   - *"Orchestrator, preciso criar a tela de login integrada com o Supabase."*
-   - Ou usando menção direta no Claude Code: `@orchestrator preciso criar a tela de login.`
+```bash
+python .agent/templates/verify_setup.py
+python .agent/runtime/bali_runtime.py verify
+python .agent/runtime/bali_runtime.py list-agents
+python .agent/runtime/bali_runtime.py run --dry-run "implementar login"
+```
 
-### 📋 Comandos Disponíveis no Chat
+Criar especialista permanente manualmente quando necessario:
 
-| Comando | Tipo | Descrição |
-|---------|------|-----------|
-| `Setup do time` | Setup | Inicializa ou atualiza o time perfilando a stack |
-| `Novo projeto: [descrição]` | Greenfield | Inicia ciclo completo de Discovery, PRD, SDD e Tasks |
-| `Status do projeto` | Fluxo | Mostra em qual fase de desenvolvimento o projeto está |
-| `Revisar [artefato]` | Revisão | Solicita ao Reviewer a auditoria de um artefato |
-| `Aprovar [artefato]` | Fluxo | Aprova o artefato atual e avança para próxima fase |
-| `Feedback: [detalhes]` | Fluxo | Envia observações para revisão de um artefato |
+```bash
+python .agent/runtime/bali_runtime.py create-agent \
+  --id spec-payments \
+  --scope "Especialista reutilizavel em pagamentos, checkout e webhooks."
+```
 
----
+Conectar qualquer LLM/CLI sem adapter nativo:
 
-## ⚖️ Enforcement & Agnosticismo
+```bash
+set BALI_LLM_COMMAND=ollama run llama3.1 ^< {prompt_file}
+python .agent/runtime/bali_runtime.py run "revisar fluxo de cadastro"
+```
 
-O **comportamento do time** (orquestrar, rotear, nunca-solo, review) é **100% agnóstico**: qualquer LLM que leia o `AGENTS.md` opera como o time — Claude, GPT, Gemini, DeepSeek, Gemma, Kimi, Llama, etc.
+Em PowerShell, configure o comando conforme o CLI usado:
 
-O que **varia por ferramenta** é a *força do enforcement* (a garantia de que o modelo não "esquece" o time numa sessão longa) e se existem **subagentes reais**:
+```powershell
+$env:BALI_LLM_COMMAND = "ollama run llama3.1 < {prompt_file}"
+python .agent/runtime/bali_runtime.py run "revisar fluxo de cadastro"
+```
 
-| Ferramenta | Força do enforcement | Subagentes reais? |
-|-----------|----------------------|-------------------|
-| **Claude Code** | 🟢 Forte — hook re-injeta a constituição a cada turno (`.claude/settings.json`) | ✅ Sim (`.claude/agents/`) |
-| **Cursor** | 🟢 Forte — regra `.mdc` com `alwaysApply: true` | ⚠️ Simulado (1 modelo, vários papéis) |
-| **Gemini CLI** | 🟡 Médio — recarrega o `AGENTS.md` por sessão | ⚠️ Simulado |
-| **Codex CLI** | 🟡 Médio — `AGENTS.md` nativo na raiz | ⚠️ Simulado |
-| **Modelo cru (API / Ollama)** | 🟠 Fraco — lê o `AGENTS.md`, mas sem re-injeção automática | ⚠️ Simulado |
+## Roteamento
 
-> Em ferramentas sem subagentes nativos, "o time" é **um único modelo vestindo chapéus diferentes** em sequência no mesmo contexto — o rigor (triagem, routing, review) continua valendo, mas não é paralelismo isolado de verdade.
+O roteamento oficial fica em `protocols/routing.md`.
 
----
+Regra curta:
 
-## 🏛️ Princípios Fundamentais
+- Pergunta simples: Orchestrator pode responder com sanity-check do Reviewer.
+- Bug pequeno: Orchestrator chama o especialista certo e Reviewer.
+- Feature media/grande: Planner quebra tarefas, especialistas executam, Reviewer fecha.
+- Projeto novo: Discovery -> PRD -> SDD -> Planner -> especialistas -> Reviewer.
+- Falta de especialista: Orchestrator cria `spec-*` permanente antes de executar.
 
-### Baseado em Práticas de Engenharia de Classe Mundial
+O protocolo de subagentes reais fica em `protocols/subagents.md`. O protocolo de memoria fica em `protocols/memory.md`.
 
-| Referência | Princípio Aplicado |
-|------------|-------------------|
-| **Google Engineering Practices** | Code review rigoroso, PRs pequenos (<400 linhas), documentação como cidadão de primeira classe |
-| **DORA 2025 (State of DevOps)** | Foco em lead time, frequência de deploy, taxa de falha, tempo de recuperação |
-| **Anthropic Best Practices** | Prompts estruturados, decomposição de tarefas complexas, validação humana em decisões críticas |
-| **OpenAI Codex Guidelines** | Geração de código com testes, contexto explícito, iteração incremental |
+## Boas Praticas Obrigatorias
 
-### Regras Invioláveis
+- Nunca substituir subagente real por role-play como entrega final.
+- Nunca sobrescrever `README.md` ou `AGENTS.md` de um projeto existente sem decisao explicita.
+- Nunca registrar segredo em memoria.
+- Nunca tratar `.agent/working-context.md` como historico completo.
+- Nunca entregar sem Reviewer quando houver mudanca de codigo, arquitetura, PRD, SDD ou memoria.
+- Sempre manter os especialistas reutilizaveis dentro de `.agent/team/`.
 
-1. ❌ **NUNCA** pular a entrevista para um novo projeto
-2. ❌ **NUNCA** gerar SDD sem PRD aprovado pelo humano
-3. ❌ **NUNCA** mergear código sem review completo
-4. ✅ **SEMPRE** parar e pedir aprovação humana nos gates definidos
-5. ✅ **SEMPRE** passar código gerado por IA pelo checklist de segurança
-6. ✅ **SEMPRE** documentar decisões e trade-offs
+## Desenvolvimento Do Framework
 
----
+Rodar testes do proprio Bali-Agent:
 
-## 🔒 Segurança
+```bash
+python -m pytest -q
+python -m py_compile init.py templates\verify_setup.py templates\claude_hook.py templates\runtime\bali_runtime.py
+git diff --check
+```
 
-Todo código gerado pelo sistema passa por verificação de:
+Arquivos principais:
 
-- **Secrets**: Nenhuma chave, token ou credencial hardcoded
-- **Injeção**: Proteção contra SQL injection, XSS, command injection
-- **Dependências**: Verificação de vulnerabilidades conhecidas
-- **Autenticação**: Validação de padrões de auth/authz
-- **Dados sensíveis**: PII e dados regulados tratados corretamente
+- `init.py`: instala o framework no projeto alvo.
+- `AGENTS.md`: constituicao base do framework.
+- `agents/_spine/orchestrator/AGENT.md`: orquestracao e criacao de especialistas.
+- `agents/_spine/planner/AGENT.md`: decomposicao de tarefas.
+- `agents/_spine/reviewer/AGENT.md`: gate de qualidade.
+- `protocols/routing.md`: fluxo proporcional por tipo de trabalho.
+- `protocols/subagents.md`: contrato de subagentes reais.
+- `protocols/memory.md`: contrato de memoria curada.
+- `templates/runtime/bali_runtime.py`: runtime universal.
+- `templates/subagent.config.yaml`: manifesto do time.
 
----
+## Estado Atual
 
-## 📊 Métricas de Qualidade
+O framework esta desenhado para:
 
-O sistema rastreia internamente:
-
-| Métrica | Alvo | Descrição |
-|---------|------|-----------|
-| Taxa de Aprovação Gate | >80% | Artefatos aprovados no primeiro gate |
-| Cobertura de Testes | >80% | Código com testes adequados |
-| Tamanho de PR | <400 linhas | PRs revisáveis e atômicos |
-| Tasks Atômicas | <4h cada | Tarefas completáveis em uma sessão |
-| Ciclo Completo | Variável | Tempo do Discovery ao PR merged |
-
----
-
-## 🤝 Contribuindo
-
-Este é um sistema aberto e extensível. Para adicionar um novo agente:
-
-1. Crie `agents/[nome-do-agente]/AGENT.md` seguindo o padrão existente
-2. Registre o agente na tabela do `AGENTS.md`
-3. Defina o handoff de entrada e saída em `protocols/handoff.md`
-4. Adicione quality gates relevantes em `protocols/quality-gates.md`
-
----
-
-## 📜 Licença
-
-Este sistema de orquestração é fornecido como framework de engenharia de software. Use, adapte e melhore conforme necessário para seu contexto.
-
----
-
-<p align="center">
-  <strong>Bali-Agent AI</strong> — Engenharia de Software Moderna, Orquestrada por Agentes.
-  <br/>
-  <sub>🤖 LLM-Agnostic · 🔒 Security-First · 📋 Process-Driven · 🧑‍💻 Human-in-the-Loop</sub>
-</p>
+- operar em projeto novo ou existente;
+- preservar regras locais do projeto;
+- criar um time base reutilizavel;
+- criar especialistas permanentes quando necessario;
+- funcionar de forma agnostica a LLM, IDE e CLI;
+- registrar memoria de forma curada;
+- manter humano no loop para aprovar PRD, SDD e entregas relevantes.

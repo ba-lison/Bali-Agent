@@ -2,7 +2,7 @@
 
 > Roteiro para provar que o time funciona de ponta a ponta num projeto real.
 > A parte do **instalador** é coberta automaticamente por `tests/test_base_structure.py::test_installer_flow`.
-> Os passos com LLM (geração do time + disparo do hook) são manuais.
+> Os passos com LLM (customização do time + disparo do hook) são manuais.
 
 ## 1. Instalar num projeto-exemplo
 ```bash
@@ -13,24 +13,36 @@ mkdir supabase && echo '{}' > package.json && echo 'next' >> package.json && tou
 # instale o framework
 python /caminho/para/Bali-Agent/init.py   # informe /tmp/demo como destino
 ```
-**Esperado:** `.agent/` criado com `agents/`, `protocols/`, `templates/`, `hooks/prevent_secrets.py`,
-`hooks/claude_hook.py`, `verify_setup.py`, `task.md`, `working-context.md`; `.claude/settings.json`
-instalado; `AGENTS.md` na raiz; pre-commit do Git injetado.
+**Esperado:** `.agent/` criado com `agents/`, `protocols/`, `templates/`, `team/`,
+`subagent.config.yaml`, `runtime/bali_runtime.py`, `adapters/*.md`, `hooks/prevent_secrets.py`,
+`hooks/claude_hook.py`, `verify_setup.py`,
+`task.md`, `working-context.md`; `.claude/settings.json` e `.claude/agents/*.md` instalados;
+`AGENTS.md` na raiz; pre-commit do Git injetado.
 
 ## 2. Rodar o Setup do time (LLM)
 Abra o `/tmp/demo` no Claude Code (ou Cursor/Gemini) e digite no chat:
 ```
 Setup do time
 ```
-**Esperado:** o Setup Agent detecta Next.js + Supabase, faz a entrevista curta, propõe o time
-(espinha + `spec-nextjs`/`spec-supabase`), e após aprovação gera `.agent/team/*.md`,
-`.agent/subagent.config.yaml`, espelha `.claude/agents/*.md` e roda `verify_setup.py`.
+**Esperado:** o Setup Agent detecta Next.js + Supabase, faz a entrevista curta, propõe a troca do
+especialista inicial `spec-implementer` por `spec-nextjs`/`spec-supabase`, atualiza
+`.agent/team/*.md`, `.agent/subagent.config.yaml`, espelha `.claude/agents/*.md` e roda
+`verify_setup.py`.
 
 ## 3. Verificar o setup (determinístico)
 ```bash
 cd /tmp/demo && python .agent/verify_setup.py
 ```
 **Esperado:** `[VERIFY-SETUP] OK: time e adaptadores instalados corretamente.`
+
+## 3b. Verificar o Bali Runtime universal
+```bash
+cd /tmp/demo
+python .agent/runtime/bali_runtime.py verify
+python .agent/runtime/bali_runtime.py list-agents
+python .agent/runtime/bali_runtime.py run --dry-run "criar tela de login"
+```
+**Esperado:** runtime OK, lista de subagentes reais e uma cadeia `Orchestrator -> Planner -> spec-* -> Reviewer`.
 
 ## 4. Confirmar o enforcement (Claude Code)
 Inicie uma nova sessão no Claude Code dentro de `/tmp/demo` e faça um pedido qualquer.

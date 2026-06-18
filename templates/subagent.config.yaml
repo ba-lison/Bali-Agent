@@ -1,5 +1,6 @@
 # Manifesto do time Bali-Agent (gerado pelo Setup Agent).
 # Este arquivo é a fonte de verdade do time montado para o projeto.
+# Objetivo Master: subagentes reais sempre; role-play/simulação não é modo válido.
 versao_base: "2.0.0"
 projeto: nome-do-projeto
 modo: operate            # operate | greenfield
@@ -15,9 +16,24 @@ time:
     - orchestrator
     - planner
     - reviewer
+  base:
+    - discovery
+    - prd-writer
+    - sdd-architect
   especialistas:
     - id: spec-exemplo
       arquivo: .agent/team/spec-exemplo.md
       escopo: "descreva o escopo do especialista"
+subagents_policy:
+  objetivo_master: "materializar subagentes reais em todo ambiente"
+  role_play_permitido: false
+  fallback_obrigatorio: "adapter-nativo-ou-bali-runtime"
 enforcement_adapters:
+  - bali-runtime
   - claude-code          # PADRÃO: re-injeta a constituição a cada turno via hook
+  - codex
+  - opencode
+  - cursor
+  - gemini
+  - antigravity
+  - ollama

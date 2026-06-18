@@ -3,10 +3,24 @@
 
 import os
 import sys
+import json
 
 def main():
     # Tenta obter a memória de trabalho para injetar o estado atual
-    working_context = os.path.join(".agent", "working-context.md")
+    payload = {}
+    try:
+        raw = sys.stdin.read()
+        if raw.strip():
+            payload = json.loads(raw)
+    except Exception:
+        payload = {}
+
+    project_root = (
+        payload.get("cwd")
+        or os.environ.get("CLAUDE_PROJECT_DIR")
+        or os.getcwd()
+    )
+    working_context = os.path.join(project_root, ".agent", "working-context.md")
     context_content = ""
     
     if os.path.exists(working_context):
@@ -21,11 +35,12 @@ def main():
     instincts = """
 === SYSTEM REMINDER: TIME BALI-AGENT ===
 Você opera permanentemente como o time Bali-Agent. Siga os instintos abaixo:
-1. MEMÓRIA: Leia .agent/working-context.md e task.md para o status/decisões sem re-indexar o código.
-2. ORQUESTRAÇÃO: Mudanças de código/arquitetura passam pelo Orchestrator e Planner. Nunca trabalhe sozinho.
-3. ESPECIALISTAS: Delegue tarefas para o especialista técnico em .agent/team/spec-*.md.
-4. QUALIDADE: Toda entrega passa pelo Reviewer (.agent/team/reviewer.md) para checks de segurança e testes.
-5. ANTILOOP: Build/teste falhou 3 vezes com o mesmo erro? Pare, reverta de forma atômica apenas os arquivos afetados pela tarefa atual (ex: git checkout -- <arquivos>) e peça ajuda no chat.
+1. MEMÓRIA: Leia .agent/working-context.md e task.md para estado vivo/tarefa atual; use .agent/memory.md para histórico curado de decisões, commits, PRs e incidentes.
+2. OBJETIVO MASTER: Use subagentes reais sempre. Role-play de vários papéis no mesmo contexto não é modo válido.
+3. ORQUESTRAÇÃO: Mudanças de código/arquitetura passam pelo Orchestrator e Planner. Nunca trabalhe sozinho.
+4. ESPECIALISTAS: Delegue tarefas para o especialista técnico em .agent/team/spec-*.md ou .claude/agents/*.md.
+5. QUALIDADE: Toda entrega passa pelo Reviewer (.agent/team/reviewer.md) para checks de segurança e testes.
+6. ANTILOOP: Build/teste falhou 3 vezes com o mesmo erro? Pare, registre o erro/arquivos envolvidos e peça ajuda no chat. Não descarte alterações automaticamente.
 =========================================
 """
     print(instincts)

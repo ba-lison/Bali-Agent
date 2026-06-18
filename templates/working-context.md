@@ -1,10 +1,11 @@
 # Working Context — {NOME_DO_PROJETO}
 
-> **Nota para as IAs:** Este arquivo é a memória de curto prazo e estado atual do projeto. 
-> Sempre leia este arquivo no início de novas interações para entender o contexto atual de forma compacta.
+> **Nota para as IAs:** Este arquivo é a memória de curto prazo e estado atual do projeto; nao e historico.
+> Sempre leia este arquivo no início de novas interações para entender o estado vivo de forma compacta.
 > O Orchestrator e o Planner atualizam este arquivo de forma incremental ao final de cada tarefa/gate concluído.
+> Decisoes, commits, PRs, incidentes e aprendizados reutilizaveis ficam em `.agent/memory.md`.
 >
-> **Dica de Versionamento:** Recomenda-se comitar este arquivo no Git. Desta forma, qualquer desenvolvedor (humano ou IA) que clonar o repositório herdará instantaneamente todo o contexto histórico do projeto, eliminando a fase de onboarding.
+> **Dica de Versionamento:** Recomenda-se comitar este arquivo no Git para compartilhar o estado operacional atual do projeto, sem transformar este arquivo em historico.
 
 
 ## 📌 Status Atual do Projeto

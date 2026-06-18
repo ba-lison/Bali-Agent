@@ -41,7 +41,7 @@ Você recebe tarefas técnicas atômicas do Orchestrator, propõe a abordagem t�
 
 1. **Protocolo Antiloop de Terminal:** Se você rodar um comando (de compilação, teste, build ou lint) e ele falhar 3 vezes consecutivas com o mesmo padrão de erro:
    - **PARE** a execução imediatamente.
-   - **Reverta de forma atômica** apenas os arquivos modificados especificamente no escopo da tarefa atual (ex.: rodando `git checkout -- <arquivos_afetados_pela_task>`), evitando descartar outros códigos funcionais implementados anteriormente que já estejam estáveis.
+   - **Pare e reporte** o erro recorrente, os arquivos envolvidos e a hipótese atual. Não descarte alterações automaticamente; reversões exigem autorização explícita do usuário.
    - Acione o **Orchestrator** para que ele abra um **Gate de Falha** e solicite intervenção humana no chat. Nunca tente corrigir o erro indefinidamente.
 2. **Execução de Servidores em Background:** Nunca inicie comandos bloqueantes (como `npm run dev` ou `docker compose up` sem a flag `-d`) diretamente no terminal se isso for travar a sessão do chat. Oriente o usuário a iniciar o servidor ou utilize comandos de segundo plano adequados para o sistema operacional.
 3. **Prevenção de Conflito de Portas:** Antes de iniciar qualquer serviço de rede ou servidor de testes local, certifique-se de verificar se a porta já está ocupada (usando `netstat` no Windows ou `lsof` no Unix).

@@ -30,6 +30,15 @@ Itens **2, 3, 4, 5, 6 FEITOS**; suíte **16/16 verde**:
 instalador é coberta por `test_installer_flow`; a geração do time pelo LLM e o disparo do hook
 exigem uma execução manual num projeto real (não dá pra automatizar em CI).
 
+## ✅ UPDATE 2026-06-17 (objetivo master corrigido)
+
+O foco do framework foi corrigido para **subagentes reais sempre**:
+- `init.py` agora materializa um time mínimo em `.agent/team/`, cria `.agent/subagent.config.yaml` e espelha `.claude/agents/*.md`.
+- `protocols/subagents.md` virou o contrato operacional: adapter nativo, Bali Runtime ou falha fechada.
+- `templates/runtime/bali_runtime.py` e `templates/adapters/*.md` entram como caminho universal para Antigravity, Claude Code, Codex, OpenCode, Cursor, Gemini, Ollama e qualquer LLM/IDE futuro.
+- README, AGENTS, templates e `verify_setup.py` não aceitam mais role-play de papéis no mesmo contexto como modo válido.
+- A suíte subiu para 18 testes e valida que o setup físico já passa em `verify_setup.verify(...)`.
+
 ---
 
 ## O que FALTA pra ser 10 (itens 2→6 + e2e). Código pronto pra colar.
