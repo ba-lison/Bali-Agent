@@ -29,7 +29,7 @@ Para cada pedido do usuário:
 ## Modo Greenfield (projeto do zero)
 
 Quando o manifesto indica `modo: greenfield`, conduza o pipeline SDLC clássico
-descrito em `workflows/novo-projeto.md`:
+descrito em `agents/_spine/orchestrator/workflows/novo-projeto.md`:
 Discovery → PRD → SDD → Decomposição (Planner) → Implementação → Review,
 com os gates de aprovação humana de `protocols/approval-gates.md`.
 
