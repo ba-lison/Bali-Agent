@@ -130,6 +130,7 @@ def test_templates_exist():
         "templates/git-pre-commit-shell",
         "templates/task.md",
         "templates/verify_setup.py",
+        "templates/run.py",
     ]
     missing = [f for f in expected if not (REPO / f).is_file()]
     assert not missing, f"templates de enforcamento/segurança ausentes: {missing}"
@@ -152,6 +153,7 @@ def test_installer_flow(tmp_path):
     assert (tmp_path / ".agent/agents/_spine/orchestrator/AGENT.md").is_file()
     assert (tmp_path / ".agent/protocols/routing.md").is_file()
     assert (tmp_path / ".agent/templates/subagent.config.yaml").is_file()
+    assert (tmp_path / ".agent/run.py").is_file()
     
     # E garante que as pastas antigas ou indesejadas NÃO foram copiadas para a raiz
     assert not (tmp_path / "agents").exists(), "A pasta agents base nao deveria ser criada na raiz do projeto (deve ficar dentro de .agent/)"
@@ -203,6 +205,7 @@ def test_verify_setup_logic(tmp_path):
     for m in ("orchestrator.md", "planner.md", "reviewer.md", "spec-x.md"):
         (team / m).write_text("x", encoding="utf-8")
     (agent / "working-context.md").write_text("x", encoding="utf-8")
+    (agent / "run.py").write_text("x", encoding="utf-8")
     (agent / "hooks").mkdir()
     (agent / "hooks" / "claude_hook.py").write_text("x", encoding="utf-8")
     (proj / ".claude").mkdir()

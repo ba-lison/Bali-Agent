@@ -100,6 +100,21 @@ O esforço é **proporcional** ao pedido (ver `protocols/routing.md`): pergunta 
 | **Codex CLI** | `AGENTS.md` nativo na raiz |
 | **Qualquer modelo** | lê este `AGENTS.md` como instrução forte (DeepSeek, Gemma, Kimi, Llama…) |
 
+## 10. Runtime CLI (Subagents Reais)
+
+Para executar o time de agentes com **subagentes de verdade e isolamento de processos** em qualquer ambiente (como Ollama local ou APIs comerciais), o framework inclui um motor de execução em Python:
+
+```bash
+python .agent/run.py "sua instrução aqui"
+```
+
+### Configuração
+O runtime utiliza as seguintes variáveis de ambiente:
+- `BALI_LLM_PROVIDER`: `openai` | `anthropic` | `gemini` | `ollama` (padrão: `ollama`).
+- `BALI_LLM_MODEL`: nome do modelo a usar (ex: `gpt-4o`, `claude-3-5-sonnet-20241022`, `llama3`).
+- `BALI_API_KEY`: chave da API do provedor (ou use as padrão `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
+- `BALI_LLM_ENDPOINT`: URL base se diferente do padrão (ex: URL do Ollama local ou proxy).
+
 ---
 
 <p align="center"><em>Bali-Agent AI — Nunca um agente sozinho. Sempre um time.</em></p>

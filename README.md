@@ -245,13 +245,26 @@ O que **varia por ferramenta** é a *força do enforcement* (a garantia de que o
 
 | Ferramenta | Força do enforcement | Subagentes reais? |
 |-----------|----------------------|-------------------|
+| **Bali Runtime CLI (`run.py`)** | 🟢 Máxima — controle total do loop e ferramentas via Python | ✅ Sim (chamadas de API isoladas para cada subagente) |
 | **Claude Code** | 🟢 Forte — hook re-injeta a constituição a cada turno (`.claude/settings.json`) | ✅ Sim (`.claude/agents/`) |
 | **Cursor** | 🟢 Forte — regra `.mdc` com `alwaysApply: true` | ⚠️ Simulado (1 modelo, vários papéis) |
 | **Gemini CLI** | 🟡 Médio — recarrega o `AGENTS.md` por sessão | ⚠️ Simulado |
 | **Codex CLI** | 🟡 Médio — `AGENTS.md` nativo na raiz | ⚠️ Simulado |
 | **Modelo cru (API / Ollama)** | 🟠 Fraco — lê o `AGENTS.md`, mas sem re-injeção automática | ⚠️ Simulado |
 
-> Em ferramentas sem subagentes nativos, "o time" é **um único modelo vestindo chapéus diferentes** em sequência no mesmo contexto — o rigor (triagem, routing, review) continua valendo, mas não é paralelismo isolado de verdade.
+### 🚀 Bali Runtime CLI (Subagentes Reais)
+
+Para rodar o time de agentes com **subagentes reais e isolamento de processos** em qualquer ambiente (inclusive Ollama local ou APIs comerciais), execute:
+
+```bash
+python .agent/run.py "sua instrução aqui"
+```
+
+O runtime utiliza as seguintes variáveis de ambiente para configuração:
+- `BALI_LLM_PROVIDER`: `openai` | `anthropic` | `gemini` | `ollama` (padrão: `ollama`).
+- `BALI_LLM_MODEL`: nome do modelo a usar (ex: `gpt-4o`, `claude-3-5-sonnet-20241022`, `llama3`).
+- `BALI_API_KEY`: chave da API do provedor (ou use as padrão `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
+- `BALI_LLM_ENDPOINT`: URL base se diferente do padrão (ex: URL do Ollama local ou proxy).
 
 ---
 

@@ -184,6 +184,17 @@ def initialize_project(src_dir, target_dir):
         except Exception as e:
             print(f"[!] Erro ao copiar verify_setup.py: {e}")
 
+    # 2e. Copiar o runtime engine (run.py) para .agent/run.py
+    src_run = os.path.join(src_dir, "templates", "run.py")
+    dest_run = os.path.join(agent_dir, "run.py")
+    if os.path.exists(src_run):
+        try:
+            shutil.copy2(src_run, dest_run)
+            os.chmod(dest_run, 0o755)
+            print("[x] Engine de runtime copiado para .agent/run.py")
+        except Exception as e:
+            print(f"[!] Erro ao copiar run.py: {e}")
+
     # 3. Se for um repositório Git, injetar o pre-commit Git hook local (Agent Shield)
     git_dir = os.path.join(target_dir, ".git")
     if os.path.isdir(git_dir):

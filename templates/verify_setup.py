@@ -48,6 +48,9 @@ def verify(project_root):
     if not os.path.isfile(os.path.join(agent_dir, "working-context.md")):
         problems.append("Memoria de trabalho ausente: .agent/working-context.md")
 
+    if not os.path.isfile(os.path.join(agent_dir, "run.py")):
+        problems.append("Engine de runtime ausente: .agent/run.py")
+
     adapters = data.get("enforcement_adapters") or [] if isinstance(data, dict) else []
     checks = {
         "claude-code": [
