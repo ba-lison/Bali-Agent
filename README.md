@@ -1,6 +1,5 @@
 # Bali-Agent AI
 
-[![tests](https://github.com/ba-lison/Bali-Agent/actions/workflows/tests.yml/badge.svg)](https://github.com/ba-lison/Bali-Agent/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/LICENSE)
 
 Bali-Agent e um framework agnostico de LLM para engenharia de software com subagentes reais. Ele instala uma camada `.agent/` no projeto, cria um time base reutilizavel, conecta esse time aos adapters das ferramentas conhecidas e usa o Bali Runtime como fallback universal quando a IDE, CLI ou LLM nao oferece subagentes nativos.
@@ -266,10 +265,9 @@ O protocolo de subagentes reais fica em `protocols/subagents.md`. O protocolo de
 
 ## Desenvolvimento Do Framework
 
-Rodar testes do proprio Bali-Agent:
+Verificar integridade dos scripts do framework:
 
 ```bash
-python -m pytest -q
 python -m py_compile init.py templates\verify_setup.py templates\claude_hook.py templates\runtime\bali_runtime.py templates\run.py
 git diff --check
 ```
