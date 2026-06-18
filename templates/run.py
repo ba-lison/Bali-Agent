@@ -1,620 +1,58 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Bali-Agent Runtime Engine (Subagent Bridge).
-Allows execution of Orchestrator loop with real tool calling and isolated subagents.
+"""Bali-Agent Runtime Engine (Subagent Bridge).
 
-Usage:
-  python .agent/run.py "instrução do usuário"
+Allows execution of Orchestrator loop with real tool calling and isolated subagents.
 """
+
 import os
 import sys
 import json
-import yaml
-import urllib.request
-import urllib.error
-import subprocess
-import shlex
-import re
-import difflib
-import time
+from pathlib import Path
 
-# Log helper printing to stderr to preserve stdout for final output
-def log(msg):
-    print(f"[*] {msg}", file=sys.stderr, flush=True)
+# Path injection helper to support imports in both repository and target environments
+current_dir = os.path.abspath(os.path.dirname(__file__))
+templates_parent = None
+if os.path.basename(current_dir) == "templates":
+    templates_parent = os.path.dirname(current_dir)
+elif os.path.basename(os.path.dirname(current_dir)) == "templates":
+    templates_parent = os.path.dirname(os.path.dirname(current_dir))
+elif os.path.isdir(os.path.join(current_dir, "templates")):
+    templates_parent = current_dir
+elif os.path.isdir(os.path.join(os.path.dirname(current_dir), "templates")):
+    templates_parent = os.path.dirname(current_dir)
 
-def log_error(msg):
-    print(f"[!] Erro: {msg}", file=sys.stderr, flush=True)
+if templates_parent and templates_parent not in sys.path:
+    sys.path.insert(0, templates_parent)
 
-# Exposes available tools to the Orchestrator and specialists
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "invoke_subagent",
-            "description": "Executa uma tarefa isolada usando um subagente especialista (ex: planner, reviewer, spec-frontend). O subagente roda em um contexto limpo com seu próprio prompt de identidade.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "agent_name": {
-                        "type": "string",
-                        "description": "Nome do agente ou especialista a invocar (ex: 'planner', 'reviewer', 'frontend', 'backend', 'database')."
-                    },
-                    "prompt": {
-                        "type": "string",
-                        "description": "A instrução específica e atômica para o subagente executar."
-                    }
-                },
-                "required": ["agent_name", "prompt"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Lê o conteúdo de um arquivo do repositório.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Caminho relativo do arquivo no projeto."
-                    }
-                },
-                "required": ["path"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "Grava ou atualiza um arquivo no repositório.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Caminho relativo do arquivo no projeto."
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "Conteúdo textual completo a ser gravado no arquivo."
-                    }
-                },
-                "required": ["path", "content"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "run_command",
-            "description": "Executa um comando de terminal no host local (ex: npm test, pytest) para validação.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "O comando de terminal a ser executado."
-                    }
-                },
-                "required": ["command"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "request_human_approval",
-            "description": "Pausa a execução para pedir aprovação, feedback ou resposta do usuário em um Gate de aprovação humana.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "A mensagem ou pergunta a ser exibida para o usuário."
-                    }
-                },
-                "required": ["message"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_memory",
-            "description": "Busca entradas relevantes na memória histórica (memory.md) usando palavras-chave, retornando apenas os blocos correspondentes.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Palavra-chave ou termo de busca para localizar na memória histórica."
-                    }
-                },
-                "required": ["query"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "send_handoff",
-            "description": "Envia uma mensagem estruturada para outro subagente via HandoffBus. Use quando precisar coordenar ou transferir contexto entre subagentes sem precisar de uma nova invocação completa.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "to_agent": {
-                        "type": "string",
-                        "description": "Nome do agente destinatário (ex: 'reviewer', 'planner', 'spec-frontend')."
-                    },
-                    "message": {
-                        "type": "string",
-                        "description": "Conteúdo da mensagem ou contexto a transferir."
-                    }
-                },
-                "required": ["to_agent", "message"]
-            }
-        }
-    }
-]
+from templates.core.agent_loop import run_agent_loop
+from templates.core.agent_manager import load_agent_prompt
+from templates.core.llm_client import call_llm_api, _trim_history
 
-def load_config():
-    config_path = os.path.join(".agent", "subagent.config.yaml")
-    if not os.path.exists(config_path):
+def load_config(root_dir: Path) -> dict:
+    manifest = root_dir / ".agent" / "subagent.config.yaml"
+    if not manifest.is_file():
         return {}
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        import yaml
+        with manifest.open("r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
-    except Exception as e:
-        log_error(f"Falha ao carregar manifesto do time: {e}")
+    except Exception:
         return {}
 
-def load_working_context():
-    context_path = os.path.join(".agent", "working-context.md")
-    if not os.path.exists(context_path):
+def load_working_context(root_dir: Path) -> str:
+    path = root_dir / ".agent" / "working-context.md"
+    if not path.is_file():
         return ""
     try:
-        with open(context_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        log_error(f"Falha ao ler working-context.md: {e}")
-        return ""
-
-def load_agent_prompt(agent_name):
-    search_paths = [
-        os.path.join(".agent", "team", f"{agent_name}.md"),
-        os.path.join(".agent", "team", f"spec-{agent_name}.md"),
-        os.path.join("agents", "_spine", agent_name, "AGENT.md"),
-        os.path.join("agents", agent_name, "AGENT.md"),
-    ]
-    team_dir = os.path.join(".agent", "team")
-    if os.path.isdir(team_dir):
-        for f in os.listdir(team_dir):
-            if f.startswith(f"spec-{agent_name}") and f.endswith(".md"):
-                search_paths.insert(0, os.path.join(team_dir, f))
-
-    for path in search_paths:
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    return f.read()
-            except Exception:
-                pass
-    return f"Você é o subagente especialista '{agent_name}'. Execute a tarefa com qualidade máxima."
-
-def execute_tool(name, args):
-    log(f"Executando ferramenta: {name} com argumentos: {json.dumps(args)}")
-    if name == "read_file":
-        path = args.get("path")
-        if not path:
-            return "Erro: parâmetro 'path' ausente."
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            return f"Erro ao ler arquivo {path}: {e}"
-
-    elif name == "write_file":
-        path = args.get("path")
-        content = args.get("content")
-        if not path or content is None:
-            return "Erro: parâmetros 'path' ou 'content' ausentes."
-        try:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
-            return f"Arquivo '{path}' gravado com sucesso."
-        except Exception as e:
-            return f"Erro ao gravar arquivo {path}: {e}"
-
-    elif name == "run_command":
-        command = args.get("command", "")
-        if not command:
-            return "Erro: parâmetro 'command' ausente."
-            
-        # Agent Shield - Segurança Ativa na Execução do Loop
-        try:
-            tokens = shlex.split(command)
-        except Exception:
-            tokens = []
-            
-        dangerous_cmds = {"rm", "del", "format", "curl", "wget", "sh", "bash", "powershell"}
-        is_dangerous = False
-        
-        def check_dangerous_token(tok):
-            tk = tok.lower().strip()
-            words = re.split(r'[/\\]', tk)
-            base_cmd = words[-1]
-            if base_cmd.endswith(".exe"):
-                base_cmd = base_cmd[:-4]
-            subwords = re.split(r'[-_.]', base_cmd)
-            for sw in subwords:
-                if sw in dangerous_cmds:
-                    return True
-            return False
-
-        for tok in tokens:
-            if check_dangerous_token(tok):
-                is_dangerous = True
-                break
-                
-        chaining_ops = {";", "&&", "||", "|", "&"}
-        has_chaining = False
-        for tok in tokens:
-            if any(op in tok for op in chaining_ops):
-                has_chaining = True
-                break
-                
-        subcommands = []
-        current = []
-        for tok in tokens:
-            contains_op = any(op in tok for op in chaining_ops)
-            if contains_op:
-                parts = re.split(r'(&&|\|\||[;|&])', tok)
-                for part in parts:
-                    if not part:
-                        continue
-                    if part in chaining_ops:
-                        if current:
-                            subcommands.append(current)
-                            current = []
-                    else:
-                        current.append(part)
-            else:
-                if tok in chaining_ops:
-                    if current:
-                        subcommands.append(current)
-                        current = []
-                else:
-                    current.append(tok)
-        if current:
-            subcommands.append(current)
-            
-        safe_executables = {"pytest", "python", "npm", "pip", "cargo", "go", "git", "dir", "ls", "echo"}
-        validation_passed = True
-        
-        if not subcommands:
-            validation_passed = False
-            
-        for sub in subcommands:
-            if not sub:
-                validation_passed = False
-                break
-            exec_name = sub[0].lower().strip()
-            if exec_name.endswith(".exe"):
-                exec_name = exec_name[:-4]
-            exec_name = re.split(r'[/\\]', exec_name)[-1]
-            
-            if exec_name not in safe_executables:
-                validation_passed = False
-                break
-                
-            if exec_name == "git":
-                if len(sub) < 2 or sub[1].lower().strip() not in {"status", "diff", "log"}:
-                    validation_passed = False
-                    break
-                    
-        is_safe = validation_passed and not is_dangerous
-        
-        if not is_safe:
-            log(f"Alerta de Segurança: Comando '{command}' considerado potencialmente perigoso ou não-padrão.")
-            approval_msg = f"O agente solicitou a execução do seguinte comando considerado sensível/não-padrão:\n  > {command}\n\nVocê autoriza a execução? (S/N)"
-            print(f"\n[AGENT SHIELD - EXECUÇÃO SENSÍVEL]\n{approval_msg}")
-            try:
-                response = input("> ").strip().lower()
-                if response not in ["s", "sim", "y", "yes"]:
-                    return "Erro: Execução do comando rejeitada pelo usuário por motivos de segurança."
-            except KeyboardInterrupt:
-                return "Erro: Execução do comando cancelada pelo usuário."
-                
-        try:
-            res = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=60)
-            output = f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
-            return output
-        except Exception as e:
-            return f"Erro ao rodar comando '{command}': {e}"
-
-    elif name == "request_human_approval":
-        message = args.get("message")
-        print(f"\n[GATE DE APROVAÇÃO HUMANA]\n{message}")
-        try:
-            response = input("\nSua resposta/aprovação (pressione Enter para confirmar padrão):\n> ")
-            return f"Aprovação do Usuário: {response if response.strip() else 'Aprovado sem observações'}"
-        except KeyboardInterrupt:
-            return "Erro: Operação interrompida pelo usuário."
-
-    elif name == "invoke_subagent":
-        agent_name = args.get("agent_name")
-        prompt = args.get("prompt")
-        if not agent_name or not prompt:
-            return "Erro: parâmetros 'agent_name' ou 'prompt' ausentes."
-        
-        current_depth = int(os.environ.get("BALI_SUBAGENT_DEPTH", "0"))
-        if current_depth >= 2:
-            return "Erro: Limite de profundidade de subagentes atingido (máximo 2 níveis de recursão)."
-            
-        log(f"Subagente '{agent_name}' invocado (depth={current_depth + 1}). Iniciando loop de execução isolado...")
-        os.environ["BALI_SUBAGENT_DEPTH"] = str(current_depth + 1)
-        try:
-            return run_agent_loop(agent_name, prompt)
-        finally:
-            os.environ["BALI_SUBAGENT_DEPTH"] = str(current_depth)
-
-    elif name == "search_memory":
-        query_text = args.get("query", "")
-        if not query_text:
-            return "Erro: parâmetro 'query' ausente."
-        
-        memory_path = os.path.join(".agent", "memory.md")
-        if not os.path.exists(memory_path):
-            return "Nenhuma memória histórica gravada ainda."
-            
-        try:
-            with open(memory_path, "r", encoding="utf-8") as f:
-                content = f.read()
-                
-            entries = content.split("## ")
-            matching_entries = []
-            
-            query_words = [w for w in re.findall(r'[a-zA-Z0-9]+', query_text.lower()) if len(w) >= 3]
-            
-            for entry in entries:
-                if not entry.strip():
-                    continue
-                
-                matched = False
-                if query_text.lower() in entry.lower():
-                    matched = True
-                else:
-                    entry_words = [w for w in re.findall(r'[a-zA-Z0-9]+', entry.lower()) if len(w) >= 3]
-                    for qw in query_words:
-                        for ew in entry_words:
-                            if difflib.SequenceMatcher(None, qw, ew).ratio() >= 0.8:
-                                matched = True
-                                break
-                        if matched:
-                            break
-                            
-                if matched:
-                    matching_entries.append("## " + entry.strip())
-                    
-            if not matching_entries:
-                return f"Nenhuma entrada histórica encontrada na busca por: '{query_text}'"
-                
-            return "\n\n".join(matching_entries)
-        except Exception as e:
-            return f"Erro ao acessar memória: {e}"
-
-    elif name == "send_handoff":
-        to_agent = args.get("to_agent")
-        message = args.get("message")
-        if not to_agent or not message:
-            return "Erro: parâmetros 'to_agent' ou 'message' ausentes."
-
-        from_agent = os.environ.get("BALI_CURRENT_AGENT", "orchestrator")
-        result = _handoff_bus_send(from_agent, to_agent, message)
-        return result
-
-    return f"Erro: Ferramenta '{name}' desconhecida."
-
-
-# ─── HandoffBus ────────────────────────────────────────────────────────────────
-# Canal de message-passing entre subagentes via .agent/output/handoff_bus.json
-# Mensagens lidas ficam marcadas read=true (não deletadas) para auditabilidade.
-
-_HANDOFF_BUS_PATH = os.path.join(".agent", "output", "handoff_bus.json")
-
-
-def _handoff_bus_load():
-    """Carrega o bus do disco. Retorna lista vazia se não existir."""
-    if not os.path.exists(_HANDOFF_BUS_PATH):
-        return []
-    try:
-        with open(_HANDOFF_BUS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, list) else []
+        return path.read_text(encoding="utf-8")
     except Exception:
-        return []
+        return ""
 
-
-def _handoff_bus_save(messages):
-    """Salva o bus atomicamente via tmp + os.replace."""
-    os.makedirs(os.path.dirname(_HANDOFF_BUS_PATH), exist_ok=True)
-    tmp = _HANDOFF_BUS_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(messages, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, _HANDOFF_BUS_PATH)
-
-
-def _handoff_bus_send(from_agent, to_agent, content):
-    """Grava mensagem no bus. Retorna confirmação com ID."""
-    messages = _handoff_bus_load()
-    msg_id = f"{int(time.time() * 1000)}-{from_agent}-{to_agent}"
-    entry = {
-        "id": msg_id,
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "from": from_agent,
-        "to": to_agent,
-        "content": content,
-        "read": False,
-    }
-    messages.append(entry)
-    _handoff_bus_save(messages)
-    return f"Mensagem enviada para '{to_agent}' (id={msg_id})."
-
-
-def _handoff_bus_receive(agent_name):
-    """Retorna mensagens não-lidas para agent_name e as marca como lidas."""
-    messages = _handoff_bus_load()
-    pending = [m for m in messages if m.get("to") == agent_name and not m.get("read")]
-    if not pending:
-        return "Nenhuma mensagem pendente no HandoffBus."
-    for m in messages:
-        if m.get("to") == agent_name and not m.get("read"):
-            m["read"] = True
-    _handoff_bus_save(messages)
-    lines = []
-    for m in pending:
-        lines.append(f"[{m['timestamp']}] DE {m['from']}: {m['content']}")
-    return "\n".join(lines)
-
-
-def run_agent_loop(agent_name, prompt, max_loops=5):
-    agent_prompt = load_agent_prompt(agent_name)
-    system_prompt = f"{agent_prompt}\n\nVocê é o especialista '{agent_name}'. Execute a tarefa usando as ferramentas disponíveis."
-    
-    session_id = os.environ.get("BALI_SESSION_ID", agent_name)
-    sessions_dir = os.path.join(".agent", "sessions")
-    os.makedirs(sessions_dir, exist_ok=True)
-    checkpoint_path = os.path.join(sessions_dir, f"{session_id}.json")
-    
-    def save_checkpoint(msgs):
-        try:
-            tmp_path = checkpoint_path + ".tmp"
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(msgs, f, indent=2, ensure_ascii=False)
-            os.replace(tmp_path, checkpoint_path)
-        except Exception as e:
-            log_error(f"Erro ao salvar checkpoint: {e}")
-
-    class CheckpointList(list):
-        def append(self, item):
-            super().append(item)
-            save_checkpoint(self)
-        def extend(self, iterable):
-            super().extend(iterable)
-            save_checkpoint(self)
-
-    if os.path.exists(checkpoint_path):
-        try:
-            with open(checkpoint_path, "r", encoding="utf-8") as f:
-                messages = CheckpointList(json.load(f))
-        except Exception as e:
-            log_error(f"Erro ao carregar checkpoint: {e}")
-            messages = CheckpointList([
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ])
-            save_checkpoint(messages)
-    else:
-        messages = CheckpointList([
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ])
-        save_checkpoint(messages)
-    
-    loop_count = 0
-    while loop_count < max_loops:
-        loop_count += 1
-        log(f"Subagente '{agent_name}' - Iteração {loop_count}...")
-        response = call_llm_api(messages, tools=TOOLS)
-        if not response:
-            return "Erro: Falha na chamada de API do subagente."
-            
-        if "choices" in response:
-            choice = response["choices"][0]
-            message = choice["message"]
-            content = message.get("content")
-            tool_calls = message.get("tool_calls")
-            
-            messages.append(message)
-            
-            if content and not tool_calls:
-                return content
-                
-            if tool_calls:
-                for tool_call in tool_calls:
-                    function_info = tool_call["function"]
-                    tool_name = function_info["name"]
-                    
-                    try:
-                        tool_args = json.loads(function_info["arguments"])
-                    except Exception:
-                        tool_args = {}
-                    tool_output = execute_tool(tool_name, tool_args)
-                        
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call["id"],
-                        "name": tool_name,
-                        "content": str(tool_output)
-                    })
-                    
-        elif "content" in response:
-            content_blocks = response["content"]
-            text_content = ""
-            tool_requests = []
-            
-            for block in content_blocks:
-                if block["type"] == "text":
-                    text_content += block["text"]
-                elif block["type"] == "tool_use":
-                    tool_requests.append(block)
-                    
-            messages.append({
-                "role": "assistant",
-                "content": content_blocks
-            })
-            
-            if text_content and not tool_requests:
-                return text_content
-                
-            if tool_requests:
-                tool_results = []
-                for tool_req in tool_requests:
-                    tool_name = tool_req["name"]
-                    tool_args = tool_req["input"]
-                    tool_call_id = tool_req["id"]
-                    
-                    tool_output = execute_tool(tool_name, tool_args)
-                        
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tool_call_id,
-                        "content": str(tool_output)
-                    })
-                messages.append({
-                    "role": "user",
-                    "content": tool_results
-                })
-                
-    return f"Erro: Limite de loops do subagente '{agent_name}' atingido."
-
-def validate_working_context(content):
-    if not content:
-        return False
-    has_title = "# Working Context" in content
-    has_status = ("Status Atual" in content) or ("Milestone" in content)
-    has_progress = ("Progresso Recente" in content) or ("Recent Progress" in content)
-    return has_title and has_status and has_progress
-
-def save_context_auto(user_instruction, history_messages):
-    log("Salvando memória de trabalho de forma automatizada...")
-    working_context = load_working_context()
-    if not working_context:
+def save_context_auto(user_instruction: str, history_messages: list, root_dir: Path) -> None:
+    """Auto-update working-context.md via LLM or deterministic fallback."""
+    context_path = root_dir / ".agent" / "working-context.md"
+    if not context_path.is_file():
         return
         
     history_text = ""
@@ -630,328 +68,110 @@ def save_context_auto(user_instruction, history_messages):
         if role and content:
             history_text += f"{role.upper()}: {content}\n"
 
-    import shutil
-    context_path = os.path.join(".agent", "working-context.md")
-    
-    # Criar backup antes de fazer qualquer alteração
-    if os.path.exists(context_path):
-        try:
-            shutil.copy2(context_path, context_path + ".bak")
-        except Exception as e:
-            log_error(f"Falha ao criar backup do working-context.md: {e}")
+    # Save backup
+    backup = context_path.with_suffix(".md.bak")
+    try:
+        import shutil
+        shutil.copy2(str(context_path), str(backup))
+    except Exception:
+        pass
 
-    def apply_deterministic_fallback():
-        log("Aplicando fallback determinístico para working-context.md...")
+    def apply_fallback():
+        import time
+        timestamp = time.strftime("%Y-%m-%dT%H:%M:%S")
+        fallback_text = (
+            f"\n\n## Histórico Recente (Auto-Save Fallback - {timestamp})\n"
+            f"A atualização automática via LLM falhou. Histórico de sessão:\n"
+            f"- **Instrução Inicial:** {user_instruction}\n"
+            f"- **Histórico Recente:**\n{history_text}\n"
+        )
         try:
-            current_data = ""
-            for p in [context_path + ".bak", context_path]:
-                if os.path.exists(p):
-                    with open(p, "r", encoding="utf-8") as f:
-                        current_data = f.read()
-                    break
-            
-            timestamp = time.strftime("%Y-%m-%dT%H:%M:%S")
-            fallback_text = f"\n\n## Histórico Recente (Auto-Save Fallback - {timestamp})\n"
-            fallback_text += "A atualização automática via LLM falhou ou veio inválida. Histórico de sessão:\n"
-            fallback_text += f"- **Instrução Inicial:** {user_instruction}\n"
-            fallback_text += "- **Histórico Recente:**\n"
-            for line in history_text.splitlines():
-                fallback_text += f"  > {line}\n"
-                
-            with open(context_path, "w", encoding="utf-8") as f:
-                f.write(current_data.rstrip() + fallback_text)
-            log("working-context.md atualizado via fallback determinístico.")
+            current = backup.read_text(encoding="utf-8") if backup.is_file() else context_path.read_text(encoding="utf-8")
+            context_path.write_text(current.rstrip() + fallback_text, encoding="utf-8")
         except Exception as e:
-            log_error(f"Falha no fallback determinístico de working-context.md: {e}")
+            print(f"[!] Falha no fallback: {e}", file=sys.stderr)
 
     system_prompt = (
         "Você é a engine de persistência do Bali-Agent. Sua única tarefa é atualizar o arquivo `.agent/working-context.md` "
         "com base nas ações e decisões tomadas no histórico recente da sessão.\n\n"
         "Retorne APENAS o conteúdo completo do arquivo `.agent/working-context.md` atualizado no formato Markdown. "
-        "Não adicione comentários, explicações ou tags adicionais (como ```markdown). O arquivo deve ser editado de forma incremental, "
-        "atualizando a Milestone se necessário, a Data de Atualização, o Progresso Recente (marcando [x]) e bugs conhecidos."
+        "Não adicione comentários, explicações ou tags adicionais (como ```markdown)."
     )
     
-    prompt = (
-        f"Histórico Recente:\n{history_text}\n\n"
-        f"Conteúdo Atual do working-context.md:\n{working_context}"
-    )
-    
-    sub_messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": prompt}
-    ]
-    
-    response = call_llm_api(sub_messages)
-    updated_content = None
-    if response and "choices" in response:
-        updated_content = response["choices"][0]["message"]["content"]
-    elif response and "content" in response:
-        updated_content = response["content"][0]["text"]
-        
-    if updated_content:
-        cleaned = updated_content.strip()
-        if cleaned.startswith("```markdown"):
-            cleaned = cleaned[11:]
-        if cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
-        
-        if not validate_working_context(cleaned):
-            log_error("Falha na validação do working-context.md: estrutura markdown inválida ou cabeçalhos ausentes.")
-            apply_deterministic_fallback()
-            return
+    try:
+        working_context = context_path.read_text(encoding="utf-8")
+        prompt = f"Histórico Recente:\n{history_text}\n\nConteúdo Atual do working-context.md:\n{working_context}"
+        sub_messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ]
+        response = call_llm_api(sub_messages)
+        if response:
+            from templates.core.llm_client import _extract_text
+            content = _extract_text(response).strip()
+            if content.startswith("```markdown"):
+                content = content[11:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
             
-        try:
-            with open(context_path, "w", encoding="utf-8") as f:
-                f.write(cleaned)
-            log("working-context.md atualizado com sucesso.")
-        except Exception as e:
-            log_error(f"Falha ao persistir working-context.md: {e}")
-            apply_deterministic_fallback()
-    else:
-        log_error("Falha ao receber resposta do LLM para auto-save.")
-        apply_deterministic_fallback()
+            # Simple validation: must contain header
+            if "# Working Context" in content:
+                context_path.write_text(content, encoding="utf-8")
+                return
+        apply_fallback()
+    except Exception:
+        apply_fallback()
 
-def call_llm_api(messages, tools=None):
-    provider = os.environ.get("BALI_LLM_PROVIDER", "ollama").lower()
-    model = os.environ.get("BALI_LLM_MODEL")
-    api_key = os.environ.get("BALI_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    endpoint = os.environ.get("BALI_LLM_ENDPOINT")
-
-    if provider == "openai":
-        url = endpoint or "https://api.openai.com/v1/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key or ''}"
-        }
-        payload = {
-            "model": model or "gpt-4o",
-            "messages": messages
-        }
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-
-    elif provider == "anthropic":
-        url = endpoint or "https://api.anthropic.com/v1/messages"
-        headers = {
-            "Content-Type": "application/json",
-            "x-api-key": api_key or "",
-            "anthropic-version": "2023-06-01"
-        }
-        
-        system_content = ""
-        anthropic_messages = []
-        for m in messages:
-            if m["role"] == "system":
-                system_content = m["content"]
-            else:
-                anthropic_messages.append({"role": m["role"], "content": m["content"]})
-
-        payload = {
-            "model": model or "claude-3-5-sonnet-20241022",
-            "messages": anthropic_messages,
-            "max_tokens": 4000
-        }
-        if system_content:
-            payload["system"] = system_content
-            
-        if tools:
-            anthropic_tools = []
-            for t in tools:
-                func = t["function"]
-                anthropic_tools.append({
-                    "name": func["name"],
-                    "description": func["description"],
-                    "input_schema": func["parameters"]
-                })
-            payload["tools"] = anthropic_tools
-
-    elif provider == "gemini":
-        url = endpoint or f"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions?key={api_key or ''}"
-        headers = {
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": model or "gemini-1.5-pro",
-            "messages": messages
-        }
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-
-    else:  # default: ollama
-        url = endpoint or "http://localhost:11434/v1/chat/completions"
-        headers = {
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": model or "llama3",
-            "messages": messages
-        }
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-
-    max_attempts = 5
-    delay = 1
-    
-    for attempt in range(1, max_attempts + 1):
-        try:
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=120) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = ""
-            try:
-                error_body = e.read().decode("utf-8")
-            except Exception:
-                pass
-            log_error(f"Erro de HTTP na chamada de API (Tentativa {attempt}/{max_attempts}): {e.code} - {e.reason}\nBody: {error_body}")
-            if e.code == 429 or e.code == 503 or (e.code >= 500 and e.code < 600):
-                if attempt < max_attempts:
-                    log(f"Aguardando {delay} segundos antes de tentar novamente...")
-                    time.sleep(delay)
-                    delay *= 2
-                    continue
-                else:
-                    return None
-            else:
-                return None
-        except Exception as e:
-            log_error(f"Erro de conexão na chamada de API (Tentativa {attempt}/{max_attempts}): {e}")
-            if attempt < max_attempts:
-                log(f"Aguardando {delay} segundos antes de tentar novamente...")
-                time.sleep(delay)
-                delay *= 2
-                continue
-            else:
-                return None
-
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print("Uso: python .agent/run.py \"instrução do usuário\"")
         sys.exit(1)
         
     user_instruction = sys.argv[1]
+    root_dir = Path(".").resolve()
     
-    log("Iniciando Bali-Agent Runtime Bridge...")
-    config = load_config()
-    working_context = load_working_context()
+    print("[*] Iniciando Bali-Agent Runtime Bridge...", file=sys.stderr)
+    config = load_config(root_dir)
+    working_context = load_working_context(root_dir)
     
-    orchestrator_prompt = load_agent_prompt("orchestrator")
-    
-    system_prompt = f"{orchestrator_prompt}\n\n=== CONTEXTO DO PROJETO ===\n"
-    system_prompt += f"Configuração do Time:\n{json.dumps(config, indent=2)}\n\n"
+    try:
+        orchestrator_prompt = load_agent_prompt(root_dir, "orchestrator")
+    except FileNotFoundError as e:
+        print(f"[!] {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    system_prompt = (
+        f"{orchestrator_prompt}\n\n=== CONTEXTO DO PROJETO ===\n"
+        f"Configuração do Time:\n{json.dumps(config, indent=2)}\n\n"
+    )
     if working_context:
         system_prompt += f"Memória de Trabalho Recente:\n{working_context}\n"
     system_prompt += "===========================\n"
     
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_instruction}
-    ]
-    
-    loop_count = 0
-    max_loops = 15
-    has_changes = False
-    
-    while loop_count < max_loops:
-        loop_count += 1
-        log(f"Executando iteração {loop_count} do Orchestrator...")
+    # Run the orchestrator loop
+    os.environ["BALI_SESSION_ID"] = "orchestrator"
+    try:
+        # We run the orchestrator loop with a higher max limit of 15 loops
+        result = run_agent_loop("orchestrator", user_instruction, root_dir, max_loops=15)
+        print("\n=== RESPOSTA DO ORCHESTRATOR ===")
+        print(result)
         
-        response = call_llm_api(messages, tools=TOOLS)
-        if not response:
-            log_error("Falha ao receber resposta do Orchestrator LLM. Encerrando.")
-            sys.exit(1)
-            
-        if "choices" in response:
-            choice = response["choices"][0]
-            message = choice["message"]
-            content = message.get("content")
-            tool_calls = message.get("tool_calls")
-            
-            messages.append(message)
-            
-            if content and not tool_calls:
-                print("\n=== RESPOSTA DO ORCHESTRATOR ===")
-                print(content)
-                break
-                
-            if tool_calls:
-                has_changes = True
-                for tool_call in tool_calls:
-                    function_info = tool_call["function"]
-                    tool_name = function_info["name"]
-                    try:
-                        tool_args = json.loads(function_info["arguments"])
-                    except Exception:
-                        tool_args = {}
-                    
-                    tool_output = execute_tool(tool_name, tool_args)
-                    
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call["id"],
-                        "name": tool_name,
-                        "content": str(tool_output)
-                    })
-                    
-        elif "content" in response:
-            content_blocks = response["content"]
-            text_content = ""
-            tool_requests = []
-            
-            for block in content_blocks:
-                if block["type"] == "text":
-                    text_content += block["text"]
-                elif block["type"] == "tool_use":
-                    tool_requests.append(block)
-            
-            messages.append({
-                "role": "assistant",
-                "content": content_blocks
-            })
-            
-            if text_content and not tool_requests:
-                print("\n=== RESPOSTA DO ORCHESTRATOR ===")
-                print(text_content)
-                break
-                
-            if tool_requests:
-                has_changes = True
-                tool_results = []
-                for tool_req in tool_requests:
-                    tool_name = tool_req["name"]
-                    tool_args = tool_req["input"]
-                    tool_call_id = tool_req["id"]
-                    
-                    tool_output = execute_tool(tool_name, tool_args)
-                    
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tool_call_id,
-                        "content": str(tool_output)
-                    })
-                
-                messages.append({
-                    "role": "user",
-                    "content": tool_results
-                })
-        else:
-            log_error(f"Formato de resposta inesperado do LLM: {json.dumps(response)}")
-            sys.exit(1)
-            
-    if loop_count >= max_loops:
-        log_error("Atingido o limite de iterações do Orchestrator para evitar loops.")
+        # Load checkpoints to save context
+        sessions_dir = root_dir / ".agent" / "sessions"
+        checkpoint_path = sessions_dir / "orchestrator.json"
+        if checkpoint_path.is_file():
+            try:
+                with checkpoint_path.open("r", encoding="utf-8") as f:
+                    msgs = json.load(f)
+                save_context_auto(user_instruction, msgs, root_dir)
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[!] Erro de execucao no Orchestrator: {e}", file=sys.stderr)
         sys.exit(1)
-        
-    if has_changes:
-        save_context_auto(user_instruction, messages)
 
 if __name__ == "__main__":
     main()

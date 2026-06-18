@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Initializer script for Bali-Agent.
+
+Copies agents, protocols, templates, and configures enforcement adapters.
+"""
 
 import os
 import sys
 import shutil
 import json
 from datetime import datetime, timezone
-try:
-    import readline  # Melhora o input no terminal Unix/Linux
-except ImportError:
-    pass  # Não disponível no Windows, ignorar
+from typing import List, Dict, Any, Tuple
 
-def print_banner():
+try:
+    import readline  # type: ignore
+except ImportError:
+    pass
+
+def print_banner() -> None:
     banner = """
 ======================================================================
-  [BALI-AGENT AI] -- TIME DE AGENTES HÍBRIDOS (V2)
+  [BALI-AGENT AI] -- TIME DE AGENTES HÍBRIDOS (V2.1)
 ======================================================================
   Orquestração de engenharia moderna baseada em agentes autônomos.
   LLM-Agnostic | Security-First | Human-in-the-Loop
@@ -23,11 +29,11 @@ def print_banner():
     try:
         print(banner)
     except UnicodeEncodeError:
-        print("[BALI-AGENT AI] -- TIME DE AGENTES HÍBRIDOS (V2)")
+        print("[BALI-AGENT AI] -- TIME DE AGENTES HÍBRIDOS (V2.1)")
 
-def get_target_directory():
+def get_target_directory() -> str:
     print("Este script inicializa o Bali-Agent AI no diretório do seu projeto.")
-    print("Os agentes, protocolos, templates e guias serão copiados para a pasta .agent/")
+    print("Os agentes, guias e adaptadores serão copiados para a pasta .agent/")
     print("-" * 70)
     
     while True:
@@ -43,14 +49,14 @@ def get_target_directory():
             print("\nOperação cancelada pelo usuário.")
             sys.exit(0)
 
-def _copy_if_missing(src_path, dest_path):
+def _copy_if_missing(src_path: str, dest_path: str) -> bool:
     if os.path.exists(dest_path):
         return False
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     shutil.copy2(src_path, dest_path)
     return True
 
-def _write_if_missing(path, content):
+def _write_if_missing(path: str, content: str) -> bool:
     if os.path.exists(path):
         return False
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -58,8 +64,7 @@ def _write_if_missing(path, content):
         f.write(content)
     return True
 
-
-def install_pull_request_template(src_dir, target_dir):
+def install_pull_request_template(src_dir: str, target_dir: str) -> None:
     src = os.path.join(src_dir, "templates", "pull_request_template.md")
     if not os.path.exists(src):
         return
@@ -77,7 +82,7 @@ def install_pull_request_template(src_dir, target_dir):
     except Exception as e:
         print(f"[!] Erro ao instalar template de PR: {e}")
 
-def _claude_instruction_body(imports):
+def _claude_instruction_body(imports: List[str]) -> str:
     lines = [
         "# Claude Code - Bali-Agent Project Instructions",
         "",
@@ -100,7 +105,7 @@ def _claude_instruction_body(imports):
     ])
     return "\n".join(lines)
 
-def install_claude_project_instructions(target_dir, agent_dir):
+def install_claude_project_instructions(target_dir: str, agent_dir: str) -> None:
     claude_dir = os.path.join(target_dir, ".claude")
     os.makedirs(claude_dir, exist_ok=True)
     root_claude = os.path.join(target_dir, "CLAUDE.md")
@@ -128,7 +133,7 @@ def install_claude_project_instructions(target_dir, agent_dir):
         print("[!] .claude/CLAUDE.md ja existe e NAO foi sobrescrito.")
         print("    Referencia Bali-Agent salva em .claude/CLAUDE.bali-agent.md")
 
-def install_opencode_project_config(target_dir):
+def install_opencode_project_config(target_dir: str) -> None:
     config_path = os.path.join(target_dir, "opencode.json")
     ref_path = os.path.join(target_dir, "opencode.bali-agent.json")
     required = [
@@ -159,12 +164,12 @@ def install_opencode_project_config(target_dir):
         print(f"[!] Erro ao mesclar opencode.json: {e}")
         print("[!] Referencia Bali-Agent salva em opencode.bali-agent.json")
 
-def _default_manifest(target_dir):
+def _default_manifest(target_dir: str) -> str:
     project_name = os.path.basename(os.path.abspath(target_dir)) or "projeto"
     created_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     return f"""# Manifesto do time Bali-Agent.
 # Objetivo Master: subagentes reais sempre; role-play/simulação não é modo válido.
-versao_base: "2.0.0"
+versao_base: "2.1.0"
 projeto: {project_name}
 modo: operate
 criado_em: "{created_at}"
@@ -201,30 +206,30 @@ enforcement_adapters:
   - ollama
 """
 
-def _read_text(path):
+def _read_text(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-def _write_text(path, content):
+def _write_text(path: str, content: str) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
 
-def _json_key(value):
+def _json_key(value: Any) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False)
 
-def _load_json_object(path):
+def _load_json_object(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         return {}
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return data if isinstance(data, dict) else {}
 
-def _append_unique(items, value):
+def _append_unique(items: List[Any], value: Any) -> None:
     if value not in items:
         items.append(value)
 
-def merge_claude_settings(src_settings, dest_settings):
+def merge_claude_settings(src_settings: str, dest_settings: str) -> None:
     desired = _load_json_object(src_settings)
     desired_hooks = desired.get("hooks") or {}
     if not isinstance(desired_hooks, dict):
@@ -252,10 +257,10 @@ def merge_claude_settings(src_settings, dest_settings):
     data["hooks"] = hooks
     _write_text(dest_settings, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
-def _toml_multiline(value):
+def _toml_multiline(value: str) -> str:
     return '"""' + value.replace('"""', '\\"\\"\\"') + '"""'
 
-def _team_agent_files(agent_dir):
+def _team_agent_files(agent_dir: str) -> List[str]:
     team_dir = os.path.join(agent_dir, "team")
     if not os.path.isdir(team_dir):
         return []
@@ -265,7 +270,7 @@ def _team_agent_files(agent_dir):
         if filename.endswith(".md")
     ]
 
-def _agent_description(agent_id):
+def _agent_description(agent_id: str) -> str:
     if agent_id == "orchestrator":
         return "Orquestra qualquer pedido e cria subagentes quando faltar especialidade."
     if agent_id == "discovery":
@@ -280,8 +285,7 @@ def _agent_description(agent_id):
         return "Revisa entregas antes da conclusao, focando bugs, riscos e testes."
     return f"Especialista Bali-Agent reutilizavel: {agent_id}."
 
-def materialize_real_subagents(src_dir, target_dir, agent_dir):
-    """Cria o time minimo real e espelha para runtimes nativos disponiveis."""
+def materialize_real_subagents(src_dir: str, target_dir: str, agent_dir: str) -> None:
     team_dir = os.path.join(agent_dir, "team")
     os.makedirs(team_dir, exist_ok=True)
 
@@ -320,8 +324,7 @@ def materialize_real_subagents(src_dir, target_dir, agent_dir):
     if mirrored:
         print(f"[x] Subagentes nativos Claude Code espelhados em .claude/agents/: {', '.join(mirrored)}")
 
-def install_codex_native_agents(target_dir, agent_dir):
-    """Instala agentes nativos do Codex em .codex/agents/*.toml."""
+def install_codex_native_agents(target_dir: str, agent_dir: str) -> None:
     codex_dir = os.path.join(target_dir, ".codex")
     agents_dir = os.path.join(codex_dir, "agents")
     os.makedirs(agents_dir, exist_ok=True)
@@ -346,8 +349,7 @@ def install_codex_native_agents(target_dir, agent_dir):
     if installed:
         print(f"[x] Subagentes nativos Codex instalados em .codex/agents/: {', '.join(installed)}")
 
-def install_opencode_native_agents(target_dir, agent_dir):
-    """Instala agentes nativos do OpenCode em .opencode/agents/*.md."""
+def install_opencode_native_agents(target_dir: str, agent_dir: str) -> None:
     agents_dir = os.path.join(target_dir, ".opencode", "agents")
     os.makedirs(agents_dir, exist_ok=True)
     install_opencode_project_config(target_dir)
@@ -370,7 +372,7 @@ def install_opencode_native_agents(target_dir, agent_dir):
     if installed:
         print(f"[x] Subagentes nativos OpenCode instalados em .opencode/agents/: {', '.join(installed)}")
 
-def install_cursor_adapter(src_dir, target_dir):
+def install_cursor_adapter(src_dir: str, target_dir: str) -> None:
     rules_dir = os.path.join(target_dir, ".cursor", "rules")
     os.makedirs(rules_dir, exist_ok=True)
     src = os.path.join(src_dir, "templates", "cursor-rule.mdc")
@@ -378,7 +380,7 @@ def install_cursor_adapter(src_dir, target_dir):
     if os.path.exists(src) and _copy_if_missing(src, dest):
         print("[x] Adapter Cursor instalado: .cursor/rules/bali-agent.mdc")
 
-def _merge_gemini_settings(existing):
+def _merge_gemini_settings(existing: str) -> str:
     data = {}
     if os.path.exists(existing):
         try:
@@ -402,7 +404,7 @@ def _merge_gemini_settings(existing):
     data["context"] = context
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
-def install_gemini_adapter(target_dir):
+def install_gemini_adapter(target_dir: str) -> None:
     gemini_dir = os.path.join(target_dir, ".gemini")
     os.makedirs(gemini_dir, exist_ok=True)
     dest = os.path.join(gemini_dir, "settings.json")
@@ -410,7 +412,7 @@ def install_gemini_adapter(target_dir):
     _write_text(dest, merged)
     print("[x] Adapter Gemini CLI instalado/mesclado: .gemini/settings.json")
 
-def install_antigravity_skill(target_dir):
+def install_antigravity_skill(target_dir: str) -> None:
     skill_dir = os.path.join(target_dir, ".antigravity", "skills", "bali-agent")
     dest = os.path.join(skill_dir, "SKILL.md")
     content = """---
@@ -431,14 +433,14 @@ Sempre opere com subagentes reais:
     if _write_if_missing(dest, content):
         print("[x] Skill Antigravity instalada: .antigravity/skills/bali-agent/SKILL.md")
 
-def install_native_surface_adapters(src_dir, target_dir, agent_dir):
+def install_native_surface_adapters(src_dir: str, target_dir: str, agent_dir: str) -> None:
     install_codex_native_agents(target_dir, agent_dir)
     install_opencode_native_agents(target_dir, agent_dir)
     install_cursor_adapter(src_dir, target_dir)
     install_gemini_adapter(target_dir)
     install_antigravity_skill(target_dir)
 
-def install_runtime_and_adapters(src_dir, agent_dir):
+def install_runtime_and_adapters(src_dir: str, agent_dir: str) -> None:
     runtime_src = os.path.join(src_dir, "templates", "runtime", "bali_runtime.py")
     runtime_dest = os.path.join(agent_dir, "runtime", "bali_runtime.py")
     if os.path.exists(runtime_src):
@@ -462,16 +464,15 @@ def install_runtime_and_adapters(src_dir, agent_dir):
         if installed:
             print(f"[x] Adapters universais instalados/atualizados em .agent/adapters/: {', '.join(installed)}")
 
-def initialize_project(src_dir, target_dir):
+def initialize_project(src_dir: str, target_dir: str) -> bool:
     print(f"\n[+] Iniciando cópia para: {target_dir}")
     
     agent_dir = os.path.join(target_dir, ".agent")
     
-    # Checar idempotência
+    # Check if already initialized
     manifest_path = os.path.join(agent_dir, "subagent.config.yaml")
     if os.path.exists(manifest_path):
-        print(f"[!] Aviso: Bali-Agent v2 já está inicializado neste projeto.")
-        # Se for interativo, perguntamos. Se não for, sobrescrevemos.
+        print(f"[!] Aviso: Bali-Agent já está inicializado neste projeto.")
         is_interactive = sys.stdin.isatty() and not os.environ.get("PYTEST_CURRENT_TEST")
         if is_interactive:
             try:
@@ -483,12 +484,11 @@ def initialize_project(src_dir, target_dir):
                 print("\nOperação cancelada.")
                 return False
         else:
-            print("[*] Sobrescrevendo a base automaticamente (modo não-interativo/testes).")
+            print("[*] Sobrescrevendo a base automaticamente (modo não-interativo).")
 
-    # Criar diretório .agent se não existir
     os.makedirs(agent_dir, exist_ok=True)
             
-    # Pastas para copiar para .agent/
+    # Subdirectories to copy recursively to .agent/
     dirs_to_copy = ["agents", "protocols", "templates", "examples"]
     
     for item in dirs_to_copy:
@@ -524,7 +524,7 @@ def initialize_project(src_dir, target_dir):
 
     install_pull_request_template(src_dir, target_dir)
 
-    # Arquivos de bootstrap para copiar para a raiz do projeto do usuário
+    # Core files to place in root
     files_to_copy = [("AGENTS.md", "AGENTS.md"), ("README.md", "README.md")]
     
     for src_file, dest_file in files_to_copy:
@@ -534,12 +534,11 @@ def initialize_project(src_dir, target_dir):
             try:
                 if os.path.exists(dest_path):
                     if dest_file == "AGENTS.md":
-                        # Copia como bootstrap-AGENTS.md dentro de .agent/ para referência
                         bootstrap_dest = os.path.join(agent_dir, "bootstrap-AGENTS.md")
                         shutil.copy2(src_path, bootstrap_dest)
-                        print(f"[x] AGENTS.md existente preservado na raiz. Bootstrap de referência copiado para .agent/bootstrap-AGENTS.md")
+                        print(f"[x] AGENTS.md existente preservado. Referencia salva em .agent/bootstrap-AGENTS.md")
                     else:
-                        print(f"[x] README.md existente preservado na raiz do projeto (não sobrescrito).")
+                        print(f"[x] README.md existente preservado na raiz.")
                 else:
                     shutil.copy2(src_path, dest_path)
                     print(f"[x] Arquivo copiado para raiz: {dest_file}")
@@ -548,65 +547,46 @@ def initialize_project(src_dir, target_dir):
 
     install_claude_project_instructions(target_dir, agent_dir)
             
-    # 1. Copiar working-context.md inicial para .agent/working-context.md se não existir
+    # Copy template instances
     dest_working_context = os.path.join(agent_dir, "working-context.md")
     if not os.path.exists(dest_working_context):
         src_working_context = os.path.join(src_dir, "templates", "working-context.md")
         if os.path.exists(src_working_context):
-            try:
-                shutil.copy2(src_working_context, dest_working_context)
-                print("[x] Memória de trabalho criada: .agent/working-context.md")
-            except Exception as e:
-                print(f"[!] Erro ao copiar working-context.md: {e}")
+            shutil.copy2(src_working_context, dest_working_context)
+            print("[x] Memória de trabalho criada: .agent/working-context.md")
 
-    # 1a. Copiar memoria curada persistente para .agent/memory.md se nao existir
     dest_memory = os.path.join(agent_dir, "memory.md")
     if not os.path.exists(dest_memory):
         src_memory = os.path.join(src_dir, "templates", "memory.md")
         if os.path.exists(src_memory):
-            try:
-                shutil.copy2(src_memory, dest_memory)
-                print("[x] Memoria curada criada: .agent/memory.md")
-            except Exception as e:
-                print(f"[!] Erro ao copiar memory.md: {e}")
+            shutil.copy2(src_memory, dest_memory)
+            print("[x] Memoria curada criada: .agent/memory.md")
 
-    # 1b. Copiar checklist de tarefa inicial para .agent/task.md se não existir
     dest_task = os.path.join(agent_dir, "task.md")
     if not os.path.exists(dest_task):
         src_task = os.path.join(src_dir, "templates", "task.md")
         if os.path.exists(src_task):
-            try:
-                shutil.copy2(src_task, dest_task)
-                print("[x] Checklist de tarefa criado: .agent/task.md")
-            except Exception as e:
-                print(f"[!] Erro ao copiar task.md: {e}")
+            shutil.copy2(src_task, dest_task)
+            print("[x] Checklist de tarefa criado: .agent/task.md")
 
-    # 2. Criar .agent/hooks/ e copiar prevent_secrets.py para lá
+    # Copy hooks
     hooks_dir = os.path.join(agent_dir, "hooks")
     os.makedirs(hooks_dir, exist_ok=True)
+    
     src_prevent_secrets = os.path.join(src_dir, "templates", "prevent_secrets.py")
     dest_prevent_secrets = os.path.join(hooks_dir, "prevent_secrets.py")
     if os.path.exists(src_prevent_secrets):
-        try:
-            shutil.copy2(src_prevent_secrets, dest_prevent_secrets)
-            # Damos permissão de execução
-            os.chmod(dest_prevent_secrets, 0o755)
-            print("[x] Script prevent_secrets.py de segurança copiado para .agent/hooks/")
-        except Exception as e:
-            print(f"[!] Erro ao copiar prevent_secrets.py: {e}")
+        shutil.copy2(src_prevent_secrets, dest_prevent_secrets)
+        os.chmod(dest_prevent_secrets, 0o755)
+        print("[x] Hook prevent_secrets.py copiado para .agent/hooks/")
 
-    # 2b. Copiar o hook de re-injecao da constituicao (enforcement Claude Code) para .agent/hooks/
     src_claude_hook = os.path.join(src_dir, "templates", "claude_hook.py")
     dest_claude_hook = os.path.join(hooks_dir, "claude_hook.py")
     if os.path.exists(src_claude_hook):
-        try:
-            shutil.copy2(src_claude_hook, dest_claude_hook)
-            os.chmod(dest_claude_hook, 0o755)
-            print("[x] Hook de constituicao copiado para .agent/hooks/claude_hook.py")
-        except Exception as e:
-            print(f"[!] Erro ao copiar claude_hook.py: {e}")
+        shutil.copy2(src_claude_hook, dest_claude_hook)
+        os.chmod(dest_claude_hook, 0o755)
+        print("[x] Hook claude_hook.py copiado para .agent/hooks/")
 
-    # 2c. Instalar o settings.json do Claude Code SEM sobrescrever config existente do usuario
     src_claude_settings = os.path.join(src_dir, "templates", "claude-settings.json")
     if os.path.exists(src_claude_settings):
         claude_dir = os.path.join(target_dir, ".claude")
@@ -614,86 +594,79 @@ def initialize_project(src_dir, target_dir):
         dest_claude_settings = os.path.join(claude_dir, "settings.json")
         try:
             merge_claude_settings(src_claude_settings, dest_claude_settings)
-            print("[x] Enforcement Claude Code instalado/mesclado: .claude/settings.json (hook por turno).")
-        except Exception as e:
+            print("[x] Settings Claude Code mesclado.")
+        except Exception:
             ref_settings = os.path.join(claude_dir, "settings.bali-agent.json")
             shutil.copy2(src_claude_settings, ref_settings)
-            print(f"[!] Erro ao mesclar .claude/settings.json: {e}")
-            print('    Referencia salva em .claude/settings.bali-agent.json - copie o bloco "hooks" para o seu settings.json.')
 
-    # 2d. Copiar o verificador de setup para .agent/verify_setup.py
     src_verify = os.path.join(src_dir, "templates", "verify_setup.py")
     dest_verify = os.path.join(agent_dir, "verify_setup.py")
     if os.path.exists(src_verify):
-        try:
-            shutil.copy2(src_verify, dest_verify)
-            os.chmod(dest_verify, 0o755)
-            print("[x] Verificador de setup copiado para .agent/verify_setup.py")
-        except Exception as e:
-            print(f"[!] Erro ao copiar verify_setup.py: {e}")
+        shutil.copy2(src_verify, dest_verify)
+        os.chmod(dest_verify, 0o755)
+        print("[x] Verificador de setup copiado para .agent/verify_setup.py")
 
-    # 2e. Copiar o runtime engine (run.py) para .agent/run.py
     src_run = os.path.join(src_dir, "templates", "run.py")
     dest_run = os.path.join(agent_dir, "run.py")
     if os.path.exists(src_run):
-        try:
-            shutil.copy2(src_run, dest_run)
-            os.chmod(dest_run, 0o755)
-            print("[x] Engine de runtime copiado para .agent/run.py")
-        except Exception as e:
-            print(f"[!] Erro ao copiar run.py: {e}")
+        shutil.copy2(src_run, dest_run)
+        os.chmod(dest_run, 0o755)
+        print("[x] Engine de runtime copiado para .agent/run.py")
 
-    # 3. Se for um repositório Git, injetar o pre-commit Git hook local (Agent Shield)
+    # Setup Git pre-commit hook (Agent Shield) if target is a git repository
     git_dir = os.path.join(target_dir, ".git")
     if os.path.isdir(git_dir):
-        git_hooks_dir = os.path.join(git_dir, "hooks")
-        os.makedirs(git_hooks_dir, exist_ok=True)
+        git_hooks = os.path.join(git_dir, "hooks")
+        os.makedirs(git_hooks, exist_ok=True)
         src_shell_hook = os.path.join(src_dir, "templates", "git-pre-commit-shell")
-        dest_shell_hook = os.path.join(git_hooks_dir, "pre-commit")
+        dest_shell_hook = os.path.join(git_hooks, "pre-commit")
         if os.path.exists(src_shell_hook):
-            try:
-                shutil.copy2(src_shell_hook, dest_shell_hook)
-                # Damos permissão de execução ao pre-commit hook
-                os.chmod(dest_shell_hook, 0o755)
-                print("[x] Agent Shield ativado: Git Pre-commit Hook instalado com sucesso!")
-            except Exception as e:
-                print(f"[!] Erro ao configurar Git Pre-commit Hook: {e}")
+            shutil.copy2(src_shell_hook, dest_shell_hook)
+            os.chmod(dest_shell_hook, 0o755)
+            print("[x] Agent Shield: Git pre-commit hook instalado.")
 
-    # Garantir criação do output/.gitkeep dentro de .agent/
+    # Write .agent/.gitignore to ignore local execution artifacts
+    agent_gitignore = os.path.join(agent_dir, ".gitignore")
+    gitignore_content = """# Ignorar outputs e sessoes locais do runtime Bali-Agent
+sessions/
+output/
+memory.db
+memory.db-journal
+*.key
+*.pem
+.env
+"""
+    _write_text(agent_gitignore, gitignore_content)
+    print("[x] .gitignore criado em .agent/.gitignore")
+
     output_dir = os.path.join(agent_dir, "output")
     os.makedirs(output_dir, exist_ok=True)
-    gitkeep_path = os.path.join(output_dir, ".gitkeep")
-    if not os.path.exists(gitkeep_path):
-        with open(gitkeep_path, "w", encoding="utf-8") as f:
-            f.write("")
+    gitkeep = os.path.join(output_dir, ".gitkeep")
+    if not os.path.exists(gitkeep):
+        _write_text(gitkeep, "")
     print("[x] Pasta de outputs configurada: .agent/output/")
+    
     return True
 
-def print_success_instructions(target_dir):
+def print_success_instructions(target_dir: str) -> None:
     try:
         print("\n" + "=" * 70)
         print("SUCCESS: BALI-AGENT AI INICIALIZADO COM SUCESSO!")
         print("=" * 70)
         print(f"\nDiretório: {target_dir}\n")
         print("Próximos passos para começar:")
-        print("1. Abra o diretório do seu projeto na sua IDE favorita (Cursor, VS Code, etc.).")
-        print("2. Abra o chat do seu assistente de IA com o arquivo AGENTS.md aberto/anexado.")
-        print("3. Digite a seguinte mensagem no chat para iniciar o setup do time:")
+        print("1. Abra o diretório do seu projeto na sua IDE favorita.")
+        print("2. Digite a seguinte mensagem no chat do assistente:")
         print("   > Setup do time")
-        print("\n4. O Setup Agent assumirá a execução, perfilando sua stack e criando o time sob medida.")
         print("=" * 70 + "\n")
     except UnicodeEncodeError:
         print(f"\nBali-Agent AI inicializado com sucesso em {target_dir}")
-        print("Abra AGENTS.md e digite 'Setup do time' no chat.")
 
-def main():
-    # Caminho onde o script está localizado (raiz do repositório clonado)
+def main() -> None:
     src_dir = os.path.dirname(os.path.abspath(__file__))
-    
     print_banner()
     target_dir = get_target_directory()
     
-    # Confirmar antes de continuar
     print(f"\nVocê confirma a inicialização em: {target_dir}? (S/N)")
     try:
         confirm = input("> ").strip().lower()
