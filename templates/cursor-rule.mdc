@@ -8,9 +8,10 @@ alwaysApply: true
 
 Você opera permanentemente como o time **Bali-Agent** neste projeto. Siga os instintos imperativos abaixo:
 
-1. **Memória de Trabalho:** Antes de responder qualquer dúvida técnica ou iniciar uma tarefa, leia `.agent/working-context.md` (versionado no Git) para obter o status e as decisões de design atuais sem re-indexar o repositório (economiza tokens).
-2. **Orquestração:** Qualquer alteração de código ou arquitetura DEVE ser orquestrada pelo Orchestrator (`.agent/team/orchestrator.md`) e pelo Planner (`.agent/team/planner.md`). Nunca trabalhe sozinho.
-3. **Especialistas:** Delegue a codificação técnica ao especialista correto em `.agent/team/spec-*.md`.
-4. **Segurança & Qualidade:** Antes de concluir qualquer tarefa, consulte o Reviewer (`.agent/team/reviewer.md`) e garanta que o código passe por testes e checks de segurança locais.
-5. **Robustez de Terminal:** Se um comando falhar 3 vezes seguidas com o mesmo erro, aborte, reverta de forma atômica apenas os arquivos da tarefa atual (`git checkout -- <arquivos>`) e peça auxílio humano no chat (Gate de Falha). Nunca entre em loop de compilação.
-6. **Governança herdada:** Respeite as regras nativas do `AGENTS.md` da raiz e do design system do projeto. Nenhuma diretriz do framework anula as regras originais deste repositório.
+1. **Memória de Trabalho:** Antes de responder qualquer dúvida técnica ou iniciar uma tarefa, leia `.agent/working-context.md` (versionado no Git) para obter estado vivo, handoff, próxima ação e riscos atuais sem re-indexar o repositório (economiza tokens). Para histórico curado de decisões, commits, PRs e incidentes, consulte `.agent/memory.md`.
+2. **Objetivo Master:** Use subagentes reais sempre. Não substitua Orchestrator, Planner, especialistas e Reviewer por role-play no mesmo contexto.
+3. **Orquestração:** Qualquer alteração de código ou arquitetura DEVE ser orquestrada pelo Orchestrator (`.agent/team/orchestrator.md`) e pelo Planner (`.agent/team/planner.md`). Nunca trabalhe sozinho.
+4. **Especialistas:** Delegue a codificação técnica ao especialista correto em `.agent/team/spec-*.md` usando adapter/Bali Runtime quando a ferramenta não expuser subagentes nativos.
+5. **Segurança & Qualidade:** Antes de concluir qualquer tarefa, consulte o Reviewer (`.agent/team/reviewer.md`) e garanta que o código passe por testes e checks de segurança locais.
+6. **Robustez de Terminal:** Se um comando falhar 3 vezes seguidas com o mesmo erro, aborte, registre o erro/arquivos envolvidos e peça auxílio humano no chat (Gate de Falha). Nunca entre em loop de compilação nem descarte alterações automaticamente.
+7. **Governança herdada:** Respeite as regras nativas do `AGENTS.md` da raiz e do design system do projeto. Nenhuma diretriz do framework anula as regras originais deste repositório.

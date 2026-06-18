@@ -4,6 +4,8 @@
 import os
 import sys
 import shutil
+import json
+from datetime import datetime, timezone
 try:
     import readline  # Melhora o input no terminal Unix/Linux
 except ImportError:
@@ -40,6 +42,424 @@ def get_target_directory():
         except KeyboardInterrupt:
             print("\nOperação cancelada pelo usuário.")
             sys.exit(0)
+
+def _copy_if_missing(src_path, dest_path):
+    if os.path.exists(dest_path):
+        return False
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    shutil.copy2(src_path, dest_path)
+    return True
+
+def _write_if_missing(path, content):
+    if os.path.exists(path):
+        return False
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return True
+
+
+def install_pull_request_template(src_dir, target_dir):
+    src = os.path.join(src_dir, "templates", "pull_request_template.md")
+    if not os.path.exists(src):
+        return
+
+    github_dir = os.path.join(target_dir, ".github")
+    dest = os.path.join(github_dir, "pull_request_template.md")
+    ref_dest = os.path.join(github_dir, "pull_request_template.bali-agent.md")
+
+    try:
+        if _copy_if_missing(src, dest):
+            print("[x] Template de PR instalado: .github/pull_request_template.md")
+        elif _copy_if_missing(src, ref_dest):
+            print("[!] .github/pull_request_template.md ja existe e NAO foi sobrescrito.")
+            print("    Referencia Bali-Agent salva em .github/pull_request_template.bali-agent.md")
+    except Exception as e:
+        print(f"[!] Erro ao instalar template de PR: {e}")
+
+def _claude_instruction_body(imports):
+    lines = [
+        "# Claude Code - Bali-Agent Project Instructions",
+        "",
+        "Claude Code le CLAUDE.md, nao AGENTS.md. Este arquivo importa a governanca",
+        "canonica do projeto para que Claude Code receba as mesmas regras dos outros agentes.",
+        "",
+        "## Imports",
+        "",
+    ]
+    lines.extend(imports)
+    lines.extend([
+        "",
+        "## Bali-Agent Enforcement",
+        "",
+        "- O objetivo master e subagentes reais sempre.",
+        "- Nao substitua Orchestrator, Planner, especialistas e Reviewer por role-play no mesmo contexto.",
+        "- Use `.claude/agents/*.md` quando disponivel; se faltar isolamento, use `python .agent/runtime/bali_runtime.py run \"<tarefa>\"`.",
+        "- O hook em `.claude/settings.json` reinjeta estado vivo em `SessionStart` e `UserPromptSubmit`.",
+        "",
+    ])
+    return "\n".join(lines)
+
+def install_claude_project_instructions(target_dir, agent_dir):
+    claude_dir = os.path.join(target_dir, ".claude")
+    os.makedirs(claude_dir, exist_ok=True)
+    root_claude = os.path.join(target_dir, "CLAUDE.md")
+    scoped_claude = os.path.join(claude_dir, "CLAUDE.md")
+    ref_claude = os.path.join(claude_dir, "CLAUDE.bali-agent.md")
+    bootstrap = os.path.join(agent_dir, "bootstrap-AGENTS.md")
+
+    if not os.path.exists(root_claude):
+        imports = ["@AGENTS.md"]
+        if os.path.exists(bootstrap):
+            imports.append("@.agent/bootstrap-AGENTS.md")
+        _write_text(root_claude, _claude_instruction_body(imports))
+        print("[x] CLAUDE.md instalado para Claude Code com import de AGENTS.md")
+        return
+
+    imports = ["@../AGENTS.md"]
+    if os.path.exists(bootstrap):
+        imports.append("@../.agent/bootstrap-AGENTS.md")
+    content = _claude_instruction_body(imports)
+    if not os.path.exists(scoped_claude):
+        _write_text(scoped_claude, content)
+        print("[x] CLAUDE.md existente preservado. Regras Bali salvas em .claude/CLAUDE.md")
+    elif not os.path.exists(ref_claude):
+        _write_text(ref_claude, content)
+        print("[!] .claude/CLAUDE.md ja existe e NAO foi sobrescrito.")
+        print("    Referencia Bali-Agent salva em .claude/CLAUDE.bali-agent.md")
+
+def install_opencode_project_config(target_dir):
+    config_path = os.path.join(target_dir, "opencode.json")
+    ref_path = os.path.join(target_dir, "opencode.bali-agent.json")
+    required = [
+        "AGENTS.md",
+        ".agent/protocols/subagents.md",
+        ".agent/protocols/routing.md",
+        ".agent/protocols/memory.md",
+        ".agent/working-context.md",
+    ]
+
+    try:
+        data = _load_json_object(config_path)
+        data.setdefault("$schema", "https://opencode.ai/config.json")
+        instructions = data.get("instructions")
+        if not isinstance(instructions, list):
+            instructions = []
+        for item in required:
+            _append_unique(instructions, item)
+        data["instructions"] = instructions
+        _write_text(config_path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        print("[x] Config OpenCode instalada/mesclada: opencode.json")
+    except Exception as e:
+        fallback = {
+            "$schema": "https://opencode.ai/config.json",
+            "instructions": required,
+        }
+        _write_text(ref_path, json.dumps(fallback, indent=2, ensure_ascii=False) + "\n")
+        print(f"[!] Erro ao mesclar opencode.json: {e}")
+        print("[!] Referencia Bali-Agent salva em opencode.bali-agent.json")
+
+def _default_manifest(target_dir):
+    project_name = os.path.basename(os.path.abspath(target_dir)) or "projeto"
+    created_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    return f"""# Manifesto do time Bali-Agent.
+# Objetivo Master: subagentes reais sempre; role-play/simulação não é modo válido.
+versao_base: "2.0.0"
+projeto: {project_name}
+modo: operate
+criado_em: "{created_at}"
+stack_detectada:
+  - linguagem: desconhecida
+    framework: desconhecido
+    sinais: []
+nao_mexer: []
+time:
+  espinha:
+    - orchestrator
+    - planner
+    - reviewer
+  base:
+    - discovery
+    - prd-writer
+    - sdd-architect
+  especialistas:
+    - id: spec-implementer
+      arquivo: .agent/team/spec-implementer.md
+      escopo: "Especialista geral inicial. O Setup Agent deve substituir ou complementar com especialistas reais da stack detectada."
+subagents_policy:
+  objetivo_master: "materializar subagentes reais em todo ambiente"
+  role_play_permitido: false
+  fallback_obrigatorio: "adapter-nativo-ou-bali-runtime"
+enforcement_adapters:
+  - bali-runtime
+  - claude-code
+  - codex
+  - opencode
+  - cursor
+  - gemini
+  - antigravity
+  - ollama
+"""
+
+def _read_text(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+def _write_text(path, content):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def _json_key(value):
+    return json.dumps(value, sort_keys=True, ensure_ascii=False)
+
+def _load_json_object(path):
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data if isinstance(data, dict) else {}
+
+def _append_unique(items, value):
+    if value not in items:
+        items.append(value)
+
+def merge_claude_settings(src_settings, dest_settings):
+    desired = _load_json_object(src_settings)
+    desired_hooks = desired.get("hooks") or {}
+    if not isinstance(desired_hooks, dict):
+        desired_hooks = {}
+
+    data = _load_json_object(dest_settings)
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        hooks = {}
+
+    for event, entries in desired_hooks.items():
+        if not isinstance(entries, list):
+            continue
+        current = hooks.get(event)
+        if not isinstance(current, list):
+            current = []
+        known = {_json_key(entry) for entry in current}
+        for entry in entries:
+            key = _json_key(entry)
+            if key not in known:
+                current.append(entry)
+                known.add(key)
+        hooks[event] = current
+
+    data["hooks"] = hooks
+    _write_text(dest_settings, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+def _toml_multiline(value):
+    return '"""' + value.replace('"""', '\\"\\"\\"') + '"""'
+
+def _team_agent_files(agent_dir):
+    team_dir = os.path.join(agent_dir, "team")
+    if not os.path.isdir(team_dir):
+        return []
+    return [
+        os.path.join(team_dir, filename)
+        for filename in sorted(os.listdir(team_dir))
+        if filename.endswith(".md")
+    ]
+
+def _agent_description(agent_id):
+    if agent_id == "orchestrator":
+        return "Orquestra qualquer pedido e cria subagentes quando faltar especialidade."
+    if agent_id == "discovery":
+        return "Conduz entrevista, requisitos e contexto de negocio para greenfield/brownfield."
+    if agent_id == "prd-writer":
+        return "Transforma Discovery em PRD claro, acionavel e validavel."
+    if agent_id == "sdd-architect":
+        return "Transforma PRD aprovado em SDD tecnico com arquitetura e trade-offs."
+    if agent_id == "planner":
+        return "Decompoe trabalho nao-trivial em plano executavel por subagentes."
+    if agent_id == "reviewer":
+        return "Revisa entregas antes da conclusao, focando bugs, riscos e testes."
+    return f"Especialista Bali-Agent reutilizavel: {agent_id}."
+
+def materialize_real_subagents(src_dir, target_dir, agent_dir):
+    """Cria o time minimo real e espelha para runtimes nativos disponiveis."""
+    team_dir = os.path.join(agent_dir, "team")
+    os.makedirs(team_dir, exist_ok=True)
+
+    agent_sources = [
+        ("orchestrator.md", os.path.join(src_dir, "agents", "_spine", "orchestrator", "AGENT.md")),
+        ("discovery.md", os.path.join(src_dir, "agents", "discovery", "AGENT.md")),
+        ("prd-writer.md", os.path.join(src_dir, "agents", "prd-writer", "AGENT.md")),
+        ("sdd-architect.md", os.path.join(src_dir, "agents", "sdd-architect", "AGENT.md")),
+        ("planner.md", os.path.join(src_dir, "agents", "_spine", "planner", "AGENT.md")),
+        ("reviewer.md", os.path.join(src_dir, "agents", "_spine", "reviewer", "AGENT.md")),
+        ("spec-implementer.md", os.path.join(src_dir, "agents", "_specialists", "implementer.md")),
+    ]
+
+    created = []
+    for filename, src_path in agent_sources:
+        dest_path = os.path.join(team_dir, filename)
+        if os.path.exists(src_path) and _copy_if_missing(src_path, dest_path):
+            created.append(filename)
+
+    manifest_path = os.path.join(agent_dir, "subagent.config.yaml")
+    manifest_created = _write_if_missing(manifest_path, _default_manifest(target_dir))
+
+    claude_agents_dir = os.path.join(target_dir, ".claude", "agents")
+    os.makedirs(claude_agents_dir, exist_ok=True)
+    mirrored = []
+    for filename, _ in agent_sources:
+        src_path = os.path.join(team_dir, filename)
+        dest_path = os.path.join(claude_agents_dir, filename)
+        if os.path.exists(src_path) and _copy_if_missing(src_path, dest_path):
+            mirrored.append(filename)
+
+    if created:
+        print(f"[x] Subagentes reais criados em .agent/team/: {', '.join(created)}")
+    if manifest_created:
+        print("[x] Manifesto criado: .agent/subagent.config.yaml")
+    if mirrored:
+        print(f"[x] Subagentes nativos Claude Code espelhados em .claude/agents/: {', '.join(mirrored)}")
+
+def install_codex_native_agents(target_dir, agent_dir):
+    """Instala agentes nativos do Codex em .codex/agents/*.toml."""
+    codex_dir = os.path.join(target_dir, ".codex")
+    agents_dir = os.path.join(codex_dir, "agents")
+    os.makedirs(agents_dir, exist_ok=True)
+
+    config_path = os.path.join(codex_dir, "config.toml")
+    if not os.path.exists(config_path):
+        _write_text(config_path, "[agents]\nmax_threads = 6\nmax_depth = 1\n")
+
+    installed = []
+    for agent_path in _team_agent_files(agent_dir):
+        agent_id = os.path.splitext(os.path.basename(agent_path))[0]
+        dest = os.path.join(agents_dir, f"{agent_id}.toml")
+        body = _read_text(agent_path)
+        content = "\n".join([
+            f'name = "{agent_id}"',
+            f'description = "{_agent_description(agent_id)}"',
+            f"developer_instructions = {_toml_multiline(body)}",
+            "",
+        ])
+        if _write_if_missing(dest, content):
+            installed.append(os.path.basename(dest))
+    if installed:
+        print(f"[x] Subagentes nativos Codex instalados em .codex/agents/: {', '.join(installed)}")
+
+def install_opencode_native_agents(target_dir, agent_dir):
+    """Instala agentes nativos do OpenCode em .opencode/agents/*.md."""
+    agents_dir = os.path.join(target_dir, ".opencode", "agents")
+    os.makedirs(agents_dir, exist_ok=True)
+    install_opencode_project_config(target_dir)
+    installed = []
+    for agent_path in _team_agent_files(agent_dir):
+        agent_id = os.path.splitext(os.path.basename(agent_path))[0]
+        dest = os.path.join(agents_dir, f"{agent_id}.md")
+        body = _read_text(agent_path)
+        content = "\n".join([
+            "---",
+            f"description: {_agent_description(agent_id)}",
+            "mode: subagent",
+            "---",
+            "",
+            body,
+            "",
+        ])
+        if _write_if_missing(dest, content):
+            installed.append(os.path.basename(dest))
+    if installed:
+        print(f"[x] Subagentes nativos OpenCode instalados em .opencode/agents/: {', '.join(installed)}")
+
+def install_cursor_adapter(src_dir, target_dir):
+    rules_dir = os.path.join(target_dir, ".cursor", "rules")
+    os.makedirs(rules_dir, exist_ok=True)
+    src = os.path.join(src_dir, "templates", "cursor-rule.mdc")
+    dest = os.path.join(rules_dir, "bali-agent.mdc")
+    if os.path.exists(src) and _copy_if_missing(src, dest):
+        print("[x] Adapter Cursor instalado: .cursor/rules/bali-agent.mdc")
+
+def _merge_gemini_settings(existing):
+    data = {}
+    if os.path.exists(existing):
+        try:
+            with open(existing, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+    context = data.get("context")
+    if not isinstance(context, dict):
+        context = {}
+    current = context.get("fileName")
+    names = []
+    if isinstance(current, str):
+        names = [current]
+    elif isinstance(current, list):
+        names = [str(item) for item in current]
+    for name in ("AGENTS.md", "GEMINI.md"):
+        if name not in names:
+            names.append(name)
+    context["fileName"] = names
+    data["context"] = context
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+def install_gemini_adapter(target_dir):
+    gemini_dir = os.path.join(target_dir, ".gemini")
+    os.makedirs(gemini_dir, exist_ok=True)
+    dest = os.path.join(gemini_dir, "settings.json")
+    merged = _merge_gemini_settings(dest)
+    _write_text(dest, merged)
+    print("[x] Adapter Gemini CLI instalado/mesclado: .gemini/settings.json")
+
+def install_antigravity_skill(target_dir):
+    skill_dir = os.path.join(target_dir, ".antigravity", "skills", "bali-agent")
+    dest = os.path.join(skill_dir, "SKILL.md")
+    content = """---
+name: bali-agent
+description: Materializa o time Bali-Agent com subagentes reais; usa define_subagent/background subagents quando disponíveis e Bali Runtime como fallback.
+---
+
+# Bali-Agent para Antigravity
+
+Sempre opere com subagentes reais:
+
+1. Leia `AGENTS.md`, `.agent/subagent.config.yaml` e `.agent/protocols/subagents.md`.
+2. Para cada arquivo em `.agent/team/*.md`, defina um subagente Antigravity equivalente quando a ferramenta disponibilizar `define_subagent`.
+3. Execute Orchestrator, Planner, especialista e Reviewer como subagentes/threads separados.
+4. Se a superfície atual não permitir subagentes isolados, use `python .agent/runtime/bali_runtime.py run "<tarefa>"`.
+5. Se faltar especialista, use `python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"` e então invoque o novo subagente.
+"""
+    if _write_if_missing(dest, content):
+        print("[x] Skill Antigravity instalada: .antigravity/skills/bali-agent/SKILL.md")
+
+def install_native_surface_adapters(src_dir, target_dir, agent_dir):
+    install_codex_native_agents(target_dir, agent_dir)
+    install_opencode_native_agents(target_dir, agent_dir)
+    install_cursor_adapter(src_dir, target_dir)
+    install_gemini_adapter(target_dir)
+    install_antigravity_skill(target_dir)
+
+def install_runtime_and_adapters(src_dir, agent_dir):
+    runtime_src = os.path.join(src_dir, "templates", "runtime", "bali_runtime.py")
+    runtime_dest = os.path.join(agent_dir, "runtime", "bali_runtime.py")
+    if os.path.exists(runtime_src):
+        if _copy_if_missing(runtime_src, runtime_dest):
+            os.chmod(runtime_dest, 0o755)
+            print("[x] Bali Runtime instalado: .agent/runtime/bali_runtime.py")
+
+    adapters_src = os.path.join(src_dir, "templates", "adapters")
+    adapters_dest = os.path.join(agent_dir, "adapters")
+    if os.path.isdir(adapters_src):
+        os.makedirs(adapters_dest, exist_ok=True)
+        installed = []
+        for filename in sorted(os.listdir(adapters_src)):
+            if not filename.endswith(".md"):
+                continue
+            src_path = os.path.join(adapters_src, filename)
+            dest_path = os.path.join(adapters_dest, filename)
+            if _copy_if_missing(src_path, dest_path):
+                installed.append(filename)
+        if installed:
+            print(f"[x] Adapters universais instalados em .agent/adapters/: {', '.join(installed)}")
 
 def initialize_project(src_dir, target_dir):
     print(f"\n[+] Iniciando cópia para: {target_dir}")
@@ -85,7 +505,24 @@ def initialize_project(src_dir, target_dir):
             print(f"[x] Pasta copiada para .agent: {item}/")
         except Exception as e:
             print(f"[!] Erro ao copiar pasta {item}: {e}")
-            
+
+    try:
+        materialize_real_subagents(src_dir, target_dir, agent_dir)
+    except Exception as e:
+        print(f"[!] Erro ao materializar subagentes reais: {e}")
+
+    try:
+        install_runtime_and_adapters(src_dir, agent_dir)
+    except Exception as e:
+        print(f"[!] Erro ao instalar Bali Runtime/adapters: {e}")
+
+    try:
+        install_native_surface_adapters(src_dir, target_dir, agent_dir)
+    except Exception as e:
+        print(f"[!] Erro ao instalar adaptadores nativos das ferramentas: {e}")
+
+    install_pull_request_template(src_dir, target_dir)
+
     # Arquivos de bootstrap para copiar para a raiz do projeto do usuário
     files_to_copy = [("AGENTS.md", "AGENTS.md"), ("README.md", "README.md")]
     
@@ -107,6 +544,8 @@ def initialize_project(src_dir, target_dir):
                     print(f"[x] Arquivo copiado para raiz: {dest_file}")
             except Exception as e:
                 print(f"[!] Erro ao copiar {dest_file}: {e}")
+
+    install_claude_project_instructions(target_dir, agent_dir)
             
     # 1. Copiar working-context.md inicial para .agent/working-context.md se não existir
     dest_working_context = os.path.join(agent_dir, "working-context.md")
@@ -118,6 +557,17 @@ def initialize_project(src_dir, target_dir):
                 print("[x] Memória de trabalho criada: .agent/working-context.md")
             except Exception as e:
                 print(f"[!] Erro ao copiar working-context.md: {e}")
+
+    # 1a. Copiar memoria curada persistente para .agent/memory.md se nao existir
+    dest_memory = os.path.join(agent_dir, "memory.md")
+    if not os.path.exists(dest_memory):
+        src_memory = os.path.join(src_dir, "templates", "memory.md")
+        if os.path.exists(src_memory):
+            try:
+                shutil.copy2(src_memory, dest_memory)
+                print("[x] Memoria curada criada: .agent/memory.md")
+            except Exception as e:
+                print(f"[!] Erro ao copiar memory.md: {e}")
 
     # 1b. Copiar checklist de tarefa inicial para .agent/task.md se não existir
     dest_task = os.path.join(agent_dir, "task.md")
@@ -162,16 +612,13 @@ def initialize_project(src_dir, target_dir):
         os.makedirs(claude_dir, exist_ok=True)
         dest_claude_settings = os.path.join(claude_dir, "settings.json")
         try:
-            if os.path.exists(dest_claude_settings):
-                ref_settings = os.path.join(claude_dir, "settings.bali-agent.json")
-                shutil.copy2(src_claude_settings, ref_settings)
-                print("[!] .claude/settings.json ja existe e NAO foi sobrescrito.")
-                print('    Referencia salva em .claude/settings.bali-agent.json - copie o bloco "hooks" para o seu settings.json.')
-            else:
-                shutil.copy2(src_claude_settings, dest_claude_settings)
-                print("[x] Enforcement Claude Code instalado: .claude/settings.json (hook por turno).")
+            merge_claude_settings(src_claude_settings, dest_claude_settings)
+            print("[x] Enforcement Claude Code instalado/mesclado: .claude/settings.json (hook por turno).")
         except Exception as e:
-            print(f"[!] Erro ao instalar .claude/settings.json: {e}")
+            ref_settings = os.path.join(claude_dir, "settings.bali-agent.json")
+            shutil.copy2(src_claude_settings, ref_settings)
+            print(f"[!] Erro ao mesclar .claude/settings.json: {e}")
+            print('    Referencia salva em .claude/settings.bali-agent.json - copie o bloco "hooks" para o seu settings.json.')
 
     # 2d. Copiar o verificador de setup para .agent/verify_setup.py
     src_verify = os.path.join(src_dir, "templates", "verify_setup.py")

@@ -33,7 +33,7 @@ não reescrevemos.**
 |---|---------|---------|
 | 1 | Formato de uso | Setup **único** por projeto; depois vira padrão automático |
 | 2 | Composição do time | **Híbrido**: espinha fixa + especialistas dinâmicos por stack |
-| 3 | Alvo / portabilidade | **Universal** (qualquer LLM). Reforço Claude Code via hook = **padrão**; adaptadores p/ Cursor + Gemini CLI + Codex CLI |
+| 3 | Alvo / portabilidade | **Universal e subagent-first** (qualquer LLM alimenta subagentes reais). Claude Code usa subagentes nativos por padrão; demais ferramentas exigem adapter ou Bali Runtime |
 | 4 | Caminho | **Evoluir** o repo Bali-Agent existente (Abordagem A) |
 | 5 | Marca | Termo evoluiu "Squad" → "Subagent" → **"Agent"** (interno e externo); prefixo "Bali" mantido → **Bali-Agent** |
 
@@ -102,31 +102,27 @@ Isso evita que "sempre o time" vire lentidão para coisa pequena.
 
 ### 5.5 Reforço por ferramenta (enforcement adapters)
 
-**Problema que isto resolve:** `AGENTS.md`/`CLAUDE.md` são instrução **passiva** — lidas no início da
-sessão. Em sessão longa, quando o contexto enche, o assistente **resume/compacta** o histórico e a
-constituição pode "diluir", fazendo o modelo voltar a trabalhar sozinho. A blindagem é re-injetar a
-regra a cada turno, via mecanismo que o **harness executa** (não depende da vontade do modelo).
+**Problema que isto resolve:** `AGENTS.md`/`CLAUDE.md` sozinhos são instrução **passiva**. Isso não basta
+para o objetivo master do framework: subagentes reais sempre. A blindagem é materializar o time por
+adapter nativo ou pelo Bali Runtime, com reforço de contexto por hooks quando a ferramenta permitir.
 
-**Distinção crítica — modelo ≠ ferramenta:** o reforço é por **harness/ferramenta**, não por
-**modelo**. Modelos (Claude, Gemini, DeepSeek, Gemma3/4, Kimi, Llama…) são **todos cobertos de graça**
-pelo `AGENTS.md` universal — qualquer modelo que receba o arquivo segue a constituição. Runtimes de
-modelo (ex.: Ollama) também não enforçam nada sozinhos; quem lê e re-injeta é o front-end por cima
-deles. Portanto **não há adaptador por modelo** — só por ferramenta.
+**Distinção crítica — modelo ≠ ferramenta:** o LLM é intercambiável, mas o runtime de orquestração não.
+Modelos (Claude, Gemini, DeepSeek, Gemma, Kimi, Llama, Ollama...) podem alimentar os agentes, mas não
+criam isolamento sozinhos. Portanto há adapters por ferramenta/runtime, não por modelo.
 
 O setup gera o **adaptador mais forte que cada ferramenta-alvo suporta**. Escopo decidido:
 
-| Ferramenta | No escopo? | Adaptador gerado | Força |
-|-----------|-----------|------------------|-------|
-| **Claude Code** | ✅ PADRÃO | hook `UserPromptSubmit` + `SessionStart` no `.claude/settings.json` re-injetando a constituição a cada turno; espelha o time em `.claude/agents/*.md` | **Forte** (re-injeção por turno, garantida pelo harness) |
-| **Cursor** | ✅ | `.cursor/rules/subagent.mdc` com `alwaysApply: true` | Médio-forte (regra "always" re-aplicada) |
-| **Gemini CLI** | ✅ | `.gemini/settings.json` apontando para `AGENTS.md` como context file | Médio (recarrega por sessão; janela grande ajuda) |
-| **Codex CLI** | ✅ | `AGENTS.md` na raiz (já é a camada de instrução nativa) | Médio |
-| Windsurf, outros | ⛔ fora do escopo v2 | (só `AGENTS.md` universal) | Instrução forte (passiva) |
-| Qualquer modelo (DeepSeek/Gemma/Kimi/…) | n/a | coberto pelo `AGENTS.md` universal | Instrução forte (passiva) |
+| Ambiente | No escopo? | Caminho obrigatório | Resultado |
+|-----------|-----------|--------------------|-----------|
+| **Claude Code** | ✅ PADRÃO | `.claude/agents/*.md` + hook `UserPromptSubmit`/`SessionStart` | Subagentes reais nativos |
+| **Cursor** | ✅ | Adapter quando disponível; caso contrário Bali Runtime | Subagentes reais via adapter/runtime |
+| **Gemini CLI** | ✅ | Adapter quando disponível; caso contrário Bali Runtime | Subagentes reais via adapter/runtime |
+| **Codex CLI / Codex Desktop** | ✅ | Adapter nativo quando disponível; caso contrário Bali Runtime | Subagentes reais via adapter/runtime |
+| **OpenCode / Antigravity** | ✅ | Adapter específico ou Bali Runtime | Subagentes reais via adapter/runtime |
+| **Ollama / API crua** | ✅ | Bali Runtime com chamadas isoladas por agente | Subagentes reais via runtime |
 
-**Decisão:** Claude Code é instalado **por padrão**; Cursor, Gemini CLI e Codex CLI também entram no
-escopo v2. Demais ferramentas ficam fora (YAGNI) — quando necessário, adicionar novo adaptador é
-barato. Modelos são sempre cobertos pelo núcleo universal.
+**Decisão:** o framework falha fechado quando não houver subagente nativo, adapter ou Bali Runtime.
+Role-play de papéis no mesmo contexto não é modo válido de operação.
 
 > ⚠️ Nota de precisão: as capacidades de hook/config dessas CLIs evoluem rápido (conhecimento até
 > jan/2026). Antes de implementar um adaptador específico, validar a sintaxe atual da ferramenta-alvo.

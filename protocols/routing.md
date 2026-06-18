@@ -33,7 +33,11 @@ O objetivo é "nunca solo", não "sempre burocrático".
    - **`testing.md` (`spec-testing`):** Testes e QA. Ativado para arquivos em diretórios `tests/`, `__tests__/`, ou com sufixos `.test.*` e `.spec.*`.
    - **`docs.md` (`spec-docs`):** Documentação. Ativado para `.md` na documentação do projeto, guias, esquemas OpenAPI/Swagger.
    - **`implementer.md` (Geral):** Engenharia de software genérica, refatoração estrutural e scripts auxiliares que não pertençam a uma stack especializada.
-3. Se nenhum casar, escale ao usuário: "não há especialista para X — quer que eu rode o setup de novo para adicionar um?".
+3. Se nenhum casar, crie um especialista real novo antes de executar a tarefa:
+   - gere `.agent/team/spec-<nome>.md` com escopo claro e reutilizável;
+   - registre o novo especialista em `.agent/subagent.config.yaml`;
+   - quando houver adapter nativo, espelhe o arquivo no formato da ferramenta;
+   - quando não houver adapter nativo, use `python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"`.
 4. Tarefas que cruzam stacks podem envolver mais de um especialista em sequência.
 
 ## Modo Operate
@@ -46,6 +50,12 @@ Fluxo padrão de projeto em andamento:
 Quando `modo: greenfield`, o roteamento segue o pipeline SDLC de
 `agents/_spine/orchestrator/workflows/novo-projeto.md`, com os gates de
 `protocols/approval-gates.md`.
+
+Pipeline obrigatório:
+`Discovery → PRD Writer → SDD Architect → Planner → especialista(s) → Reviewer`.
+
+O humano aprova gates de negócio e arquitetura; os agentes executam as etapas
+intermediárias sem pedir prompts repetitivos.
 
 ## Saída ao usuário
 
