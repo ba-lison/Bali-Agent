@@ -421,6 +421,15 @@ def run_task(root, task, dry_run=False, specialist_name=None, workflow="operate"
             print(f"[!] {problem}", file=sys.stderr)
         return 1
 
+    if not dry_run and os.environ.get("BALI_LLM_PROVIDER"):
+        run_script = root / ".agent" / "run.py"
+        if not run_script.is_file():
+            run_script = root / "templates" / "run.py"
+        if run_script.is_file():
+            print("[*] BALI_LLM_PROVIDER detectado. Roteando para o motor agêntico com tools...", file=sys.stderr)
+            completed = subprocess.run([sys.executable, str(run_script), task])
+            return completed.returncode
+
     agents = _agent_files(root)
     try:
         specialist = _select_specialist(agents, specialist_name)

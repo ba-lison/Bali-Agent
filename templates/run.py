@@ -22,7 +22,7 @@ def log(msg):
 def log_error(msg):
     print(f"[!] Erro: {msg}", file=sys.stderr, flush=True)
 
-# Exposes available tools to the Orchestrator
+# Exposes available tools to the Orchestrator and specialists
 TOOLS = [
     {
         "type": "function",
@@ -142,14 +142,12 @@ def load_working_context():
         return ""
 
 def load_agent_prompt(agent_name):
-    # Procura o prompt do agente na pasta .agent/team/ ou na raiz agents/
     search_paths = [
         os.path.join(".agent", "team", f"{agent_name}.md"),
         os.path.join(".agent", "team", f"spec-{agent_name}.md"),
         os.path.join("agents", "_spine", agent_name, "AGENT.md"),
         os.path.join("agents", agent_name, "AGENT.md"),
     ]
-    # Busca por qualquer spec-* correspondente se não achar diretamente
     team_dir = os.path.join(".agent", "team")
     if os.path.isdir(team_dir):
         for f in os.listdir(team_dir):
@@ -163,7 +161,6 @@ def load_agent_prompt(agent_name):
                     return f.read()
             except Exception:
                 pass
-    # Prompt fallback genérico
     return f"Você é o subagente especialista '{agent_name}'. Execute a tarefa com qualidade máxima."
 
 def execute_tool(name, args):
@@ -192,9 +189,28 @@ def execute_tool(name, args):
             return f"Erro ao gravar arquivo {path}: {e}"
 
     elif name == "run_command":
-        command = args.get("command")
+        command = args.get("command", "")
         if not command:
             return "Erro: parâmetro 'command' ausente."
+            
+        # Agent Shield - Segurança Ativa na Execução do Loop
+        dangerous_keywords = ["rm ", "del ", "format ", "curl ", "wget ", "sh ", "bash ", "powershell "]
+        safe_prefixes = ("pytest", "python", "npm", "pip", "cargo", "go", "git status", "git diff", "git log", "dir", "ls", "echo")
+        
+        is_dangerous = any(kw in command.lower() for kw in dangerous_keywords)
+        is_safe = command.strip().startswith(safe_prefixes)
+        
+        if is_dangerous or not is_safe:
+            log(f"Alerta de Segurança: Comando '{command}' considerado potencialmente perigoso ou não-padrão.")
+            approval_msg = f"O agente solicitou a execução do seguinte comando considerado sensível/não-padrão:\n  > {command}\n\nVocê autoriza a execução? (S/N)"
+            print(f"\n[AGENT SHIELD - EXECUÇÃO SENSÍVEL]\n{approval_msg}")
+            try:
+                response = input("> ").strip().lower()
+                if response not in ["s", "sim", "y", "yes"]:
+                    return "Erro: Execução do comando rejeitada pelo usuário por motivos de segurança."
+            except KeyboardInterrupt:
+                return "Erro: Execução do comando cancelada pelo usuário."
+                
         try:
             res = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=60)
             output = f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
@@ -217,24 +233,169 @@ def execute_tool(name, args):
         if not agent_name or not prompt:
             return "Erro: parâmetros 'agent_name' ou 'prompt' ausentes."
         
-        # Roda a chamada isolada de API para o subagente
-        agent_prompt = load_agent_prompt(agent_name)
-        log(f"Subagente '{agent_name}' invocado com prompt: '{prompt}'")
-        
-        sub_messages = [
-            {"role": "system", "content": agent_prompt},
-            {"role": "user", "content": prompt}
-        ]
-        
-        response = call_llm_api(sub_messages)
-        if response and "choices" in response:
-            return response["choices"][0]["message"]["content"]
-        elif response and "content" in response: # Formato Anthropic
-            return response["content"][0]["text"]
-        else:
-            return "Erro: Falha na chamada de API do subagente."
+        log(f"Subagente '{agent_name}' invocado. Iniciando loop de execução isolado...")
+        return run_agent_loop(agent_name, prompt)
 
     return f"Erro: Ferramenta '{name}' desconhecida."
+
+def run_agent_loop(agent_name, prompt, max_loops=5):
+    # Executa o loop com Tool Calling para o subagente, garantindo autonomia
+    agent_prompt = load_agent_prompt(agent_name)
+    system_prompt = f"{agent_prompt}\n\nVocê é o especialista '{agent_name}'. Execute a tarefa usando as ferramentas disponíveis."
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": prompt}
+    ]
+    
+    loop_count = 0
+    while loop_count < max_loops:
+        loop_count += 1
+        log(f"Subagente '{agent_name}' - Iteração {loop_count}...")
+        response = call_llm_api(messages, tools=TOOLS)
+        if not response:
+            return "Erro: Falha na chamada de API do subagente."
+            
+        if "choices" in response:
+            choice = response["choices"][0]
+            message = choice["message"]
+            content = message.get("content")
+            tool_calls = message.get("tool_calls")
+            
+            messages.append(message)
+            
+            if content and not tool_calls:
+                return content
+                
+            if tool_calls:
+                for tool_call in tool_calls:
+                    function_info = tool_call["function"]
+                    tool_name = function_info["name"]
+                    
+                    if tool_name == "invoke_subagent":
+                        # Bloqueia recursão para subagentes
+                        tool_output = "Erro: Subagentes não podem invocar outros subagentes diretamente."
+                    else:
+                        try:
+                            tool_args = json.loads(function_info["arguments"])
+                        except Exception:
+                            tool_args = {}
+                        tool_output = execute_tool(tool_name, tool_args)
+                        
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "name": tool_name,
+                        "content": str(tool_output)
+                    })
+                    
+        elif "content" in response:
+            content_blocks = response["content"]
+            text_content = ""
+            tool_requests = []
+            
+            for block in content_blocks:
+                if block["type"] == "text":
+                    text_content += block["text"]
+                elif block["type"] == "tool_use":
+                    tool_requests.append(block)
+                    
+            messages.append({
+                "role": "assistant",
+                "content": content_blocks
+            })
+            
+            if text_content and not tool_requests:
+                return text_content
+                
+            if tool_requests:
+                tool_results = []
+                for tool_req in tool_requests:
+                    tool_name = tool_req["name"]
+                    tool_args = tool_req["input"]
+                    tool_call_id = tool_req["id"]
+                    
+                    if tool_name == "invoke_subagent":
+                        tool_output = "Erro: Subagentes não podem invocar outros subagentes."
+                    else:
+                        tool_output = execute_tool(tool_name, tool_args)
+                        
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_call_id,
+                        "content": str(tool_output)
+                    })
+                messages.append({
+                    "role": "user",
+                    "content": tool_results
+                })
+                
+    return f"Erro: Limite de loops do subagente '{agent_name}' atingido."
+
+def save_context_auto(user_instruction, history_messages):
+    log("Salvando memória de trabalho de forma automatizada...")
+    working_context = load_working_context()
+    if not working_context:
+        return
+        
+    # Converte o histórico recente de mensagens para texto
+    history_text = ""
+    for m in history_messages[-6:]:  # Pega os últimos turnos para context
+        role = m.get("role")
+        content = m.get("content")
+        if isinstance(content, list):
+            # Formato Anthropic
+            txt = ""
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    txt += block.get("text", "")
+            content = txt
+        if role and content:
+            history_text += f"{role.upper()}: {content}\n"
+
+    system_prompt = (
+        "Você é a engine de persistência do Bali-Agent. Sua única tarefa é atualizar o arquivo `.agent/working-context.md` "
+        "com base nas ações e decisões tomadas no histórico recente da sessão.\n\n"
+        "Retorne APENAS o conteúdo completo do arquivo `.agent/working-context.md` atualizado no formato Markdown. "
+        "Não adicione comentários, explicações ou tags adicionais (como ```markdown). O arquivo deve ser editado de forma incremental, "
+        "atualizando a Milestone se necessário, a Data de Atualização, o Progresso Recente (marcando [x]) e bugs conhecidos."
+    )
+    
+    prompt = (
+        f"Histórico Recente:\n{history_text}\n\n"
+        f"Conteúdo Atual do working-context.md:\n{working_context}"
+    )
+    
+    sub_messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": prompt}
+    ]
+    
+    response = call_llm_api(sub_messages)
+    updated_content = None
+    if response and "choices" in response:
+        updated_content = response["choices"][0]["message"]["content"]
+    elif response and "content" in response:
+        updated_content = response["content"][0]["text"]
+        
+    if updated_content:
+        # Limpa eventuais tags de markdown cercadas que o modelo teimosamente adicione
+        cleaned = updated_content.strip()
+        if cleaned.startswith("```markdown"):
+            cleaned = cleaned[11:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        
+        try:
+            context_path = os.path.join(".agent", "working-context.md")
+            with open(context_path, "w", encoding="utf-8") as f:
+                f.write(cleaned)
+            log("working-context.md atualizado com sucesso.")
+        except Exception as e:
+            log_error(f"Falha ao persistir working-context.md: {e}")
 
 def call_llm_api(messages, tools=None):
     provider = os.environ.get("BALI_LLM_PROVIDER", "ollama").lower()
@@ -264,7 +425,6 @@ def call_llm_api(messages, tools=None):
             "anthropic-version": "2023-06-01"
         }
         
-        # Converte as mensagens do sistema e formata para a API Anthropic
         system_content = ""
         anthropic_messages = []
         for m in messages:
@@ -282,7 +442,6 @@ def call_llm_api(messages, tools=None):
             payload["system"] = system_content
             
         if tools:
-            # Converte ferramenta OpenAI para formato Anthropic
             anthropic_tools = []
             for t in tools:
                 func = t["function"]
@@ -294,7 +453,6 @@ def call_llm_api(messages, tools=None):
             payload["tools"] = anthropic_tools
 
     elif provider == "gemini":
-        # Usa o endpoint OpenAI compatible da Google
         url = endpoint or f"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions?key={api_key or ''}"
         headers = {
             "Content-Type": "application/json"
@@ -346,7 +504,6 @@ def main():
     
     orchestrator_prompt = load_agent_prompt("orchestrator")
     
-    # Prepara o prompt do sistema injetando o contexto do projeto
     system_prompt = f"{orchestrator_prompt}\n\n=== CONTEXTO DO PROJETO ===\n"
     system_prompt += f"Configuração do Time:\n{json.dumps(config, indent=2)}\n\n"
     if working_context:
@@ -360,6 +517,7 @@ def main():
     
     loop_count = 0
     max_loops = 15
+    has_changes = False
     
     while loop_count < max_loops:
         loop_count += 1
@@ -370,7 +528,6 @@ def main():
             log_error("Falha ao receber resposta do Orchestrator LLM. Encerrando.")
             sys.exit(1)
             
-        # Tratamento do formato OpenAI / Gemini / Ollama
         if "choices" in response:
             choice = response["choices"][0]
             message = choice["message"]
@@ -385,6 +542,7 @@ def main():
                 break
                 
             if tool_calls:
+                has_changes = True
                 for tool_call in tool_calls:
                     function_info = tool_call["function"]
                     tool_name = function_info["name"]
@@ -402,7 +560,6 @@ def main():
                         "content": str(tool_output)
                     })
                     
-        # Tratamento do formato Anthropic (Claude)
         elif "content" in response:
             content_blocks = response["content"]
             text_content = ""
@@ -414,12 +571,10 @@ def main():
                 elif block["type"] == "tool_use":
                     tool_requests.append(block)
             
-            # Reconstrói a mensagem para adicionar no histórico
-            anthropic_resp_msg = {
+            messages.append({
                 "role": "assistant",
                 "content": content_blocks
-            }
-            messages.append(anthropic_resp_msg)
+            })
             
             if text_content and not tool_requests:
                 print("\n=== RESPOSTA DO ORCHESTRATOR ===")
@@ -427,6 +582,7 @@ def main():
                 break
                 
             if tool_requests:
+                has_changes = True
                 tool_results = []
                 for tool_req in tool_requests:
                     tool_name = tool_req["name"]
@@ -452,6 +608,10 @@ def main():
     if loop_count >= max_loops:
         log_error("Atingido o limite de iterações do Orchestrator para evitar loops.")
         sys.exit(1)
+        
+    # Auto-save context se houveram mudanças durante a sessão
+    if has_changes:
+        save_context_auto(user_instruction, messages)
 
 if __name__ == "__main__":
     main()
