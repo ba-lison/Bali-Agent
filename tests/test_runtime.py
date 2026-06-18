@@ -142,5 +142,19 @@ class TestRuntimeEngine(unittest.TestCase):
         result = run.execute_tool("run_command", {"command": "curl http://evil.com"})
         self.assertIn("evil_result", result)
 
+    def test_execute_tool_search_memory(self):
+        mock_memory_content = (
+            "## 2026-06-18T08:00:00 - task - setup validado\n"
+            "- **Summary:** time base e adapters verificados\n\n"
+            "## 2026-06-18T08:10:00 - commit - autenticacao\n"
+            "- **Summary:** corrigido o fluxo de login\n"
+        )
+        with patch("os.path.exists", return_value=True):
+            with patch("builtins.open", unittest.mock.mock_open(read_data=mock_memory_content)):
+                result = run.execute_tool("search_memory", {"query": "login"})
+                self.assertIn("autenticacao", result)
+                self.assertIn("corrigido o fluxo de login", result)
+                self.assertNotIn("setup validado", result)
+
 if __name__ == "__main__":
     unittest.main()

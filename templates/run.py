@@ -116,6 +116,23 @@ TOOLS = [
                 "required": ["message"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_memory",
+            "description": "Busca entradas relevantes na memória histórica (memory.md) usando palavras-chave, retornando apenas os blocos correspondentes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Palavra-chave ou termo de busca para localizar na memória histórica."
+                    }
+                },
+                "required": ["query"]
+            }
+        }
     }
 ]
 
@@ -236,10 +253,37 @@ def execute_tool(name, args):
         log(f"Subagente '{agent_name}' invocado. Iniciando loop de execução isolado...")
         return run_agent_loop(agent_name, prompt)
 
+    elif name == "search_memory":
+        query = args.get("query", "").lower()
+        if not query:
+            return "Erro: parâmetro 'query' ausente."
+        
+        memory_path = os.path.join(".agent", "memory.md")
+        if not os.path.exists(memory_path):
+            return "Nenhuma memória histórica gravada ainda."
+            
+        try:
+            with open(memory_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                
+            entries = content.split("## ")
+            matching_entries = []
+            for entry in entries:
+                if not entry.strip():
+                    continue
+                if query in entry.lower():
+                    matching_entries.append("## " + entry.strip())
+                    
+            if not matching_entries:
+                return f"Nenhuma entrada histórica encontrada na busca por: '{query}'"
+                
+            return "\n\n".join(matching_entries)
+        except Exception as e:
+            return f"Erro ao acessar memória: {e}"
+
     return f"Erro: Ferramenta '{name}' desconhecida."
 
 def run_agent_loop(agent_name, prompt, max_loops=5):
-    # Executa o loop com Tool Calling para o subagente, garantindo autonomia
     agent_prompt = load_agent_prompt(agent_name)
     system_prompt = f"{agent_prompt}\n\nVocê é o especialista '{agent_name}'. Execute a tarefa usando as ferramentas disponíveis."
     
@@ -273,7 +317,6 @@ def run_agent_loop(agent_name, prompt, max_loops=5):
                     tool_name = function_info["name"]
                     
                     if tool_name == "invoke_subagent":
-                        # Bloqueia recursão para subagentes
                         tool_output = "Erro: Subagentes não podem invocar outros subagentes diretamente."
                     else:
                         try:
@@ -338,13 +381,11 @@ def save_context_auto(user_instruction, history_messages):
     if not working_context:
         return
         
-    # Converte o histórico recente de mensagens para texto
     history_text = ""
-    for m in history_messages[-6:]:  # Pega os últimos turnos para context
+    for m in history_messages[-6:]:
         role = m.get("role")
         content = m.get("content")
         if isinstance(content, list):
-            # Formato Anthropic
             txt = ""
             for block in content:
                 if isinstance(block, dict) and block.get("type") == "text":
@@ -379,7 +420,6 @@ def save_context_auto(user_instruction, history_messages):
         updated_content = response["content"][0]["text"]
         
     if updated_content:
-        # Limpa eventuais tags de markdown cercadas que o modelo teimosamente adicione
         cleaned = updated_content.strip()
         if cleaned.startswith("```markdown"):
             cleaned = cleaned[11:]
@@ -609,7 +649,6 @@ def main():
         log_error("Atingido o limite de iterações do Orchestrator para evitar loops.")
         sys.exit(1)
         
-    # Auto-save context se houveram mudanças durante a sessão
     if has_changes:
         save_context_auto(user_instruction, messages)
 
