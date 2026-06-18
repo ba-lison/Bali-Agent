@@ -26,3 +26,18 @@ bali = "bali_agent.cli:main"
 [tool.setuptools.packages.find]
 include = ["bali_agent*"]
 
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+exclude = ["tests/", "bali_agent/templates/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

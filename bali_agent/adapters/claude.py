@@ -62,11 +62,17 @@ class ClaudeAdapter(BaseAdapter):
             )
 
     def get_capabilities(self) -> dict:
+        """Return adapter capabilities with verification status.
+
+        capability_status values:
+          - "verified"  : Checked at runtime by verify() method.
+          - "declared"  : Documented by Claude Code but not verified by bali verify.
+        """
         return {
-            "native_subagents": True,
-            "pre_tool_hooks": True,
-            "post_tool_hooks": True,
-            "session_hooks": True,
-            "permissions": True,
-            "background_agents": True
+            "native_subagents":   {"value": True,  "status": "verified"},
+            "pre_tool_hooks":     {"value": True,  "status": "verified"},   # checked via settings.json hooks
+            "post_tool_hooks":    {"value": True,  "status": "declared"},   # hook format varies by CC version
+            "session_hooks":      {"value": True,  "status": "verified"},   # SessionStart/UserPromptSubmit in verify()
+            "permissions":        {"value": True,  "status": "declared"},   # permissions model not inspectable at verify time
+            "background_agents":  {"value": True,  "status": "declared"},   # requires active CC session to confirm
         }

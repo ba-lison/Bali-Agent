@@ -29,11 +29,17 @@ class AntigravityAdapter(BaseAdapter):
             )
 
     def get_capabilities(self) -> dict:
+        """Return adapter capabilities with verification status.
+
+        capability_status values:
+          - "verified"  : Checked at runtime by verify() method.
+          - "declared"  : Feature exists in Antigravity but not verified by bali verify.
+        """
         return {
-            "native_subagents": True,
-            "pre_tool_hooks": False,
-            "post_tool_hooks": False,
-            "session_hooks": False,
-            "permissions": True,
-            "background_agents": True
+            "native_subagents":  {"value": True,  "status": "verified"},    # confirmed via SKILL.md presence
+            "pre_tool_hooks":    {"value": False, "status": "verified"},
+            "post_tool_hooks":   {"value": False, "status": "verified"},
+            "session_hooks":     {"value": False, "status": "verified"},
+            "permissions":       {"value": True,  "status": "declared"},    # permissions enforced by Antigravity runtime
+            "background_agents": {"value": True,  "status": "declared"},    # requires active Antigravity session to confirm
         }

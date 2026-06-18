@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Tool Registry managing functional definitions and parameters for LLM tooling."""
+"""Tool Registry managing functional definitions and parameters for LLM tooling.
+
+Security fix: get_allowed_schemas() now defaults to DENY-ALL when
+allowed_tools is empty. Agents that need every tool must explicitly
+declare allowed_tools: ["*"] in their YAML frontmatter.
+"""
 
 from typing import List, Dict, Any
 
-TOOLS_SCHEMA = [
+TOOLS_SCHEMA: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
@@ -118,7 +123,7 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "send_handoff",
-            "description": "Envia uma mensagem estruturada para outro subagente via HandoffBus. Use quando precisar coordenar ou transferir contexto entre subagentes sem precisar de uma nova invocação completa.",
+            "description": "Envia uma mensagem estruturada para outro subagente via HandoffBus.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -137,8 +142,40 @@ TOOLS_SCHEMA = [
     }
 ]
 
+# Index for fast name lookup
+_SCHEMA_BY_NAME: Dict[str, Dict[str, Any]] = {
+    t["function"]["name"]: t for t in TOOLS_SCHEMA
+}
+
+# Sentinel value: agent YAML frontmatter must declare allowed_tools: ["*"]
+# to receive all tools. An empty list means ZERO tools (default-deny).
+_WILDCARD = "*"
+
+
 def get_allowed_schemas(allowed_tools: List[str]) -> List[Dict[str, Any]]:
-    """Return schema structures filtered by agent permissions."""
+    """Return tool schemas filtered by agent permissions.
+
+    Security contract (default-deny):
+      - ``[]``    → empty list  (agent declared no tools — gets nothing)
+      - ``["*"]`` → all tools   (agent explicitly opted in to full access)
+      - ``["read_file", "search_memory"]`` → only those two schemas
+
+    This prevents agents without an explicit ``allowed_tools`` declaration
+    from silently receiving every registered tool.
+
+    Args:
+        allowed_tools: List of tool names declared in the agent's YAML config.
+
+    Returns:
+        List of JSON-schema dicts to pass to the LLM tool-call API.
+    """
     if not allowed_tools:
-        return TOOLS_SCHEMA
-    return [t for t in TOOLS_SCHEMA if t["function"]["name"] in allowed_tools]
+        # Default-deny: no declaration → no tools
+        return []
+
+    if _WILDCARD in allowed_tools:
+        # Explicit wildcard: grant all registered tools
+        return list(TOOLS_SCHEMA)
+
+    # Explicit list: return only declared tools that exist in the registry
+    return [_SCHEMA_BY_NAME[name] for name in allowed_tools if name in _SCHEMA_BY_NAME]

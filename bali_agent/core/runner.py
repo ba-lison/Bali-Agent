@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Runner module orchestrating the execution loop of isolated agents."""
+"""Runner module orchestrating the execution loop of isolated agents.
+
+Security fixes applied:
+- can_spawn_agents is now enforced before any invoke_subagent call.
+- Reviewer gate is fail-closed: missing or invalid JSON verdict raises ValueError.
+"""
 
 import os
 import json
@@ -78,16 +83,23 @@ class Runner:
             output = self.handoff_bus.send(agent.id, args.get("to_agent", ""), args.get("message", ""))
             self.logger.log_handoff(agent.id, args.get("to_agent", ""), args.get("message", ""))
         elif name == "invoke_subagent":
+            # Security: enforce can_spawn_agents flag from agent manifest
+            if not agent.can_spawn_agents:
+                return (
+                    f"Erro: O agente '{agent.id}' nao esta autorizado a invocar subagentes "
+                    "(can_spawn_agents: false no manifesto)."
+                )
+
             sub_name = args.get("agent_name", "")
             sub_prompt = args.get("prompt", "")
-            
+
             current_depth = int(os.environ.get("BALI_SUBAGENT_DEPTH", "0"))
             if current_depth >= 2:
                 return "Erro: Profundidade maxima de subagentes excedida (2)."
-                
+
             os.environ["BALI_SUBAGENT_DEPTH"] = str(current_depth + 1)
             try:
-                # Recursive execution
+                # Recursive execution in isolated context
                 output = self.run_agent(sub_name, sub_prompt)
             finally:
                 os.environ["BALI_SUBAGENT_DEPTH"] = str(current_depth)
@@ -175,25 +187,70 @@ class Runner:
 
             self.logger.log_event("agent_response", {"agent": agent.id, "content": content_text, "tool_calls": tool_calls})
 
-            # 3. Reviewer check: Structured Gating
+            # 3. Reviewer gate — FAIL-CLOSED
+            # If this is the reviewer agent, a valid JSON verdict is MANDATORY.
+            # Any deviation (missing JSON, invalid schema, no 'approved' key) is
+            # treated as a hard failure to prevent silent pass-throughs.
             if agent.id == "reviewer" and content_text:
+                # Always persist the raw report for audit
+                self.logger.save_reviewer_report(content_text)
+
+                # Extract the outermost JSON object from the response.
+                # A simple {.*?} regex fails on nested objects — use brace counting.
+                json_start = content_text.find("{")
+                if json_start == -1:
+                    raise ValueError(
+                        "Reviewer gate falhou: nenhum bloco JSON encontrado na resposta. "
+                        "O Reviewer DEVE retornar um objeto JSON com 'approved: true/false'."
+                    )
+
+                depth = 0
+                json_end = -1
+                for i, ch in enumerate(content_text[json_start:], start=json_start):
+                    if ch == "{":
+                        depth += 1
+                    elif ch == "}":
+                        depth -= 1
+                        if depth == 0:
+                            json_end = i + 1
+                            break
+
+                if json_end == -1:
+                    raise ValueError(
+                        "Reviewer gate falhou: nenhum bloco JSON encontrado na resposta. "
+                        "O Reviewer DEVE retornar um objeto JSON com 'approved: true/false'."
+                    )
+
+                json_str = content_text[json_start:json_end]
                 try:
-                    # Search for JSON block
-                    import re
-                    match = re.search(r"\{.*?\}", content_text, re.DOTALL)
-                    if match:
-                        verdict = json.loads(match.group(0))
-                        if "approved" in verdict:
-                            self.logger.save_reviewer_report(content_text)
-                            if not verdict["approved"]:
-                                # Block task completion
-                                blockers_desc = ", ".join(b.get("reason", "") for b in verdict.get("blockers", []))
-                                raise ValueError(f"Tarefa reprovada pelo Reviewer. Motivos: {blockers_desc}")
-                except ValueError as ve:
-                    # Re-raise reviewer blocker exceptions
-                    raise ve
-                except Exception:
-                    pass
+                    verdict = json.loads(json_str)
+                except json.JSONDecodeError as jde:
+                    raise ValueError(
+                        f"Reviewer gate falhou: JSON invalido — {jde}. "
+                        "O Reviewer DEVE retornar JSON valido com 'approved: true/false'."
+                    ) from jde
+
+                # Schema validation: 'approved' key is mandatory
+                if "approved" not in verdict:
+                    raise ValueError(
+                        "Reviewer gate falhou: campo 'approved' ausente no JSON do Reviewer. "
+                        f"Campos encontrados: {list(verdict.keys())}"
+                    )
+
+                if not isinstance(verdict["approved"], bool):
+                    raise ValueError(
+                        f"Reviewer gate falhou: 'approved' deve ser boolean, "
+                        f"recebido: {type(verdict['approved']).__name__}"
+                    )
+
+                if not verdict["approved"]:
+                    blockers = verdict.get("blockers", [])
+                    blockers_desc = ", ".join(
+                        b.get("reason", str(b)) for b in blockers
+                    ) if blockers else "(sem detalhes)"
+                    raise ValueError(
+                        f"Tarefa reprovada pelo Reviewer. Motivos: {blockers_desc}"
+                    )
 
             if content_text and not tool_calls:
                 self.logger.log_event("agent_stop", {"agent": agent.id, "content": content_text})
