@@ -442,9 +442,10 @@ def install_runtime_and_adapters(src_dir, agent_dir):
     runtime_src = os.path.join(src_dir, "templates", "runtime", "bali_runtime.py")
     runtime_dest = os.path.join(agent_dir, "runtime", "bali_runtime.py")
     if os.path.exists(runtime_src):
-        if _copy_if_missing(runtime_src, runtime_dest):
-            os.chmod(runtime_dest, 0o755)
-            print("[x] Bali Runtime instalado: .agent/runtime/bali_runtime.py")
+        os.makedirs(os.path.dirname(runtime_dest), exist_ok=True)
+        shutil.copy2(runtime_src, runtime_dest)
+        os.chmod(runtime_dest, 0o755)
+        print("[x] Bali Runtime instalado/atualizado: .agent/runtime/bali_runtime.py")
 
     adapters_src = os.path.join(src_dir, "templates", "adapters")
     adapters_dest = os.path.join(agent_dir, "adapters")
@@ -456,10 +457,10 @@ def install_runtime_and_adapters(src_dir, agent_dir):
                 continue
             src_path = os.path.join(adapters_src, filename)
             dest_path = os.path.join(adapters_dest, filename)
-            if _copy_if_missing(src_path, dest_path):
-                installed.append(filename)
+            shutil.copy2(src_path, dest_path)
+            installed.append(filename)
         if installed:
-            print(f"[x] Adapters universais instalados em .agent/adapters/: {', '.join(installed)}")
+            print(f"[x] Adapters universais instalados/atualizados em .agent/adapters/: {', '.join(installed)}")
 
 def initialize_project(src_dir, target_dir):
     print(f"\n[+] Iniciando cópia para: {target_dir}")

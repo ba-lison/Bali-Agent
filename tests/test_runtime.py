@@ -245,7 +245,9 @@ class TestRuntimeEngine(unittest.TestCase):
             with patch("run.call_llm_api", return_value={"choices": [{"message": {"content": invalid_context_2}}]}):
                 with patch("builtins.open", unittest.mock.mock_open()) as mock_file:
                     run.save_context_auto("instruction", [])
-                    mock_file.assert_not_called()
+                    mock_file.assert_called()
+                    written_data = "".join(call[0][0] for call in mock_file().write.call_args_list if call[0])
+                    self.assertIn("Auto-Save Fallback", written_data)
                     
         with patch("run.load_working_context", return_value="some context"):
             with patch("run.call_llm_api", return_value={"choices": [{"message": {"content": valid_context}}]}):
@@ -340,6 +342,99 @@ class TestRuntimeEngine(unittest.TestCase):
         self.assertEqual(mock_sleep.call_count, 2)
         mock_sleep.assert_any_call(1)
         mock_sleep.assert_any_call(2)
+
+    @patch("run.run_agent_loop")
+    def test_subagent_recursion_limit(self, mock_loop):
+        # Configura a profundidade no ambiente
+        os.environ["BALI_SUBAGENT_DEPTH"] = "2"
+        mock_loop.return_value = "should_not_be_called"
+        
+        result = run.execute_tool("invoke_subagent", {"agent_name": "database", "prompt": "query"})
+        self.assertIn("Limite de profundidade de subagentes atingido", result)
+        mock_loop.assert_not_called()
+        
+        # Teste de profundidade permitida (depth=1)
+        os.environ["BALI_SUBAGENT_DEPTH"] = "1"
+        mock_loop.return_value = "Sub-done"
+        result2 = run.execute_tool("invoke_subagent", {"agent_name": "database", "prompt": "query"})
+        self.assertEqual(result2, "Sub-done")
+        mock_loop.assert_called_once()
+
+    def test_auto_save_deterministic_fallback(self):
+        import tempfile
+        original_exists = os.path.exists
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            context_file = os.path.join(tmpdir, "working-context.md")
+            # Conteúdo inicial
+            initial_content = "# Working Context\n## Status Atual\nGreen\n## Progresso Recente\nDone\n"
+            with open(context_file, "w", encoding="utf-8") as f:
+                f.write(initial_content)
+                
+            # Mock de os.path.join e de open
+            with patch("os.path.join", side_effect=lambda *args: context_file if (len(args) >= 2 and args[0] == ".agent" and args[1] == "working-context.md") else os.path.join(*args)):
+                # Mock de call_llm_api para falhar
+                with patch("run.call_llm_api", return_value=None):
+                    # Roda o auto save
+                    run.save_context_auto("Instrução nova", [{"role": "user", "content": "Olá"}])
+                    
+                    # Verifica se o arquivo contém o fallback
+                    with open(context_file, "r", encoding="utf-8") as f:
+                        new_content = f.read()
+                        
+                    self.assertIn("Auto-Save Fallback", new_content)
+                    self.assertIn("Instrução nova", new_content)
+
+    @patch("os.replace")
+    @patch("builtins.open", new_callable=unittest.mock.mock_open)
+    @patch("json.dump")
+    def test_atomic_checkpoint_save(self, mock_dump, mock_open, mock_replace):
+        import tempfile
+        original_join = os.path.join
+        with tempfile.TemporaryDirectory() as tmpdir:
+            session_id = "test_atomic_123"
+            def mock_join(*args):
+                if len(args) >= 2 and args[0] == ".agent" and args[1] == "sessions":
+                    return os.path.join(tmpdir, *args[1:])
+                return original_join(*args)
+                
+            with patch("os.path.join", side_effect=mock_join):
+                with patch.dict(os.environ, {"BALI_SESSION_ID": session_id}):
+                    with patch("run.load_agent_prompt", return_value="System"):
+                        with patch("run.call_llm_api", return_value={"choices": [{"message": {"content": "Ok"}}]}):
+                            run.run_agent_loop("test", "run", max_loops=1)
+                            mock_replace.assert_called()
+
+    @patch("subprocess.run")
+    def test_cli_runtime_auto_save_and_fallback(self, mock_run):
+        import sys
+        if str(REPO / "templates" / "runtime") not in sys.path:
+            sys.path.append(str(REPO / "templates" / "runtime"))
+        import bali_runtime
+        import tempfile
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            context_file = tmp_path / ".agent" / "working-context.md"
+            context_file.parent.mkdir(parents=True, exist_ok=True)
+            initial_content = "# Working Context\n## Status Atual\nGreen\n## Progresso Recente\nDone\n"
+            context_file.write_text(initial_content, encoding="utf-8")
+            
+            # Mock de BALI_LLM_COMMAND
+            os.environ["BALI_LLM_COMMAND"] = "mock_command {prompt_file} {output_file} {agent}"
+            
+            # Mock de subprocess.run para retornar erro
+            mock_proc = MagicMock()
+            mock_proc.returncode = 1
+            mock_run.return_value = mock_proc
+            
+            # Roda
+            bali_runtime.save_context_auto_cli(tmp_path, "tarefa_cli", ["orchestrator", "planner"], tmp_path)
+            
+            # Como a resposta do LLM foi inválida (retornou erro), deve ter aplicado fallback
+            new_content = context_file.read_text(encoding="utf-8")
+            self.assertIn("Auto-Save Fallback", new_content)
+            self.assertIn("orchestrator -> planner", new_content)
 
 if __name__ == "__main__":
     unittest.main()

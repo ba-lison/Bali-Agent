@@ -331,8 +331,16 @@ def execute_tool(name, args):
         if not agent_name or not prompt:
             return "Erro: parâmetros 'agent_name' ou 'prompt' ausentes."
         
-        log(f"Subagente '{agent_name}' invocado. Iniciando loop de execução isolado...")
-        return run_agent_loop(agent_name, prompt)
+        current_depth = int(os.environ.get("BALI_SUBAGENT_DEPTH", "0"))
+        if current_depth >= 2:
+            return "Erro: Limite de profundidade de subagentes atingido (máximo 2 níveis de recursão)."
+            
+        log(f"Subagente '{agent_name}' invocado (depth={current_depth + 1}). Iniciando loop de execução isolado...")
+        os.environ["BALI_SUBAGENT_DEPTH"] = str(current_depth + 1)
+        try:
+            return run_agent_loop(agent_name, prompt)
+        finally:
+            os.environ["BALI_SUBAGENT_DEPTH"] = str(current_depth)
 
     elif name == "search_memory":
         query_text = args.get("query", "")
@@ -392,8 +400,10 @@ def run_agent_loop(agent_name, prompt, max_loops=5):
     
     def save_checkpoint(msgs):
         try:
-            with open(checkpoint_path, "w", encoding="utf-8") as f:
+            tmp_path = checkpoint_path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(msgs, f, indent=2, ensure_ascii=False)
+            os.replace(tmp_path, checkpoint_path)
         except Exception as e:
             log_error(f"Erro ao salvar checkpoint: {e}")
 
@@ -447,14 +457,11 @@ def run_agent_loop(agent_name, prompt, max_loops=5):
                     function_info = tool_call["function"]
                     tool_name = function_info["name"]
                     
-                    if tool_name == "invoke_subagent":
-                        tool_output = "Erro: Subagentes não podem invocar outros subagentes diretamente."
-                    else:
-                        try:
-                            tool_args = json.loads(function_info["arguments"])
-                        except Exception:
-                            tool_args = {}
-                        tool_output = execute_tool(tool_name, tool_args)
+                    try:
+                        tool_args = json.loads(function_info["arguments"])
+                    except Exception:
+                        tool_args = {}
+                    tool_output = execute_tool(tool_name, tool_args)
                         
                     messages.append({
                         "role": "tool",
@@ -489,10 +496,7 @@ def run_agent_loop(agent_name, prompt, max_loops=5):
                     tool_args = tool_req["input"]
                     tool_call_id = tool_req["id"]
                     
-                    if tool_name == "invoke_subagent":
-                        tool_output = "Erro: Subagentes não podem invocar outros subagentes."
-                    else:
-                        tool_output = execute_tool(tool_name, tool_args)
+                    tool_output = execute_tool(tool_name, tool_args)
                         
                     tool_results.append({
                         "type": "tool_result",
@@ -533,6 +537,40 @@ def save_context_auto(user_instruction, history_messages):
         if role and content:
             history_text += f"{role.upper()}: {content}\n"
 
+    import shutil
+    context_path = os.path.join(".agent", "working-context.md")
+    
+    # Criar backup antes de fazer qualquer alteração
+    if os.path.exists(context_path):
+        try:
+            shutil.copy2(context_path, context_path + ".bak")
+        except Exception as e:
+            log_error(f"Falha ao criar backup do working-context.md: {e}")
+
+    def apply_deterministic_fallback():
+        log("Aplicando fallback determinístico para working-context.md...")
+        try:
+            current_data = ""
+            for p in [context_path + ".bak", context_path]:
+                if os.path.exists(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        current_data = f.read()
+                    break
+            
+            timestamp = time.strftime("%Y-%m-%dT%H:%M:%S")
+            fallback_text = f"\n\n## Histórico Recente (Auto-Save Fallback - {timestamp})\n"
+            fallback_text += "A atualização automática via LLM falhou ou veio inválida. Histórico de sessão:\n"
+            fallback_text += f"- **Instrução Inicial:** {user_instruction}\n"
+            fallback_text += "- **Histórico Recente:**\n"
+            for line in history_text.splitlines():
+                fallback_text += f"  > {line}\n"
+                
+            with open(context_path, "w", encoding="utf-8") as f:
+                f.write(current_data.rstrip() + fallback_text)
+            log("working-context.md atualizado via fallback determinístico.")
+        except Exception as e:
+            log_error(f"Falha no fallback determinístico de working-context.md: {e}")
+
     system_prompt = (
         "Você é a engine de persistência do Bali-Agent. Sua única tarefa é atualizar o arquivo `.agent/working-context.md` "
         "com base nas ações e decisões tomadas no histórico recente da sessão.\n\n"
@@ -570,15 +608,19 @@ def save_context_auto(user_instruction, history_messages):
         
         if not validate_working_context(cleaned):
             log_error("Falha na validação do working-context.md: estrutura markdown inválida ou cabeçalhos ausentes.")
+            apply_deterministic_fallback()
             return
             
         try:
-            context_path = os.path.join(".agent", "working-context.md")
             with open(context_path, "w", encoding="utf-8") as f:
                 f.write(cleaned)
             log("working-context.md atualizado com sucesso.")
         except Exception as e:
             log_error(f"Falha ao persistir working-context.md: {e}")
+            apply_deterministic_fallback()
+    else:
+        log_error("Falha ao receber resposta do LLM para auto-save.")
+        apply_deterministic_fallback()
 
 def call_llm_api(messages, tools=None):
     provider = os.environ.get("BALI_LLM_PROVIDER", "ollama").lower()

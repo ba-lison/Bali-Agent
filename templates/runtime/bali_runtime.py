@@ -414,6 +414,144 @@ def _build_chain(agents, workflow, specialist):
     return ["orchestrator", "planner", specialist, "reviewer"]
 
 
+def validate_working_context(content):
+    if not content:
+        return False
+    has_title = "# Working Context" in content
+    has_status = ("Status Atual" in content) or ("Milestone" in content)
+    has_progress = ("Progresso Recente" in content) or ("Recent Progress" in content)
+    return has_title and has_status and has_progress
+
+
+def save_context_auto_cli(root, task, chain, run_dir):
+    context_path = root / ".agent" / "working-context.md"
+    if not context_path.is_file():
+        return
+        
+    command_template = os.environ.get("BALI_LLM_COMMAND")
+    if not command_template:
+        return
+        
+    print("[*] Iniciando persistência de contexto pós-cadeia CLI...", file=sys.stderr)
+    
+    backup_path = context_path.with_suffix(".md.bak")
+    try:
+        if context_path.is_file():
+            import shutil
+            shutil.copy2(context_path, backup_path)
+    except Exception as e:
+        print(f"[!] Falha ao criar backup do context: {e}", file=sys.stderr)
+        
+    history_text = f"Cadeia executada: {' -> '.join(chain)}\n\n"
+    for name in chain:
+        out_file = run_dir / f"{name}.output.md"
+        if out_file.is_file():
+            try:
+                out_content = out_file.read_text(encoding="utf-8")
+                if len(out_content) > 1500:
+                    out_content = out_content[:1500] + "\n...(conteúdo truncado para síntese)..."
+                history_text += f"=== SAÍDA DO AGENTE '{name}' ===\n{out_content}\n================================\n\n"
+            except Exception:
+                pass
+                
+    def apply_deterministic_fallback():
+        print("[!] Aplicando fallback determinístico no working-context.md...", file=sys.stderr)
+        try:
+            current_data = ""
+            for p in [backup_path, context_path]:
+                if p.is_file():
+                    current_data = p.read_text(encoding="utf-8")
+                    break
+            
+            import time
+            timestamp = time.strftime("%Y-%m-%dT%H:%M:%S")
+            fallback_text = f"\n\n## Histórico Recente (Auto-Save Fallback - {timestamp})\n"
+            fallback_text += "A atualização automática via LLM falhou ou veio inválida no modo CLI. Histórico de sessão:\n"
+            fallback_text += f"- **Instrução Inicial:** {task}\n"
+            fallback_text += f"- **Cadeia Executada:** {' -> '.join(chain)}\n"
+            
+            context_path.write_text(current_data.rstrip() + fallback_text, encoding="utf-8")
+            print("[*] working-context.md atualizado via fallback determinístico.", file=sys.stderr)
+        except Exception as e:
+            print(f"[!] Falha no fallback determinístico de working-context.md: {e}", file=sys.stderr)
+
+    system_prompt = (
+        "Você é a engine de persistência do Bali-Agent. Sua única tarefa é atualizar o arquivo `.agent/working-context.md` "
+        "com base nas ações e decisões tomadas no histórico recente da sessão.\n\n"
+        "Retorne APENAS o conteúdo completo do arquivo `.agent/working-context.md` atualizado no formato Markdown. "
+        "Não adicione comentários, explicações ou tags adicionais (como ```markdown). O arquivo deve ser editado de forma incremental, "
+        "atualizando a Milestone se necessário, a Data de Atualização, o Progresso Recente (marcando [x]) e bugs conhecidos."
+    )
+    
+    try:
+        working_context = context_path.read_text(encoding="utf-8")
+    except Exception:
+        working_context = ""
+        
+    prompt = (
+        f"# Prompt de Atualização de Memória de Trabalho\n\n"
+        f"Histórico de Cadeia Executada:\n{history_text}\n\n"
+        f"Conteúdo Atual do working-context.md:\n{working_context}\n\n"
+        f"Contrato de Saída: Retorne apenas o markdown completo atualizado. Sem tags extras de markdown no início ou fim."
+    )
+    
+    prompt_path = run_dir / "sintese.prompt.md"
+    output_path = run_dir / "sintese.output.md"
+    
+    try:
+        prompt_path.write_text(f"{system_prompt}\n\n{prompt}", encoding="utf-8")
+        
+        command = command_template.format(
+            prompt_file=str(prompt_path),
+            output_file=str(output_path),
+            agent="persistence_engine",
+        )
+        
+        with output_path.open("w", encoding="utf-8") as out:
+            completed = subprocess.run(
+                command if os.name == "nt" else shlex.split(command),
+                shell=(os.name == "nt"),
+                stdout=out,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=120
+            )
+            
+        if completed.returncode != 0:
+            print(f"[!] Execução da LLM para síntese falhou: {completed.stderr}", file=sys.stderr)
+            apply_deterministic_fallback()
+            return
+            
+        updated_content = output_path.read_text(encoding="utf-8").strip()
+        if not updated_content:
+            print("[!] Saída vazia na síntese.", file=sys.stderr)
+            apply_deterministic_fallback()
+            return
+            
+        cleaned = updated_content
+        if cleaned.startswith("```markdown"):
+            cleaned = cleaned[11:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        
+        if not validate_working_context(cleaned):
+            print("[!] Falha na validação estrutural do working-context.md gerado pela LLM.", file=sys.stderr)
+            apply_deterministic_fallback()
+            return
+            
+        tmp_context_path = context_path.with_suffix(".md.tmp")
+        tmp_context_path.write_text(cleaned, encoding="utf-8")
+        os.replace(tmp_context_path, context_path)
+        print("[*] working-context.md atualizado via CLI LLM com sucesso.", file=sys.stderr)
+        
+    except Exception as e:
+        print(f"[!] Erro ao realizar síntese do contexto via CLI: {e}", file=sys.stderr)
+        apply_deterministic_fallback()
+
+
 def run_task(root, task, dry_run=False, specialist_name=None, workflow="operate"):
     problems = verify(root)
     if problems:
@@ -481,6 +619,9 @@ def run_task(root, task, dry_run=False, specialist_name=None, workflow="operate"
     except Exception as exc:
         print(f"[!] Bali Runtime falhou: {exc}", file=sys.stderr)
         return 1
+
+    if not dry_run:
+        save_context_auto_cli(root, task, chain, run_dir)
 
     print(f"Bali Runtime concluido: {run_dir.relative_to(root)}")
     return 0
