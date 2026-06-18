@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bali-agent"
+version = "2.2.0"
+description = "Universal LLM-agnostic runtime and agent manager with real subagents"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "ba-lison", email = "alison.all.cruz@gmail.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+bali = "bali_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["bali_agent*"]
+

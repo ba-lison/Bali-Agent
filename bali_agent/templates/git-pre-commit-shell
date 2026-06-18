@@ -1,0 +1,3 @@
+#!/bin/sh
+# Bootstrap pre-commit hook para acionar o prevent_secrets.py do Bali-Agent
+python .agent/hooks/prevent_secrets.py

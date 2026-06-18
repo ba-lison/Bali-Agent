@@ -2,4 +2,11 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .vscode/
-.idea/
+.agent/
+.antigravity/
+.claude/
+.codex/
+.cursor/
+.gemini/
+opencode.json
+*.egg-info/
