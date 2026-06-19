@@ -9,6 +9,7 @@ pode ser plugado via BALI_LLM_COMMAND.
 
 import argparse
 import datetime as _dt
+import json
 import os
 import sys
 import shlex
@@ -71,6 +72,59 @@ def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
+def _extract_json_object(text: str) -> dict:
+    json_start = text.find("{")
+    if json_start == -1:
+        raise ValueError("routing plan JSON ausente na resposta do Orchestrator")
+
+    depth = 0
+    json_end = -1
+    for index, char in enumerate(text[json_start:], start=json_start):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                json_end = index + 1
+                break
+
+    if json_end == -1:
+        raise ValueError("routing plan JSON incompleto na resposta do Orchestrator")
+
+    try:
+        return json.loads(text[json_start:json_end])
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"routing plan JSON invalido: {exc}") from exc
+
+def _parse_routing_plan(text: str) -> dict:
+    plan = _extract_json_object(text)
+    classification = plan.get("classification")
+    if classification not in {"trivial", "small", "medium", "large"}:
+        raise ValueError("routing plan deve declarar classification: trivial, small, medium ou large")
+
+    if classification != "trivial":
+        steps = plan.get("steps")
+        if not isinstance(steps, list) or not steps:
+            raise ValueError("routing plan nao-trivial deve declarar steps")
+        for step in steps:
+            if not isinstance(step, dict) or not step.get("agent"):
+                raise ValueError("routing plan step deve declarar agent")
+
+    plan.setdefault("max_retries", 3)
+    plan.setdefault("steps", [])
+    return plan
+
+def _reviewer_approved(text: str) -> tuple[bool, str]:
+    verdict = _extract_json_object(text)
+    if "approved" not in verdict or not isinstance(verdict["approved"], bool):
+        raise ValueError("Reviewer deve retornar JSON com approved boolean")
+    blockers = verdict.get("blockers", [])
+    if blockers:
+        feedback = "; ".join(item.get("reason", str(item)) for item in blockers)
+    else:
+        feedback = verdict.get("summary", "")
+    return verdict["approved"], feedback
+
 def _select_specialist(agents: dict, requested: Optional[str] = None) -> str:
     if requested:
         if requested not in agents:
@@ -82,6 +136,46 @@ def _select_specialist(agents: dict, requested: Optional[str] = None) -> str:
         if name.startswith("spec-"):
             return name
     return "spec-implementer"
+
+def _materialize_plan_specialists(root: Path, run_dir: Path, agents: dict, plan: dict) -> dict:
+    for specialist in plan.get("specialists", []):
+        agent_id = specialist.get("id")
+        scope = specialist.get("scope", "")
+        lifecycle = specialist.get("lifecycle", "temporary")
+        if not agent_id or not agent_id.startswith("spec-"):
+            raise ValueError("specialist deve declarar id spec-*")
+        if agent_id in agents:
+            continue
+
+        if lifecycle == "permanent":
+            result = create_agent(root, agent_id, scope or agent_id, overwrite=False)
+            if result != 0:
+                raise ValueError(f"Falha ao criar especialista permanente: {agent_id}")
+            agents = _agent_files(root)
+        elif lifecycle == "temporary":
+            temp_path = run_dir / "temp-agents" / f"{agent_id}.md"
+            body = "\n".join(
+                [
+                    "---",
+                    f"id: {agent_id}",
+                    "tipo: especialista-temporario",
+                    "created_by: bali-runtime",
+                    "---",
+                    "",
+                    f"# {agent_id}",
+                    "",
+                    "Subagente temporario criado para esta execucao.",
+                    "",
+                    "## Escopo",
+                    scope or agent_id,
+                    "",
+                ]
+            )
+            _write(temp_path, body)
+            agents[agent_id] = temp_path
+        else:
+            raise ValueError(f"lifecycle invalido para {agent_id}: {lifecycle}")
+    return agents
 
 def _write_prompt(run_dir: Path, agent_name: str, agent_path: Path, task: str, prior_output: str) -> Path:
     prompt_path = run_dir / f"{agent_name}.prompt.md"
@@ -234,11 +328,51 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
 
     prior = ""
     try:
-        for agent_name in chain:
-            prompt_path = _write_prompt(run_dir, agent_name, agents[agent_name], task, prior)
-            output_path = run_dir / f"{agent_name}.output.md"
-            _run_llm(command_template, prompt_path, output_path, agent_name)
-            prior = _read(output_path)
+        orchestrator_prompt = _write_prompt(run_dir, "orchestrator", agents["orchestrator"], task, prior)
+        orchestrator_output = run_dir / "orchestrator.output.md"
+        _run_llm(command_template, orchestrator_prompt, orchestrator_output, "orchestrator")
+        orchestrator_text = _read(orchestrator_output)
+        plan = _parse_routing_plan(orchestrator_text)
+        agents = _materialize_plan_specialists(root, run_dir, agents, plan)
+
+        if plan["classification"] == "trivial":
+            print(orchestrator_text)
+            print(f"Bali Runtime concluido: {run_dir.relative_to(root)}")
+            return 0
+
+        max_retries = int(plan.get("max_retries", 3))
+        for index, step in enumerate(plan["steps"], start=1):
+            agent_name = step["agent"]
+            if agent_name not in agents:
+                raise ValueError(f"Agente do plano ausente: .agent/team/{agent_name}.md")
+
+            step_prompt = step.get("prompt") or task
+            feedback = ""
+            approved = False
+            for attempt in range(max_retries + 1):
+                prompt = step_prompt
+                if feedback:
+                    prompt += f"\n\nFeedback do Reviewer para corrigir:\n{feedback}"
+                prompt_path = _write_prompt(run_dir, agent_name, agents[agent_name], prompt, prior)
+                output_path = run_dir / f"{index:02d}-{agent_name}-attempt-{attempt + 1}.output.md"
+                _run_llm(command_template, prompt_path, output_path, agent_name)
+                prior = _read(output_path)
+
+                if not step.get("review", True):
+                    approved = True
+                    break
+
+                review_prompt = f"Revise a saida do agente {agent_name} para a tarefa:\n{prompt}\n\nSaida:\n{prior}"
+                reviewer_prompt = _write_prompt(run_dir, "reviewer", agents["reviewer"], review_prompt, prior)
+                reviewer_output = run_dir / f"{index:02d}-reviewer-attempt-{attempt + 1}.output.md"
+                _run_llm(command_template, reviewer_prompt, reviewer_output, "reviewer")
+                reviewer_text = _read(reviewer_output)
+                approved, feedback = _reviewer_approved(reviewer_text)
+                if approved:
+                    break
+
+            if not approved:
+                raise RuntimeError(f"Reviewer reprovou {agent_name}: {feedback}")
     except Exception as exc:
         print(f"[!] Bali Runtime falhou: {exc}", file=sys.stderr)
         sys.exit(1)  # Grave estado ao sys.exit(1) em vez de abortar silenciosamente (Fase 6)
