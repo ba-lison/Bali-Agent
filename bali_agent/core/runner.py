@@ -28,6 +28,7 @@ from bali_agent.tools.filesystem import read_file_tool, write_file_tool
 from bali_agent.tools.shell import run_command_tool
 from bali_agent.tools.git import git_tool
 from bali_agent.tools.approval import request_human_approval_tool
+from bali_agent.templates.core.skills import create_or_update_skill
 
 class Runner:
     def __init__(self, root_dir: Path, run_id: Optional[str] = None):
@@ -82,6 +83,18 @@ class Runner:
         elif name == "send_handoff":
             output = self.handoff_bus.send(agent.id, args.get("to_agent", ""), args.get("message", ""))
             self.logger.log_handoff(agent.id, args.get("to_agent", ""), args.get("message", ""))
+        elif name == "create_skill":
+            try:
+                output = create_or_update_skill(
+                    self.root_dir,
+                    args.get("skill_id", ""),
+                    args.get("title", ""),
+                    args.get("body", ""),
+                    args.get("reason", ""),
+                    agent.id,
+                )
+            except ValueError as exc:
+                output = f"Erro: {exc}"
         elif name == "invoke_subagent":
             # Security: enforce can_spawn_agents flag from agent manifest
             if not agent.can_spawn_agents:

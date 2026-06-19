@@ -181,7 +181,7 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
         return 1
 
     if not dry_run and os.environ.get("BALI_LLM_PROVIDER"):
-        run_script = root / ".agent" / "run.py"
+        run_script = root / ".agent" / "templates" / "run.py"
         if not run_script.is_file():
             run_script = root / "templates" / "run.py"
         if run_script.is_file():

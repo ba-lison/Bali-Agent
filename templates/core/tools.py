@@ -8,6 +8,7 @@ from typing import Dict, Any, Union
 from templates.core.security import _safe_path, execute_safe_command
 from templates.core.memory import search_memory
 from templates.core.handoff_bus import _handoff_bus_send, _handoff_bus_receive
+from templates.core.skills import create_or_update_skill
 
 def execute_tool(name: str, args: Dict[str, Any], root_dir: Path, current_agent: str = "orchestrator") -> str:
     """Execute the given tool with arguments and security validations."""
@@ -94,5 +95,18 @@ def execute_tool(name: str, args: Dict[str, Any], root_dir: Path, current_agent:
             
         bus_path = root_abs / ".agent" / "output" / "handoff_bus.json"
         return _handoff_bus_send(bus_path, current_agent, to_agent, message)
+
+    elif name == "create_skill":
+        try:
+            return create_or_update_skill(
+                root_abs,
+                args.get("skill_id", ""),
+                args.get("title", ""),
+                args.get("body", ""),
+                args.get("reason", ""),
+                current_agent,
+            )
+        except ValueError as exc:
+            return f"Erro: {exc}"
 
     return f"Erro: Ferramenta '{name}' desconhecida."

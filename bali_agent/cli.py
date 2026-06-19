@@ -7,6 +7,7 @@ import sys
 import shutil
 import json
 import time
+import subprocess
 import datetime as _dt
 from pathlib import Path
 from typing import List, Optional
@@ -70,9 +71,14 @@ def init_command(target_dir: Path) -> int:
         manifest.write_text(f"""# Manifesto do time Bali-Agent
 versao_base: "{bali_agent.__version__}"
 criado_em: "{created_at}"
+runtime_authority: "bali-runtime"
 subagents_policy:
   role_play_permitido: false
   fallback_obrigatorio: "bali-runtime"
+skills_policy:
+  auto_create_permitido: true
+  store: ".agent/skills"
+  audit_log: ".agent/skills/AUDIT.md"
 enforcement_adapters:
   - bali-runtime
 time:
@@ -101,6 +107,12 @@ time:
     memory = agent_dir / "memory.md"
     if not memory.is_file():
         memory.write_text("# Memoria Curada do Projeto\n", encoding="utf-8")
+
+    skills_dir = agent_dir / "skills"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    audit_file = skills_dir / "AUDIT.md"
+    if not audit_file.is_file():
+        audit_file.write_text("# Skill Audit\n\n", encoding="utf-8")
         
     task_checklist = agent_dir / "task.md"
     if not task_checklist.is_file():
@@ -126,6 +138,11 @@ time:
     # 6. Copy verify_setup.py and run.py
     shutil.copy2(src_dir / "templates" / "verify_setup.py", agent_dir / "verify_setup.py")
     os.chmod(agent_dir / "verify_setup.py", 0o755)
+
+    runtime_dir = agent_dir / "runtime"
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_dir / "templates" / "runtime" / "bali_runtime.py", runtime_dir / "bali_runtime.py")
+    os.chmod(runtime_dir / "bali_runtime.py", 0o755)
     
     # Copy prevent_secrets.py to .agent/hooks/
     hooks_dest = agent_dir / "hooks"
@@ -139,7 +156,7 @@ time:
         "#!/usr/bin/env python3\n"
         "import sys, subprocess\n"
         "if __name__ == '__main__':\n"
-        "    completed = subprocess.run(['bali', 'run'] + sys.argv[1:])\n"
+        "    completed = subprocess.run([sys.executable, '.agent/runtime/bali_runtime.py', 'run'] + sys.argv[1:])\n"
         "    sys.exit(completed.returncode)\n",
         encoding="utf-8"
     )
@@ -173,6 +190,15 @@ def verify_command(root: Path) -> int:
 def run_command(root: Path, task: str, workflow: str = "operate", specialist: Optional[str] = None) -> int:
     """Run execution task loop."""
     print(f"[*] Iniciando execucao da tarefa: {task}...", file=sys.stderr)
+    runtime_script = root / ".agent" / "runtime" / "bali_runtime.py"
+    if runtime_script.is_file():
+        command = [sys.executable, str(runtime_script), "run", "--workflow", workflow]
+        if specialist:
+            command.extend(["--specialist", specialist])
+        command.append(task)
+        completed = subprocess.run(command)
+        return completed.returncode
+
     runner = Runner(root)
     
     # Build chain

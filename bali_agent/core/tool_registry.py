@@ -122,6 +122,35 @@ TOOLS_SCHEMA: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "create_skill",
+            "description": "Cria ou atualiza uma skill local do projeto em .agent/skills/ com trilha de auditoria.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "skill_id": {
+                        "type": "string",
+                        "description": "Identificador da skill em minusculas, numeros e hifens."
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Titulo humano da skill."
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "Instrucoes completas da skill."
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Motivo auditavel para criar ou atualizar a skill."
+                    }
+                },
+                "required": ["skill_id", "title", "body", "reason"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "send_handoff",
             "description": "Envia uma mensagem estruturada para outro subagente via HandoffBus.",
             "parameters": {
