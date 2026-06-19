@@ -49,11 +49,11 @@ O Setup Agent deve **materializar subagentes reais sempre**. Não trate Orchestr
        > *"IMPORTANTE: O time de subagentes do Bali-Agent opera sob a governança e as restrições de arquitetura, padrões de código e design system descritos nas seções anteriores deste arquivo (regras originais do projeto). Nenhuma diretriz do framework anula as regras nativas deste repositório."*
        Se o usuário exigir isolamento total, mantenha o `AGENTS.md` original intocado e salve a constituição de referência como `.agent/bootstrap-AGENTS.md`.
    - Instancie os **Adaptadores de Enforcamento** selecionados no manifesto:
-     - **Claude Code**: O `init.py` cria `CLAUDE.md` importando `AGENTS.md`, mescla os hooks Bali em `.claude/settings.json` e instala `.agent/hooks/claude_hook.py`. Sua tarefa aqui é confirmar que `CLAUDE.md` ou `.claude/CLAUDE.md`, `.claude/settings.json`, `.agent/hooks/claude_hook.py` e `.claude/agents/*.md` existem.
+     - **Claude Code surfaces**: CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud com workspace usam o mesmo contrato. O `init.py` cria `CLAUDE.md` importando `AGENTS.md`, mescla os hooks Bali em `.claude/settings.json` e instala `.agent/hooks/claude_hook.py`. Confirme que `CLAUDE.md` ou `.claude/CLAUDE.md`, `.claude/settings.json`, `.agent/hooks/claude_hook.py` e `.claude/agents/*.md` existem. Se a superficie for API pura sem shell/tools, registre que Bali precisa ser acionado por wrapper externo (MCP, CI job, webhook ou servico) antes de executar.
       - **Cursor**: O `init.py` cria `.cursor/rules/bali-agent.mdc`. Esta regra só injeta contexto; quando não houver isolamento nativo no Cursor, execute os subagentes pelo Bali Runtime.
       - **Codex CLI / Codex Desktop**: O `init.py` cria `.codex/agents/*.toml` e `.codex/config.toml`; use esses custom agents para spawn real.
       - **OpenCode**: O `init.py` cria `opencode.json` com instruções críticas e `.opencode/agents/*.md` com `mode: subagent`; use @mention/comandos com subtask.
-      - **Antigravity 2.0 / CLI**: O `init.py` cria skills em `.antigravity/skills/` (desktop) e `.agents/skills/` (CLI); use `define_subagent`/Manager view/background subagents nativos.
+      - **Antigravity 2.0 / CLI**: O `init.py` cria skills em `.antigravity/skills/` (desktop) e `.agents/skills/` (CLI); use `define_subagent`/Manager view/background subagents nativos com fila segura (`max_parallel: 1`) para agentes de escrita.
      - **Ollama / API crua**: Não há orquestrador nativo; use Bali Runtime com `BALI_LLM_COMMAND`.
      - **Memória de Trabalho (`.agent/working-context.md`)**:
        - Atualize o arquivo `.agent/working-context.md` de forma a definir o `Status Atual do Projeto` como "Setup do time concluído".

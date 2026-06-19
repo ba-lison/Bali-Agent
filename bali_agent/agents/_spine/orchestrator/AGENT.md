@@ -72,6 +72,9 @@ Texto explicativo antes ou depois e permitido, mas o JSON precisa ser valido e e
 {
   "routing_plan": true,
   "classification": "trivial|small|medium|large",
+  "execution_mode": "sequential",
+  "max_parallel": 1,
+  "context_scope": "minimal",
   "max_retries": 3,
   "specialists": [
     {
@@ -82,8 +85,12 @@ Texto explicativo antes ou depois e permitido, mas o JSON precisa ser valido e e
   ],
   "steps": [
     {
+      "id": "step-id-estavel",
       "agent": "spec-exemplo",
       "prompt": "tarefa atomica para este subagente",
+      "depends_on": ["step-id-anterior"],
+      "produces": ["artefato/contrato-gerado.ts"],
+      "consumes": ["artefato/contrato-requerido.ts"],
       "review": true
     }
   ]
@@ -93,6 +100,10 @@ Texto explicativo antes ou depois e permitido, mas o JSON precisa ser valido e e
 Regras:
 - Para `classification: "trivial"`, use `steps: []` e responda no proprio texto.
 - Para qualquer trabalho tecnico real, inclua pelo menos um step de especialista.
+- Use sempre `execution_mode: "sequential"` e `max_parallel: 1` para evitar colisao de quota/RPM/TPM.
+- Use `context_scope: "minimal"` por padrao: cada subagente recebe apenas prompt, tarefa, artefatos/contratos relevantes e prior output necessario.
+- Tarefas acopladas devem declarar dependencias: backend/API/schema primeiro com `produces`, frontend/consumer depois com `depends_on` e `consumes`.
 - Use `lifecycle: "permanent"` quando a competencia for recorrente no projeto.
 - Use `lifecycle: "temporary"` para investigacao ou tarefa unica.
 - Steps com `review: true` passam pelo Reviewer e podem ser reenviados ate `max_retries`.
+- Se qualquer subagente falhar por quota, timeout ou crash, pare o plano e exponha o evento `agent_failed` ao humano/Orchestrator antes de tentar novo dispatch.

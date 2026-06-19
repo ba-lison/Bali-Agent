@@ -330,7 +330,7 @@ def install_codex_native_agents(target_dir: str, agent_dir: str) -> None:
 
     config_path = os.path.join(codex_dir, "config.toml")
     if not os.path.exists(config_path):
-        _write_text(config_path, "[agents]\nmax_threads = 6\nmax_depth = 1\n")
+        _write_text(config_path, "[agents]\nmax_threads = 1\nmax_depth = 1\n")
 
     installed = []
     for agent_path in _team_agent_files(agent_dir):
@@ -387,7 +387,7 @@ def install_antigravity_skill(target_dir: str) -> None:
     ]
     content = """---
 name: bali-agent
-description: Materializa o time Bali-Agent com subagentes reais; usa define_subagent/background subagents quando disponiveis e Bali Runtime como fallback.
+description: Materializa o time Bali-Agent com subagentes reais; usa define_subagent/background subagents com fila segura e Bali Runtime como fallback.
 ---
 
 # Bali-Agent para Antigravity
@@ -396,9 +396,11 @@ Sempre opere com subagentes reais:
 
 1. Leia `AGENTS.md`, `.agent/subagent.config.yaml` e `.agent/protocols/subagents.md`.
 2. Para cada arquivo em `.agent/team/*.md`, defina um subagente Antigravity equivalente quando a ferramenta disponibilizar `define_subagent`.
-3. Execute Orchestrator, Planner, especialista e Reviewer como subagentes/threads separados.
-4. Se a superficie atual nao permitir subagentes isolados, use `python .agent/runtime/bali_runtime.py run "<tarefa>"`.
-5. Se faltar especialista, use `python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"` e entao invoque o novo subagente.
+3. Execute Orchestrator, Planner, especialista e Reviewer como subagentes/threads separados, mas com fila: um agente de escrita por vez (`max_parallel: 1`).
+4. Use contexto minimo por subagente: prompt, tarefa, artefatos/contratos necessarios e prior output relevante; nao injete historico completo da sessao pai.
+5. Para tarefas acopladas, execute produtor antes do consumidor (ex.: backend/API produz contrato, frontend consome contrato).
+6. Se a superficie atual nao permitir subagentes isolados, use `python .agent/runtime/bali_runtime.py run "<tarefa>"`.
+7. Se faltar especialista, use `python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"` e entao invoque o novo subagente.
 """
     for rel_path, label in skill_paths:
         dest = os.path.join(target_dir, rel_path)

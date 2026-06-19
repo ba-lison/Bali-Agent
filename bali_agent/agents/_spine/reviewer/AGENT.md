@@ -36,5 +36,37 @@ Para cada issue encontrada:
 - Se o código melhora o sistema, aprovar mesmo que não seja perfeito
 
 # Output
-- Review formatado com issues categorizados
-- Veredicto: ✅ Aprovado | ⚠️ Aprovado com ressalvas | ❌ Mudanças necessárias
+As regras abaixo substituem qualquer formato textual anterior: retorne apenas um objeto JSON valido. Nao inclua Markdown fora do JSON.
+
+Schema obrigatorio:
+```json
+{
+  "approved": false,
+  "summary": "Resumo tecnico descritivo do que foi revisado e do motivo do veredito.",
+  "checks": {
+    "scope": false,
+    "tests": false,
+    "security": false,
+    "regression": false
+  },
+  "blockers": [
+    {
+      "severity": "blocker",
+      "reason": "Problema que impede aprovacao.",
+      "file": "caminho/opcional",
+      "line": 0
+    }
+  ],
+  "warnings": [],
+  "nits": []
+}
+```
+
+Regras do contrato:
+- `summary` deve ser descritivo; nunca use apenas "ok" ou equivalente.
+- `checks.scope` confirma aderencia ao pedido, PRD, SDD ou contrato recebido.
+- `checks.tests` confirma testes/evidencias suficientes.
+- `checks.security` confirma ausencia de risco obvio de seguranca, segredo ou permissao indevida.
+- `checks.regression` confirma que nao ha regressao obvia no fluxo existente.
+- `approved: true` exige todos os checks como `true` e `blockers: []`.
+- `approved: false` deve declarar pelo menos um blocker ou check falso.

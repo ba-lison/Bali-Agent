@@ -38,7 +38,22 @@ O objetivo é "nunca solo", não "sempre burocrático".
    - registre o novo especialista em `.agent/subagent.config.yaml`;
    - quando houver adapter nativo, espelhe o arquivo no formato da ferramenta;
    - quando não houver adapter nativo, use `python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"`.
-4. Tarefas que cruzam stacks podem envolver mais de um especialista em sequência.
+4. Tarefas que cruzam stacks podem envolver mais de um especialista em sequência, sempre com fila (`max_parallel: 1`) para agentes de escrita.
+
+## Sequenciamento, contratos e quota
+
+O Orchestrator deve usar `execution_mode: "sequential"`, `max_parallel: 1` e `context_scope: "minimal"` por padrão. Mesmo quando a ferramenta nativa suporta background agents, agentes de escrita não iniciam em paralelo.
+
+Para tarefas acopladas, declare o contrato entre etapas:
+
+1. O produtor roda primeiro e grava o artefato contratual em `produces` (schema, tipo, endpoint, migração, interface).
+2. O consumidor roda depois com `depends_on` e `consumes`, recebendo apenas o contrato necessário.
+3. Backend/API/schema deve preceder frontend/UI quando a UI depende do formato de resposta.
+4. O Reviewer valida o artefato final e também pode validar o contrato intermediário.
+
+Cada subagente recebe apenas prompt, tarefa, artefatos/contratos relevantes e prior output necessário. Não herde histórico completo da sessão pai.
+
+Se um subagente falhar por quota, timeout ou crash, registre `agent_failed` com `agent`, `error_type`, `retryable`, `message` e `next_retry_at`, então devolva esse evento ao Orchestrator antes de qualquer novo dispatch.
 
 ## Modo Operate
 

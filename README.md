@@ -40,6 +40,7 @@ O Orchestrator tem o poder de **criar subagentes** (`spec-*`) permanentes ou tem
 ### Plataformas suportadas
 
 - Claude Code, Codex, OpenCode, Antigravity, Cursor, Ollama — todo projeto opera o mesmo time `.agent/`.
+- Claude Code surfaces cobrem CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud quando a sessao tem workspace; API pura sem shell precisa de wrapper externo.
 - Se a ferramenta tem subagentes nativos → o setup cria os arquivos no formato nativo (`.opencode/agents/`, `.claude/agents/`, `.codex/agents/`).
 - Se não tem → Bali Runtime executa subagentes isolados por processo (`subprocess.run`, prompt/ output em arquivos separados).
 - Se nenhum caminho funciona → falha fechada (sem fingir que role-play é subagente).
@@ -244,15 +245,25 @@ Operadores de encadeamento (`;`, `&&`, `\|`, `$(`) são sempre bloqueados.
 - `allowed_tools: ["read_file", "search_memory"]` → apenas essas duas.
 
 ### Reviewer gate — fail-closed
-O agente `reviewer` **deve** retornar um JSON válido com `approved: true/false`. Qualquer desvio (sem JSON, JSON malformado, campo ausente) levanta `ValueError` — a execução nunca passa silenciosamente.
+O agente `reviewer` **deve** retornar um JSON válido e estruturado. Qualquer desvio (sem JSON, JSON malformado, campo ausente, summary genérico ou aprovação com checks falsos) levanta `ValueError` — a execução nunca passa silenciosamente.
 
 ```json
 {
   "approved": true,
-  "summary": "Implementação correta, testes cobrem os fluxos principais.",
-  "blockers": []
+  "summary": "Implementação correta, testes cobrem os fluxos principais e nenhum risco de regressão foi identificado.",
+  "checks": {
+    "scope": true,
+    "tests": true,
+    "security": true,
+    "regression": true
+  },
+  "blockers": [],
+  "warnings": [],
+  "nits": []
 }
 ```
+
+`approved: true` exige `blockers: []` e todos os checks como `true`. Para reprovar, o Reviewer deve declarar pelo menos um blocker ou um check falso.
 
 ### Controle de subagentes
 - `can_spawn_agents: false` no manifesto do agente → bloqueio hard no Runner.

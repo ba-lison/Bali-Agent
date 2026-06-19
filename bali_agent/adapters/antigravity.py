@@ -3,8 +3,8 @@
 
 Antigravity 2.0 (desktop app, VS Code fork com Editor + Manager views):
   - Skills de workspace em .antigravity/skills/<skill>/SKILL.md
-  - Manager view: orquestracao nativa de multiplos agentes em paralelo
-  - define_subagent + background subagents nativos
+  - Manager view: orquestracao nativa de multiplos agentes com fila segura
+  - define_subagent + background subagents nativos sob max_parallel=1 para escrita
 
 Antigravity CLI (agy, ex-Gemini CLI, terminal-first):
   - Skills de workspace em .agents/skills/<skill>/SKILL.md
@@ -74,7 +74,7 @@ class AntigravityAdapter(BaseAdapter):
         O Antigravity CLI (agy) suporta:
           - native_subagents: define_subagent + background agents
           - permissions: sandbox nativo de terminal
-          - background_agents: subagentes paralelos em background
+          - background_agents: disponiveis, mas agentes de escrita usam fila segura
         """
         return {
             "native_subagents":  {"value": True,  "status": "verified"},

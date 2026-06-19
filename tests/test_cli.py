@@ -7,6 +7,15 @@ import tempfile
 import sys
 from pathlib import Path
 from bali_agent.cli import init_command, verify_command
+import templates.verify_setup as verify_setup
+
+
+def test_verify_setup_reports_unsupported_python(monkeypatch, tmp_path):
+    monkeypatch.setattr(verify_setup.sys, "version_info", (3, 10, 9, "final", 0))
+
+    problems = verify_setup.verify(tmp_path)
+
+    assert any("Python 3.11+" in problem for problem in problems)
 
 def test_cli_init_command():
     temp_dir = tempfile.mkdtemp()

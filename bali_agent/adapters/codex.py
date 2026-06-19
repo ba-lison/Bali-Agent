@@ -28,7 +28,7 @@ class CodexAdapter(BaseAdapter):
         codex_dir.mkdir(parents=True, exist_ok=True)
         config = codex_dir / "config.toml"
         if not config.is_file():
-            config.write_text("[agents]\nmax_threads = 6\nmax_depth = 1\n", encoding="utf-8")
+            config.write_text("[agents]\nmax_threads = 1\nmax_depth = 1\n", encoding="utf-8")
 
     def get_capabilities(self) -> dict:
         return {

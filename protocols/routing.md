@@ -100,11 +100,28 @@ O Orchestrator **nunca** ignora ou sobrepõe o veredito do Reviewer.
    - **`spec-docs`**: `.md` de documentação, OpenAPI/Swagger
    - **`spec-implementer`**: Fallback geral para qualquer stack não coberta
 3. Se nenhum especialista cobrir: **crie um novo** antes de executar a tarefa.
-4. Tarefas multi-stack podem disparar múltiplos especialistas em paralelo ou sequência.
+4. Tarefas multi-stack seguem fila sequencial por padrão (`max_parallel: 1`). Agentes de escrita não devem iniciar em paralelo.
 
 ---
 
-## 6. Modo Greenfield
+## 6. Sequenciamento, Contratos e Quota
+
+O paralelismo ingênuo é proibido para trabalho de escrita. Mesmo quando a ferramenta nativa suporta background agents, o Orchestrator deve despachar uma etapa por vez, com `execution_mode: "sequential"` e `max_parallel: 1`.
+
+Para tarefas acopladas, declare o contrato entre etapas:
+
+1. O produtor roda primeiro e grava o artefato contratual em `produces` (schema, tipo, endpoint, migração, interface).
+2. O consumidor roda depois com `depends_on` e `consumes`, recebendo apenas o contrato necessário.
+3. Backend/API/schema deve preceder frontend/UI quando a UI depende do formato de resposta.
+4. O Reviewer valida o artefato final e também pode validar o contrato intermediário.
+
+Cada subagente deve receber `context_scope: "minimal"` por padrão: prompt do agente, tarefa, artefatos/contratos relevantes e prior output necessário. Não herde histórico completo da sessão pai.
+
+Se um subagente falhar por quota, timeout ou crash, o runtime/adaptador deve registrar um evento `agent_failed` estruturado com `agent`, `error_type`, `retryable`, `message` e `next_retry_at`, então devolver esse evento ao Orchestrator antes de qualquer novo dispatch.
+
+---
+
+## 7. Modo Greenfield
 
 Quando `modo: greenfield`, o roteamento segue o pipeline SDLC com gates humanos:
 
@@ -117,7 +134,7 @@ Cada gate para e aguarda aprovação humana antes de prosseguir. Ver `protocols/
 
 ---
 
-## 7. Contrato de Isolamento
+## 8. Contrato de Isolamento
 
 Subagentes **SEMPRE** são reais. Ver `protocols/subagents.md` para o contrato completo.
 
@@ -128,13 +145,15 @@ Resumo da ordem de resolução:
 
 ---
 
-## 8. Anti-Padrões
+## 9. Anti-Padrões
 
 | Anti-padrão | Por que é errado |
 |-------------|-----------------|
 | Orchestrator respondendo sozinho | Viola "nunca solo" |
 | Orchestrator implementando código | Viola separação de responsabilidades |
 | Cadeia linear fixa (A→B→C) sem validação | Viola hub-and-spoke + iteração |
+| Agentes de escrita em paralelo sem contrato | Estoura quota e quebra integração entre produtor/consumidor |
+| Herdar histórico completo do agente pai | Multiplica tokens, vaza contexto irrelevante e aumenta chance de 429 |
 | Output bruto de subagente ao humano | Viola papel de porta-voz do Orchestrator |
 | Subagente role-play no mesmo contexto | Viola contrato de isolamento real |
 

@@ -40,6 +40,7 @@ from templates.core.memory import remember
 
 SPINE = ("orchestrator", "planner", "reviewer")
 BASE_AGENTS = ("discovery", "prd-writer", "sdd-architect")
+REVIEW_REQUIRED_CHECKS = ("scope", "tests", "security", "regression")
 
 def _root(path: str) -> Path:
     return Path(path).resolve()
@@ -96,33 +97,99 @@ def _extract_json_object(text: str) -> dict:
     except json.JSONDecodeError as exc:
         raise ValueError(f"routing plan JSON invalido: {exc}") from exc
 
+def _list_field(value: object, field: str) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return value
+    raise ValueError(f"routing plan field '{field}' deve ser lista de strings")
+
 def _parse_routing_plan(text: str) -> dict:
     plan = _extract_json_object(text)
     classification = plan.get("classification")
     if classification not in {"trivial", "small", "medium", "large"}:
         raise ValueError("routing plan deve declarar classification: trivial, small, medium ou large")
 
+    execution_mode = plan.setdefault("execution_mode", "sequential")
+    if execution_mode != "sequential":
+        raise ValueError("routing plan deve usar execution_mode sequential")
+
+    try:
+        max_parallel = int(plan.setdefault("max_parallel", 1))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("routing plan max_parallel deve ser inteiro") from exc
+    if max_parallel != 1:
+        raise ValueError("routing plan max_parallel deve ser 1 para evitar colisao de quota")
+    plan["max_parallel"] = max_parallel
+
+    context_scope = plan.setdefault("context_scope", "minimal")
+    if context_scope not in {"minimal", "contract", "full"}:
+        raise ValueError("routing plan context_scope deve ser minimal, contract ou full")
+
     if classification != "trivial":
         steps = plan.get("steps")
         if not isinstance(steps, list) or not steps:
             raise ValueError("routing plan nao-trivial deve declarar steps")
-        for step in steps:
+        for index, step in enumerate(steps, start=1):
             if not isinstance(step, dict) or not step.get("agent"):
                 raise ValueError("routing plan step deve declarar agent")
+            step.setdefault("id", f"step-{index}")
+            step["depends_on"] = _list_field(step.get("depends_on"), "depends_on")
+            step["produces"] = _list_field(step.get("produces"), "produces")
+            step["consumes"] = _list_field(step.get("consumes"), "consumes")
 
     plan.setdefault("max_retries", 3)
     plan.setdefault("steps", [])
     return plan
 
+def _review_issue_reason(item: dict) -> str:
+    reason = item.get("reason") or item.get("description")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("Reviewer issues devem declarar reason ou description")
+    return reason.strip()
+
+def _review_issue_list(verdict: dict, field: str) -> list:
+    value = verdict.get(field)
+    if not isinstance(value, list):
+        raise ValueError(f"Reviewer deve retornar JSON com {field} como lista")
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError(f"Reviewer field {field} deve conter objetos")
+        _review_issue_reason(item)
+    return value
+
 def _reviewer_approved(text: str) -> tuple[bool, str]:
     verdict = _extract_json_object(text)
     if "approved" not in verdict or not isinstance(verdict["approved"], bool):
         raise ValueError("Reviewer deve retornar JSON com approved boolean")
-    blockers = verdict.get("blockers", [])
+
+    summary = verdict.get("summary")
+    if not isinstance(summary, str) or len(summary.strip()) < 12:
+        raise ValueError("Reviewer deve retornar summary descritivo")
+
+    checks = verdict.get("checks")
+    if not isinstance(checks, dict):
+        raise ValueError("Reviewer deve retornar checks estruturados")
+    for check in REVIEW_REQUIRED_CHECKS:
+        if not isinstance(checks.get(check), bool):
+            raise ValueError(f"Reviewer checks.{check} deve ser boolean")
+
+    blockers = _review_issue_list(verdict, "blockers")
+    warnings = _review_issue_list(verdict, "warnings")
+    nits = _review_issue_list(verdict, "nits")
+    failed_checks = [check for check in REVIEW_REQUIRED_CHECKS if not checks[check]]
+
+    if verdict["approved"] and (blockers or failed_checks):
+        raise ValueError("Reviewer nao pode aprovar com blockers ou checks falsos")
+    if not verdict["approved"] and not blockers and not failed_checks:
+        raise ValueError("Reviewer reprovado deve declarar blockers ou checks falsos")
+
     if blockers:
-        feedback = "; ".join(item.get("reason", str(item)) for item in blockers)
+        feedback = "; ".join(_review_issue_reason(item) for item in blockers)
+    elif failed_checks:
+        feedback = "checks falharam: " + ", ".join(failed_checks)
     else:
-        feedback = verdict.get("summary", "")
+        feedback = summary.strip()
     return verdict["approved"], feedback
 
 def _select_specialist(agents: dict, requested: Optional[str] = None) -> str:
@@ -177,7 +244,60 @@ def _materialize_plan_specialists(root: Path, run_dir: Path, agents: dict, plan:
             raise ValueError(f"lifecycle invalido para {agent_id}: {lifecycle}")
     return agents
 
-def _write_prompt(run_dir: Path, agent_name: str, agent_path: Path, task: str, prior_output: str) -> Path:
+def _format_contract_items(items: list) -> str:
+    return ", ".join(items) if items else "(none)"
+
+def _step_contract_lines(step_contract: Optional[dict]) -> list:
+    if not step_contract:
+        return []
+    step = step_contract.get("step", {})
+    return [
+        "",
+        "## Step Contract",
+        f"Step id: {step.get('id', '(none)')}",
+        f"Execution mode: {step_contract.get('execution_mode', 'sequential')}",
+        f"Max parallel: {step_contract.get('max_parallel', 1)}",
+        f"Context scope: {step_contract.get('context_scope', 'minimal')}",
+        f"Depends on: {_format_contract_items(step.get('depends_on', []))}",
+        f"Produces: {_format_contract_items(step.get('produces', []))}",
+        f"Consumes: {_format_contract_items(step.get('consumes', []))}",
+        "",
+        "Use only the task, listed contract artifacts, and prior output needed for this step.",
+    ]
+
+def _classify_failure(exc: Exception) -> tuple[str, bool]:
+    text = str(exc).lower()
+    if "429" in text or "resource_exhausted" in text or "quota" in text or "rate" in text:
+        return "rate_limit", True
+    if "timeout" in text or "timed out" in text:
+        return "timeout", True
+    if "exit" in text or "failed" in text or "error" in text:
+        return "worker_error", False
+    return exc.__class__.__name__, False
+
+def _write_failure_event(run_dir: Path, agent_name: str, exc: Exception) -> None:
+    error_type, retryable = _classify_failure(exc)
+    event = {
+        "event_type": "agent_failed",
+        "timestamp": _dt.datetime.now().isoformat(),
+        "agent": agent_name,
+        "error_type": error_type,
+        "retryable": retryable,
+        "message": str(exc),
+        "next_retry_at": None,
+    }
+    if retryable:
+        event["next_retry_at"] = (_dt.datetime.now() + _dt.timedelta(seconds=30)).isoformat()
+    _write(run_dir / "agent_failed.json", json.dumps(event, indent=2, ensure_ascii=False))
+
+def _write_prompt(
+    run_dir: Path,
+    agent_name: str,
+    agent_path: Path,
+    task: str,
+    prior_output: str,
+    step_contract: Optional[dict] = None,
+) -> Path:
     prompt_path = run_dir / f"{agent_name}.prompt.md"
     body = [
         f"# Bali Runtime Agent: {agent_name}",
@@ -187,6 +307,7 @@ def _write_prompt(run_dir: Path, agent_name: str, agent_path: Path, task: str, p
         "",
         "## Task",
         task,
+        *_step_contract_lines(step_contract),
         "",
         "## Prior Output",
         _truncate_prior(prior_output) or "(none)",
@@ -327,6 +448,7 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
         return 2
 
     prior = ""
+    current_agent = "orchestrator"
     try:
         orchestrator_prompt = _write_prompt(run_dir, "orchestrator", agents["orchestrator"], task, prior)
         orchestrator_output = run_dir / "orchestrator.output.md"
@@ -343,6 +465,7 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
         max_retries = int(plan.get("max_retries", 3))
         for index, step in enumerate(plan["steps"], start=1):
             agent_name = step["agent"]
+            current_agent = agent_name
             if agent_name not in agents:
                 raise ValueError(f"Agente do plano ausente: .agent/team/{agent_name}.md")
 
@@ -353,7 +476,13 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
                 prompt = step_prompt
                 if feedback:
                     prompt += f"\n\nFeedback do Reviewer para corrigir:\n{feedback}"
-                prompt_path = _write_prompt(run_dir, agent_name, agents[agent_name], prompt, prior)
+                step_contract = {
+                    "step": step,
+                    "execution_mode": plan["execution_mode"],
+                    "max_parallel": plan["max_parallel"],
+                    "context_scope": plan["context_scope"],
+                }
+                prompt_path = _write_prompt(run_dir, agent_name, agents[agent_name], prompt, prior, step_contract)
                 output_path = run_dir / f"{index:02d}-{agent_name}-attempt-{attempt + 1}.output.md"
                 _run_llm(command_template, prompt_path, output_path, agent_name)
                 prior = _read(output_path)
@@ -363,6 +492,7 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
                     break
 
                 review_prompt = f"Revise a saida do agente {agent_name} para a tarefa:\n{prompt}\n\nSaida:\n{prior}"
+                current_agent = "reviewer"
                 reviewer_prompt = _write_prompt(run_dir, "reviewer", agents["reviewer"], review_prompt, prior)
                 reviewer_output = run_dir / f"{index:02d}-reviewer-attempt-{attempt + 1}.output.md"
                 _run_llm(command_template, reviewer_prompt, reviewer_output, "reviewer")
@@ -370,10 +500,12 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
                 approved, feedback = _reviewer_approved(reviewer_text)
                 if approved:
                     break
+                current_agent = agent_name
 
             if not approved:
                 raise RuntimeError(f"Reviewer reprovou {agent_name}: {feedback}")
     except Exception as exc:
+        _write_failure_event(run_dir, current_agent, exc)
         print(f"[!] Bali Runtime falhou: {exc}", file=sys.stderr)
         sys.exit(1)  # Grave estado ao sys.exit(1) em vez de abortar silenciosamente (Fase 6)
 

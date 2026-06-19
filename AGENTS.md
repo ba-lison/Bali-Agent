@@ -139,10 +139,10 @@ O esforço é **proporcional** ao pedido (ver `protocols/routing.md`): pergunta 
 
 | Ferramenta | Enforcement |
 |-----------|-------------|
-| **Claude Code** | `CLAUDE.md` importa `AGENTS.md`; hooks `UserPromptSubmit` + `SessionStart` em `.claude/settings.json`; subagentes nativos em `.claude/agents/` |
+| **Claude Code surfaces** | CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud com workspace usam `CLAUDE.md`, hooks em `.claude/settings.json` e subagentes nativos em `.claude/agents/`; API pura sem shell exige wrapper externo para o Bali Runtime |
 | **Codex CLI / Codex Desktop** | subagentes nativos em `.codex/agents/*.toml` + `.codex/config.toml` |
 | **OpenCode** | `opencode.json` declara instruções + references; subagentes nativos em `.opencode/agents/*.md` com `mode: subagent` |
-| **Antigravity 2.0 / CLI** | Skills `.antigravity/skills/` (desktop) e `.agents/skills/` (CLI); `define_subagent` nativo + Manager view multi-agente + background subagents |
+| **Antigravity 2.0 / CLI** | Skills `.antigravity/skills/` (desktop) e `.agents/skills/` (CLI); `define_subagent` nativo + Manager/background subagents com fila segura |
 | **Cursor** | `.cursor/rules/bali-agent.mdc` + Bali Runtime quando não houver isolamento nativo |
 | **Ollama/API crua** | Bali Runtime via `BALI_LLM_COMMAND` |
 | **Qualquer modelo** | pode alimentar os subagentes reais; modelo não substitui o runtime de orquestração |

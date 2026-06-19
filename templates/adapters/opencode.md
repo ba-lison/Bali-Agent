@@ -10,6 +10,9 @@ Contrato:
 - `opencode.json` deve incluir `AGENTS.md`, `.agent/protocols/subagents.md` e
   `.agent/protocols/routing.md` em `instructions`.
 - Cada subagente deve rodar em child session própria.
+- Use fila segura: `max_parallel: 1` para agentes de escrita. Nao inicie backend e frontend em paralelo quando um consome contrato do outro.
+- Cada child session recebe apenas contexto minimo: tarefa, artefatos/contratos relevantes e prior output necessario.
+- Se uma child session falhar por quota, timeout ou crash, registre `agent_failed` e devolva esse evento ao Orchestrator antes de novo dispatch.
 - Se a instalação OpenCode atual não puder criar child sessions, use:
 
 ```bash

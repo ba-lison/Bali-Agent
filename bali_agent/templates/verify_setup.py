@@ -16,11 +16,17 @@ try:
 except ImportError:
     yaml = None
 
+MIN_PYTHON = (3, 11)
+
 
 def verify(project_root):
     """Retorna uma lista de problemas (strings). Lista vazia = setup OK."""
     problems = []
     agent_dir = os.path.join(project_root, ".agent")
+
+    if sys.version_info < MIN_PYTHON:
+        current = ".".join(str(part) for part in sys.version_info[:3])
+        problems.append(f"Python 3.11+ requerido; versao atual: {current}")
 
     manifest = os.path.join(agent_dir, "subagent.config.yaml")
     if not os.path.isfile(manifest):

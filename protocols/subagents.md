@@ -12,7 +12,7 @@ O Bali-Agent deve operar com subagentes reais em **todo projeto, toda tarefa, se
 
 O modelo de linguagem é intercambiável (Claude, GPT, Gemini, Llama, Ollama...). A **orquestração não é**. O modelo alimenta os subagentes, mas não substitui a materialização do time.
 
-Este protocolo deve funcionar em qualquer ambiente — Antigravity, Claude Code, Codex, OpenCode, Cursor, Ollama e qualquer IDE/LLM futuro — através de um dos dois caminhos: **adapter nativo** ou **Bali Runtime**.
+Este protocolo deve funcionar em qualquer ambiente — Antigravity, Claude Code surfaces (CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud com workspace), Codex, OpenCode, Cursor, Ollama e qualquer IDE/LLM futuro — através de um dos dois caminhos: **adapter nativo** ou **Bali Runtime**. API pura sem shell/tools precisa de wrapper externo (MCP, CI job, webhook ou servico) para acionar o Bali Runtime.
 
 ---
 
@@ -79,11 +79,13 @@ Itens verificados:
 | Ferramenta | Mecanismo de Isolamento | Caminho |
 |-----------|------------------------|---------|
 | **OpenCode** | Subagentes nativos (`mode: subagent`) + Task tool | `.opencode/agents/*.md` |
-| **Claude Code** | Subagentes nativos + Task tool | `.claude/agents/*.md` |
+| **Claude Code surfaces** | CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud com workspace usam subagentes nativos + Task tool; API pura sem shell exige wrapper para Bali Runtime | `.claude/agents/*.md` ou `.agent/runtime/bali_runtime.py` |
 | **Codex** | Subagentes nativos | `.codex/agents/*.toml` |
-| **Antigravity 2.0 / CLI** | `define_subagent` nativo + Manager view multi-agente + background subagents | `.antigravity/skills/` (desktop) ou `.agents/skills/` (CLI) |
+| **Antigravity 2.0 / CLI** | `define_subagent` nativo + Manager view/background subagents com fila segura | `.antigravity/skills/` (desktop) ou `.agents/skills/` (CLI) |
 | **Cursor** | Bali Runtime (sem subagentes nativos) | `.cursor/rules/bali-agent.mdc` |
 | **Ollama / API crua / outros** | Bali Runtime via `BALI_LLM_COMMAND` | `.agent/runtime/bali_runtime.py` |
+
+Capacidade de background/multi-agente não é permissão para paralelismo livre. Agentes de escrita usam `max_parallel: 1` por padrão, contexto mínimo e handoff por contrato (`produces`/`consumes`) quando uma etapa depende da outra.
 
 ---
 

@@ -168,7 +168,7 @@ Cada artefato passa por **duas validações** antes de chegar ao usuário:
 |---|----------|-------------|
 | TQ1 | Cobertura do SDD | Todas as funcionalidades do SDD estão cobertas por ≥1 task |
 | TQ2 | Granularidade adequada | Tasks não são grandes demais (>4h) nem pequenas demais (<30min) |
-| TQ3 | Paralelismo identificado | Tasks que podem ser feitas em paralelo estão marcadas |
+| TQ3 | Dependências identificadas | Tasks produtoras/consumidoras declaram ordem, `produces` e `consumes` |
 | TQ4 | Caminho crítico | Sequência de tasks que define o tempo mínimo do projeto |
 | TQ5 | IDs rastreáveis | Cada task tem ID único que referencia o componente do SDD |
 

@@ -16,16 +16,19 @@ O modelo é intercambiável. A orquestração não é. Claude, GPT, Gemini, Llam
 Ollama ou outro provider podem alimentar os subagentes, mas não substituem a
 materialização do time.
 
-Este protocolo deve funcionar em Antigravity, Claude Code, Codex, OpenCode,
+Este protocolo deve funcionar em Antigravity, Claude Code surfaces
+(CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud com workspace),
+Codex, OpenCode,
 Cursor, Ollama e qualquer IDE/LLM futuro através de um dos dois
-caminhos: adapter nativo ou Bali Runtime.
+caminhos: adapter nativo ou Bali Runtime. API pura sem shell/tools precisa de
+wrapper externo (MCP, CI job, webhook ou servico) para acionar o Bali Runtime.
 
 ## Ordem de resolução
 
 O Setup Agent e os adapters seguem esta ordem:
 
 1. **Adapter nativo da ferramenta**: use o mecanismo oficial da ferramenta para
-   criar subagentes reais. Exemplo: `.claude/agents/*.md` no Claude Code.
+   criar subagentes reais. Exemplo: `.claude/agents/*.md` nas Claude Code surfaces.
 2. **Bali Runtime**: quando a ferramenta não expuser subagentes nativos, execute
    cada agente em sessão, processo ou chamada isolada, com entrada e saída
    registradas em `.agent/output/`.
@@ -49,6 +52,12 @@ O Setup Agent e os adapters seguem esta ordem:
   estar espelhados em `.claude/agents/*.md`.
 - O Reviewer deve ser executado como agente separado do agente que implementou a
   mudança.
+- Agentes de escrita devem usar fila segura por padrão: `execution_mode:
+  "sequential"` e `max_parallel: 1`.
+- Subagentes recebem contexto mínimo: tarefa, artefatos/contratos relevantes e
+  prior output necessário, nunca histórico completo da sessão pai.
+- Etapas acopladas devem declarar contrato com `produces`, `depends_on` e
+  `consumes` para evitar quebra entre produtor e consumidor.
 - `.agent/runtime/bali_runtime.py` deve suportar `verify`, `list-agents`,
   `create-agent` e `run`.
 - `.agent/runtime/bali_runtime.py create-agent` deve criar subagentes
