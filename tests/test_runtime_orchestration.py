@@ -33,6 +33,17 @@ def test_parse_routing_plan_rejects_missing_json():
         runtime._parse_routing_plan("Vou fazer isso sem JSON.")
 
 
+def test_orchestrator_prompts_define_runtime_routing_plan_contract():
+    root_prompt = Path("agents/_spine/orchestrator/AGENT.md").read_text(encoding="utf-8")
+    package_prompt = Path("bali_agent/agents/_spine/orchestrator/AGENT.md").read_text(encoding="utf-8")
+
+    for prompt in (root_prompt, package_prompt):
+        assert "routing_plan" in prompt
+        assert '"classification"' in prompt
+        assert '"steps"' in prompt
+        assert '"specialists"' in prompt
+
+
 def test_runtime_executes_orchestrator_dynamic_plan(temp_project_dir, monkeypatch):
     calls = []
 

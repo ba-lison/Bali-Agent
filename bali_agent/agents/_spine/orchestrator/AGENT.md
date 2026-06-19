@@ -62,3 +62,37 @@ Use os agentes base persistentes em `.agent/team/`:
 | **SDD Architect** | Criar SDD a partir do PRD aprovado | `agents/sdd-architect/AGENT.md` |
 | **Reviewer** | Antes de concluir QUALQUER entrega | `agents/_spine/reviewer/AGENT.md` |
 | **Especialistas** | Execução técnica por stack | `.agent/team/spec-*.md` |
+
+## Contrato de Saida para Bali Runtime
+
+Quando estiver rodando via Bali Runtime, sua primeira resposta DEVE conter um bloco JSON `routing_plan`.
+Texto explicativo antes ou depois e permitido, mas o JSON precisa ser valido e extraivel por contagem de chaves.
+
+```json
+{
+  "routing_plan": true,
+  "classification": "trivial|small|medium|large",
+  "max_retries": 3,
+  "specialists": [
+    {
+      "id": "spec-exemplo",
+      "scope": "competencia reutilizavel ou pontual",
+      "lifecycle": "permanent|temporary"
+    }
+  ],
+  "steps": [
+    {
+      "agent": "spec-exemplo",
+      "prompt": "tarefa atomica para este subagente",
+      "review": true
+    }
+  ]
+}
+```
+
+Regras:
+- Para `classification: "trivial"`, use `steps: []` e responda no proprio texto.
+- Para qualquer trabalho tecnico real, inclua pelo menos um step de especialista.
+- Use `lifecycle: "permanent"` quando a competencia for recorrente no projeto.
+- Use `lifecycle: "temporary"` para investigacao ou tarefa unica.
+- Steps com `review: true` passam pelo Reviewer e podem ser reenviados ate `max_retries`.
