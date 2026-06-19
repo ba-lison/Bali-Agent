@@ -67,7 +67,6 @@ def verify(project_root):
         "claude-code.md",
         "codex.md",
         "cursor.md",
-        "gemini.md",
         "ollama.md",
         "opencode.md",
     ):
@@ -100,8 +99,10 @@ def verify(project_root):
         "codex": [os.path.join(project_root, ".codex", "config.toml")],
         "opencode": [os.path.join(project_root, ".opencode", "agents")],
         "cursor": [os.path.join(project_root, ".cursor", "rules", "bali-agent.mdc")],
-        "gemini": [os.path.join(project_root, ".gemini", "settings.json")],
-        "antigravity": [os.path.join(project_root, ".antigravity", "skills", "bali-agent", "SKILL.md")],
+        "antigravity": [
+            os.path.join(project_root, ".antigravity", "skills", "bali-agent", "SKILL.md"),
+            os.path.join(project_root, ".agents", "skills", "bali-agent", "SKILL.md"),
+        ],
     }
     for adapter in adapters:
         for path in checks.get(adapter, []):

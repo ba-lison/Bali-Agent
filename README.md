@@ -5,19 +5,44 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-2.3.0-green.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/CHANGELOG.md)
 
-Framework LLM-agnóstico para engenharia de software com **subagentes reais**. Instala uma camada `.agent/` no projeto, cria um time base reutilizável, conecta esse time aos adapters das ferramentas suportadas e usa o Bali Runtime como fallback universal quando a IDE, CLI ou LLM não oferece subagentes nativos.
+Framework LLM-agnóstico para engenharia de software com **subagentes reais em topologia hub-and-spoke**. O Orchestrator é o maestro — tria pedidos, responde trivial direto, e para tarefas complexas monta plano, valida o plano, despacha especialistas, itera se necessário, e só entrega após o gate do Reviewer.
 
 ---
 
-## Objetivo
+## Arquitetura: Hub-and-Spoke
 
-**Subagentes reais sempre.** O framework não foi feito para um único chat interpretar papéis. Ele foi feito para criar, chamar, persistir e reutilizar subagentes especializados do projeto.
+```
+Humano ↔ Orchestrator (hub — único ponto de contato)
+              ↕
+    ┌─────────┼─────────┐
+    ↓         ↓         ↓
+  Planner  Espec.1   Espec.2   ← subagentes reais (isolados)
+              ↕
+         Orchestrator           ← valida, rejeita, reenvia (até 3x)
+              ↓
+          Reviewer               ← gate final obrigatório
+              ↕
+         Orchestrator           ← devolve (ou reenvia se reprovado)
+              ↕
+           Humano
+```
 
-- Claude Code, Codex, OpenCode, Antigravity, Cursor, Gemini ou qualquer LLM operam o mesmo projeto.
-- Se a ferramenta tiver subagentes nativos, o setup cria os arquivos no formato dessa ferramenta.
-- Se não tiver, o Bali Runtime executa subagentes isolados por prompt, arquivo de saída e processo.
-- Se faltar um especialista, o Orchestrator cria um novo `spec-*`, salva em `.agent/team/` e espelha nos adapters suportados.
-- Se não existe adapter nem runtime funcional, o framework falha fechado em vez de fingir que um role-play é um subagente.
+### Como funciona na prática
+
+| Classe do pedido | Quem resolve | Fluxo |
+|------------------|-------------|-------|
+| **Trivial** ("explica esse arquivo", "que horas são?") | O próprio Orchestrator | Responde direto → Reviewer (sanity-check) |
+| **Pequeno** (bugfix, tweak de config) | Especialista | Especialista → Reviewer |
+| **Médio/Grande** (feature, refactor, migração) | Time completo | Planner (cria plano) → Reviewer (valida plano) → Especialista(s) → Reviewer |
+
+O Orchestrator tem o poder de **criar subagentes** (`spec-*`) permanentes ou temporários conforme a demanda. Subagentes autorizados (`can_spawn_agents: true`) podem criar seus próprios subagentes (até 2 níveis de profundidade).
+
+### Plataformas suportadas
+
+- Claude Code, Codex, OpenCode, Antigravity, Cursor, Ollama — todo projeto opera o mesmo time `.agent/`.
+- Se a ferramenta tem subagentes nativos → o setup cria os arquivos no formato nativo (`.opencode/agents/`, `.claude/agents/`, `.codex/agents/`).
+- Se não tem → Bali Runtime executa subagentes isolados por processo (`subprocess.run`, prompt/ output em arquivos separados).
+- Se nenhum caminho funciona → falha fechada (sem fingir que role-play é subagente).
 
 ---
 
@@ -129,11 +154,10 @@ bali_agent/
 │   ├── git.py              # git_tool (operações read-only)
 │   └── shell.py            # run_command_tool (shell=False, timeout=60)
 ├── adapters/
-│   ├── antigravity.py      # Adapter Antigravity
+│   ├── antigravity.py      # Adapter Antigravity (IDE + CLI agy)
 │   ├── claude.py           # Adapter Claude Code
 │   ├── codex.py            # Adapter Codex
 │   ├── cursor.py           # Adapter Cursor
-│   ├── gemini.py           # Adapter Gemini CLI
 │   ├── ollama.py           # Adapter Ollama
 │   └── opencode.py         # Adapter OpenCode
 └── templates/
@@ -181,11 +205,10 @@ bali_agent/
 | Adapter | Subagentes Nativos | Hooks | Verificado |
 |---|---|---|---|
 | Claude Code | ✅ | ✅ SessionStart / UserPromptSubmit | ✅ |
-| Antigravity | ✅ | ❌ | ✅ |
+| Antigravity 2.0 / CLI | ✅ | ❌ | ✅ |
 | Codex | ✅ | ❌ | ✅ |
 | OpenCode | ✅ | ❌ | ✅ |
 | Cursor | ❌ (rules) | ❌ | ✅ |
-| Gemini CLI | ❌ (settings) | ❌ | ✅ |
 | Ollama / API crua | ❌ (runtime) | ❌ | ✅ |
 
 ---
@@ -239,28 +262,31 @@ O agente `reviewer` **deve** retornar um JSON válido com `approved: true/false`
 
 ## Time Base
 
+### Hub central
+
+- **Orchestrator**: ponto de contato único com o humano. Tria pedidos, responde trivial direto, e para tarefas complexas coordena Planner → Reviewer do plano → Especialistas → Reviewer final. **Nunca implementa código.** Cria `spec-*` permanentes ou temporários conforme necessário. Valida saída de subagentes e reenvia com feedback se insuficiente (até 3 tentativas).
+
 ### Espinha fixa (`_spine/`)
 
-- **Orchestrator**: recebe todo pedido, escolhe o fluxo, chama subagentes. Nunca trabalha sozinho.
-- **Planner**: quebra trabalho em tarefas atômicas quando necessário.
-- **Reviewer**: revisa entrega, risco, testes e aderência ao objetivo. Retorna JSON com `approved`.
+- **Planner**: quebra trabalho complexo em tarefas atômicas, ordenadas e verificáveis. Acionado para pedidos médios/grandes.
+- **Reviewer**: gate de qualidade obrigatório em **toda** entrega. Retorna JSON com `approved: true/false` + blockers/warnings/nits.
 
 ### Time de produto (`.agent/team/`)
 
-- **discovery**: entrevista e clarificação de problema.
+- **discovery**: entrevista e clarificação de problema (modo greenfield).
 - **prd-writer**: transforma discovery em PRD.
 - **sdd-architect**: transforma PRD em SDD e arquitetura.
 - **spec-implementer**: especialista genérico de implementação.
 
 ### Especialistas permanentes
 
-Usam o prefixo `spec-*` (ex: `spec-payments`, `spec-auth`, `spec-rendering`). Não morrem no fim da sessão — ficam em `.agent/team/`, entram no `subagent.config.yaml` e são espelhados nos adapters nativos.
+Usam o prefixo `spec-*` (ex: `spec-payments`, `spec-auth`, `spec-frontend`). Não morrem no fim da sessão — ficam em `.agent/team/`, entram no `subagent.config.yaml` e são espelhados nos adapters nativos.
 
 ---
 
 ## Fluxo do Ciclo de Vida
 
-### Projeto Novo
+### Projeto Novo (Greenfield)
 
 ```mermaid
 flowchart TD
@@ -273,30 +299,39 @@ flowchart TD
   F --> G{"Humano aprova SDD?"}
   G -- "Não" --> F
   G -- "Sim" --> H["Planner decompõe tasks"]
-  H --> I["Orchestrator chama spec-*"]
-  I --> J["Implementação e testes"]
-  J --> K["Reviewer faz gate (JSON obrigatório)"]
-  K --> L{"approved: true?"}
-  L -- "Não" --> H
-  L -- "Sim" --> M["Memória curada e handoff"]
+  H --> I["Reviewer valida plano"]
+  I --> J{"Plano aprovado?"}
+  J -- "Não" --> H
+  J -- "Sim" --> K["Orchestrator despacha spec-*"]
+  K --> L["Implementação e testes"]
+  L --> M["Reviewer faz gate final"]
+  M --> N{"approved: true?"}
+  N -- "Não" --> K
+  N -- "Sim" --> O["Memória curada e entrega"]
 ```
 
-### Projeto Existente
+### Projeto Existente (Operate)
 
 ```mermaid
 flowchart TD
-  A["Repositório existente"] --> B["bali init <dir>"]
-  B --> C["Preservar README.md e AGENTS.md"]
-  C --> D["Detectar stack e estrutura"]
-  D --> E["Criar time base em modo operate"]
-  E --> F["Configurar adapters ativos"]
-  F --> G["Orchestrator recebe tarefa"]
-  G --> H{"Existe especialista certo?"}
-  H -- "Sim" --> I["Chamar spec-* reutilizável"]
-  H -- "Não" --> J["Criar spec-* permanente"]
-  J --> I
-  I --> K["Reviewer revisa (fail-closed)"]
-  K --> L["Atualizar memória e working-context"]
+  A["Humano faz pedido"] --> B{"Orchestrator tria"}
+  B -- "Trivial" --> C["Orchestrator responde direto"]
+  C --> D["Reviewer (sanity-check)"]
+  B -- "Pequeno" --> E["Especialista executa"]
+  E --> F["Orchestrator valida"]
+  F --> G{"OK?"}
+  G -- "Não" --> E
+  G -- "Sim" --> H["Reviewer"]
+  B -- "Médio/Grande" --> I["Planner cria plano"]
+  I --> J["Reviewer valida plano"]
+  J --> K{"Plano OK?"}
+  K -- "Não" --> I
+  K -- "Sim" --> L["Especialista(s) executam"]
+  L --> M["Orchestrator valida"]
+  M --> N{"OK?"}
+  N -- "Não" --> L
+  N -- "Sim" --> H
+  H --> O["Entrega ao humano"]
 ```
 
 ---
@@ -362,12 +397,14 @@ GitHub Actions roda automaticamente em cada push/PR para `main`:
 
 ## Boas Práticas Obrigatórias
 
+- Esforço proporcional: trivial o Orchestrator responde direto; complexo passa por Planner → Reviewer do plano → especialistas.
 - Nunca substituir subagente real por role-play como entrega final.
 - Nunca sobrescrever `README.md` ou `AGENTS.md` de projeto existente sem decisão explícita.
 - Nunca registrar segredo em memória.
 - Nunca tratar `.agent/working-context.md` como histórico completo.
 - Nunca entregar sem Reviewer quando houver mudança de código, arquitetura, PRD, SDD ou memória.
 - Sempre manter os especialistas reutilizáveis dentro de `.agent/team/`.
+- Subagentes com `can_spawn_agents: true` podem criar seus próprios subagentes (máx. profundidade 2).
 
 ---
 

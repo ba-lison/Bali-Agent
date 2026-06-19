@@ -1,63 +1,143 @@
-# Protocolo de Roteamento
+# Protocolo de Roteamento (Hub-and-Spoke)
 
-> Como o Orchestrator transforma QUALQUER pedido em trabalho de time. Aplica-se a
-> todo projeto que tenha `.agent/subagent.config.yaml`.
+> Como o Orchestrator (hub central) transforma QUALQUER pedido em trabalho de time.
+> Aplica-se a todo projeto que tenha `.agent/subagent.config.yaml`.
 
-## Triagem
+---
 
-Ao receber um pedido, o Orchestrator classifica o tamanho:
+## 1. Topologia
+
+O Orchestrator opera como **hub central** de uma topologia estrela. Todo pedido do humano entra pelo Orchestrator, é delegado a subagentes reais e isolados, validado, revisado e só então devolvido ao humano.
+
+```
+Humano ↔ Orchestrator (hub)
+              ↕
+    ┌─────────┼─────────┐
+    ↓         ↓         ↓
+  Planner  Espec.1   Espec.2   ← subagentes reais (isolados)
+              ↕
+         Orchestrator           ← valida, rejeita, reenvia
+              ↓
+          Reviewer               ← gate final obrigatório
+              ↕
+         Orchestrator           ← devolve ao humano
+              ↕
+           Humano
+```
+
+**Regra zero:** O Orchestrator NUNCA trabalha solo. NENHUM pedido — por mais trivial que seja — escapa de passar por subagente(s) + Reviewer.
+
+---
+
+## 2. Triagem
+
+Ao receber um pedido, o Orchestrator classifica:
 
 | Classe | Exemplos | Caminho |
 |--------|----------|---------|
-| **Trivial** | dúvida pontual, explicação, leitura de 1 arquivo | Especialista responde direto → Reviewer faz sanity-check rápido |
-| **Pequeno** | bugfix localizado, ajuste de copy, tweak de config | Especialista executa → Reviewer revisa |
-| **Médio/Grande** | feature, refactor, mudança multi-arquivo | Planner decompõe → especialista(s) executam → Reviewer revisa |
+| **Trivial** | Dúvida pontual, "que horas são?", explicação de 1 arquivo | Orchestrator responde direto → Reviewer (sanity-check) |
+| **Pequeno** | Bugfix localizado, ajuste de copy, tweak de config | Especialista executa → Orchestrator valida → Reviewer |
+| **Médio** | Feature em 2-3 arquivos, refactor local | Planner (cria plano) → Reviewer (valida plano) → Especialista(s) → Reviewer |
+| **Grande** | Feature multi-módulo, refactor estrutural, migração | Planner → Reviewer (plano) → Especialista(s) em sequência → Reviewer |
 
-A triagem é explícita: o Orchestrator diz ao usuário em 1-2 linhas qual classe e qual caminho.
+**Regra de ouro:** Esforço proporcional. O Orchestrator responde trivial direto — sem burocracia. Tarefas complexas passam pelo pipeline completo (plano → validação do plano → execução → revisão).
 
-## Processo proporcional
+A triagem é explícita: o Orchestrator informa ao humano a classe e o caminho em 1-2 linhas.
 
-A constituição obriga rotear **sempre** pelo time, mas o esforço é proporcional ao pedido.
-Nunca aplique o pipeline pesado a uma pergunta trivial; nunca pule o Reviewer numa feature.
-O objetivo é "nunca solo", não "sempre burocrático".
+---
 
-## Seleção de especialista
+## 3. Ciclo de Validação (Iteração)
+
+Após receber a saída de um subagente, o Orchestrator **valida** antes de prosseguir:
+
+```
+Recebe saída do especialista
+        ↓
+    Está completa e correta?
+    ├── ✅ Sim → Encaminha ao Reviewer
+    └── ❌ Não → Rejeita + reenvia ao especialista com feedback
+                    ↓
+              Especialista refaz (até 3 tentativas)
+                    ↓
+              Na 4ª falha → escala ao humano
+```
+
+**Regra de ouro:** O Orchestrator é o **guardião da qualidade**. Ele não é um repassador passivo de mensagens — ele examina, questiona, rejeita e exige correção.
+
+---
+
+## 4. Gate do Reviewer
+
+**Toda entrega**, sem exceção, passa pelo Reviewer como subagente real antes de chegar ao humano.
+
+O Reviewer retorna um veredito JSON:
+```json
+{
+  "approved": true|false,
+  "blockers": [{"reason": "..."}],
+  "warnings": [{"reason": "..."}],
+  "nits": [{"reason": "..."}]
+}
+```
+
+- **approved: true** → Orchestrator devolve ao humano.
+- **approved: false** → Orchestrator reenvia ao especialista com os blockers listados.
+
+O Orchestrator **nunca** ignora ou sobrepõe o veredito do Reviewer.
+
+---
+
+## 5. Seleção de Especialista
 
 1. Leia `time.especialistas[].escopo` no manifesto.
-2. Escolha o especialista cujo escopo melhor casa com a tarefa, mapeando pela extensão do arquivo ou contexto:
-   - **`frontend.md` (`spec-frontend-*`):** Interface, layouts e estilos. Ativado para arquivos `.tsx`, `.jsx`, `.ts` (client-side/componentes), `.html`, `.css`, `.scss`, `.vue`.
-   - **`backend.md` (`spec-backend-*`):** APIs, lógica de negócios, integrações. Ativado para lógica server-side, rotas e controladores (arquivos `.py`, `.go`, `.cs`, `.js`/`.ts` do lado servidor).
-   - **`database.md` (`spec-database-*`):** Estrutura de dados e queries. Ativado para arquivos `.sql`, esquemas ORM (ex.: `schema.prisma`, migrations) ou queries brutas.
-   - **`devops.md` (`spec-devops`):** Infraestrutura, containers e builds. Ativado para `Dockerfile`, `docker-compose.yml`, fluxos de CI/CD (`.github/workflows/*.yaml`), configurações Web/Nginx.
-   - **`security.md` (`spec-security`):** Permissões, criptografia e políticas de segurança. Ativado para regras de RLS (Row Level Security), middlewares de auth, controle de acessos ou auditoria.
-   - **`testing.md` (`spec-testing`):** Testes e QA. Ativado para arquivos em diretórios `tests/`, `__tests__/`, ou com sufixos `.test.*` e `.spec.*`.
-   - **`docs.md` (`spec-docs`):** Documentação. Ativado para `.md` na documentação do projeto, guias, esquemas OpenAPI/Swagger.
-   - **`implementer.md` (Geral):** Engenharia de software genérica, refatoração estrutural e scripts auxiliares que não pertençam a uma stack especializada.
-3. Se nenhum casar, crie um especialista real novo antes de executar a tarefa:
-   - gere `.agent/team/spec-<nome>.md` com escopo claro e reutilizável;
-   - registre o novo especialista em `.agent/subagent.config.yaml`;
-   - quando houver adapter nativo, espelhe o arquivo no formato da ferramenta;
-   - quando não houver adapter nativo, use `python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"`.
-4. Tarefas que cruzam stacks podem envolver mais de um especialista em sequência.
+2. Mapeie pela extensão do arquivo ou domínio:
+   - **`spec-frontend`**: `.tsx`, `.jsx`, `.html`, `.css`, `.scss`, `.vue`, componentes client-side
+   - **`spec-backend`**: `.py`, `.go`, `.cs`, `.js`/`.ts` server-side, rotas, APIs
+   - **`spec-database`**: `.sql`, schema ORM, migrations, queries
+   - **`spec-devops`**: `Dockerfile`, CI/CD, infra, containers
+   - **`spec-security`**: RLS, auth middlewares, permissões
+   - **`spec-testing`**: diretórios `tests/`, `__tests__/`, `.test.*`, `.spec.*`
+   - **`spec-docs`**: `.md` de documentação, OpenAPI/Swagger
+   - **`spec-implementer`**: Fallback geral para qualquer stack não coberta
+3. Se nenhum especialista cobrir: **crie um novo** antes de executar a tarefa.
+4. Tarefas multi-stack podem disparar múltiplos especialistas em paralelo ou sequência.
 
-## Modo Operate
+---
 
-Fluxo padrão de projeto em andamento:
-`pedido → triagem → (Planner se médio/grande) → especialista(s) → Reviewer → entrega`.
+## 6. Modo Greenfield
 
-## Modo Greenfield
+Quando `modo: greenfield`, o roteamento segue o pipeline SDLC com gates humanos:
 
-Quando `modo: greenfield`, o roteamento segue o pipeline SDLC de
-`agents/_spine/orchestrator/workflows/novo-projeto.md`, com os gates de
-`protocols/approval-gates.md`.
+```
+Discovery → Gate 1 (humano) → PRD Writer → Gate 2 (humano) → SDD Architect →
+Gate 3 (humano) → Planner → Especialista(s) → Reviewer → Gate 5 (humano)
+```
 
-Pipeline obrigatório:
-`Discovery → PRD Writer → SDD Architect → Planner → especialista(s) → Reviewer`.
+Cada gate para e aguarda aprovação humana antes de prosseguir. Ver `protocols/approval-gates.md`.
 
-O humano aprova gates de negócio e arquitetura; os agentes executam as etapas
-intermediárias sem pedir prompts repetitivos.
+---
 
-## Saída ao usuário
+## 7. Contrato de Isolamento
 
-Toda resposta do Orchestrator começa com uma linha de roteamento, ex.:
-`🎯 Roteando: [classe=Médio] Planner → spec-supabase → Reviewer`.
+Subagentes **SEMPRE** são reais. Ver `protocols/subagents.md` para o contrato completo.
+
+Resumo da ordem de resolução:
+1. **Subagentes nativos da ferramenta** (Task tool, `@mention`, `.opencode/agents/`, `.claude/agents/`, etc.)
+2. **Bali Runtime** (`python .agent/runtime/bali_runtime.py run` com subprocesso isolado)
+3. **Falha fechada** (bloquear, informar humano)
+
+---
+
+## 8. Anti-Padrões
+
+| Anti-padrão | Por que é errado |
+|-------------|-----------------|
+| Orchestrator respondendo sozinho | Viola "nunca solo" |
+| Orchestrator implementando código | Viola separação de responsabilidades |
+| Cadeia linear fixa (A→B→C) sem validação | Viola hub-and-spoke + iteração |
+| Output bruto de subagente ao humano | Viola papel de porta-voz do Orchestrator |
+| Subagente role-play no mesmo contexto | Viola contrato de isolamento real |
+
+---
+
+<p align="center"><em>Routing v3.0 — Hub central. Nunca solo. Sempre validado. Sempre revisado.</em></p>

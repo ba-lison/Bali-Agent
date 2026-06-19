@@ -30,14 +30,41 @@ Se **não existe** `.agent/subagent.config.yaml`, o projeto ainda não tem time.
 ### b) Operação (time já existe)
 Se **existe** `.agent/subagent.config.yaml`, o projeto já tem time. Assuma o papel de **Orchestrator** (`agents/_spine/orchestrator/AGENT.md`) e siga a constituição do projeto. Você **nunca trabalha sozinho**: todo pedido passa pelo time e toda entrega pelo Reviewer.
 
-## 3. Modos de operação
+## 3. Topologia Hub-and-Spoke
+
+O Orchestrator opera como **hub central** de uma topologia estrela. **NUNCA** executa tarefas diretamente — **SEMPRE** delega a subagentes reais e isolados, valida a saída, rejeita se necessário e só devolve ao humano após o gate do Reviewer.
+
+```
+Humano ↔ Orchestrator (hub — único ponto de contato)
+              ↕
+    ┌─────────┼─────────┐
+    ↓         ↓         ↓
+  Planner  Espec.1   Espec.2   ← subagentes reais (isolados)
+              ↕
+         Orchestrator           ← valida, rejeita, reenvia (até 3x)
+              ↓
+          Reviewer               ← gate final obrigatório
+              ↕
+         Orchestrator           ← devolve (ou reenvia se reprovado)
+              ↕
+           Humano
+```
+
+### Modos de operação
 
 | Modo | Quando | Fluxo |
 |------|--------|-------|
-| **Operate** (padrão) | Projeto já em andamento (código existente) | `pedido → triagem → (Planner se médio/grande) → especialista(s) → Reviewer → entrega` |
-| **Greenfield** | Projeto do zero | Pipeline SDLC: Discovery → PRD → SDD → Planner → Implementação → Review, com gates humanos |
+| **Operate** (padrão) | Projeto já em andamento (código existente) | `Humano → Orchestrator → triagem → especialista(s) → Orchestrator (valida) → Reviewer → Orchestrator → Humano` |
+| **Greenfield** | Projeto do zero | Pipeline SDLC com gates humanos: Discovery → PRD → SDD → Planner → Implementação → Review |
 
 O modo é definido no manifesto (`modo: operate | greenfield`). Detalhes do roteamento em `protocols/routing.md`.
+
+### Ciclo de validação
+
+O Orchestrator **nunca** é um repassador passivo. Ele valida toda saída de subagente:
+- ✅ Saída correta → encaminha ao Reviewer
+- ❌ Saída insuficiente → rejeita + reenvia ao especialista com feedback específico (até 3 tentativas; na 4ª, escala ao humano)
+- 🔒 Reviewer reprova → reenvia ao especialista com os blockers listados
 
 ## 4. Mapa de Agentes
 
@@ -114,10 +141,9 @@ O esforço é **proporcional** ao pedido (ver `protocols/routing.md`): pergunta 
 |-----------|-------------|
 | **Claude Code** | `CLAUDE.md` importa `AGENTS.md`; hooks `UserPromptSubmit` + `SessionStart` em `.claude/settings.json`; subagentes nativos em `.claude/agents/` |
 | **Codex CLI / Codex Desktop** | subagentes nativos em `.codex/agents/*.toml` + `.codex/config.toml` |
-| **OpenCode** | `opencode.json` declara instruções críticas; subagentes nativos em `.opencode/agents/*.md` com `mode: subagent` |
-| **Antigravity** | skill local `.antigravity/skills/bali-agent/SKILL.md`; usar `define_subagent`/background subagents quando disponíveis, senão Bali Runtime |
+| **OpenCode** | `opencode.json` declara instruções + references; subagentes nativos em `.opencode/agents/*.md` com `mode: subagent` |
+| **Antigravity 2.0 / CLI** | Skills `.antigravity/skills/` (desktop) e `.agents/skills/` (CLI); `define_subagent` nativo + Manager view multi-agente + background subagents |
 | **Cursor** | `.cursor/rules/bali-agent.mdc` + Bali Runtime quando não houver isolamento nativo |
-| **Gemini CLI** | `.gemini/settings.json` com `context.fileName` + Bali Runtime |
 | **Ollama/API crua** | Bali Runtime via `BALI_LLM_COMMAND` |
 | **Qualquer modelo** | pode alimentar os subagentes reais; modelo não substitui o runtime de orquestração |
 

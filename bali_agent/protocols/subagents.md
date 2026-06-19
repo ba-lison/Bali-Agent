@@ -17,7 +17,7 @@ Ollama ou outro provider podem alimentar os subagentes, mas não substituem a
 materialização do time.
 
 Este protocolo deve funcionar em Antigravity, Claude Code, Codex, OpenCode,
-Cursor, Gemini CLI, Ollama e qualquer IDE/LLM futuro através de um dos dois
+Cursor, Ollama e qualquer IDE/LLM futuro através de um dos dois
 caminhos: adapter nativo ou Bali Runtime.
 
 ## Ordem de resolução

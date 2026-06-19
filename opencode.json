@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    ".agent/protocols/subagents.md",
+    ".agent/protocols/routing.md",
+    ".agent/protocols/handoff.md",
+    ".agent/protocols/memory.md",
+    ".agent/working-context.md"
+  ],
+  "references": [
+    "AGENTS.md",
+    ".agent/protocols/subagents.md",
+    ".agent/protocols/routing.md"
+  ],
+  "permission": {
+    "task": {
+      "*": "allow"
+    }
+  }
+}

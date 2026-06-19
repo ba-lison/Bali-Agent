@@ -1,0 +1,17 @@
+# Codex - Bali-Agent Configuration
+
+[agent]
+max_threads = 6
+max_depth = 1
+
+[context]
+# Arquivos criticos sempre carregados em todo prompt
+always_include = [
+  "AGENTS.md",
+  ".agent/protocols/subagents.md",
+  ".agent/protocols/routing.md",
+]
+
+[instructions]
+# Codex le AGENTS.md como instrucao principal
+primary = "AGENTS.md"

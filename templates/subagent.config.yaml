@@ -34,6 +34,5 @@ enforcement_adapters:
   - codex
   - opencode
   - cursor
-  - gemini
   - antigravity
   - ollama

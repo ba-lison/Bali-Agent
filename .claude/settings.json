@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "SessionStart": [
+      "python",
+      ".agent/hooks/claude_hook.py",
+      "SessionStart"
+    ],
+    "UserPromptSubmit": [
+      "python",
+      ".agent/hooks/claude_hook.py",
+      "UserPromptSubmit"
+    ]
+  },
+  "context": {
+    "alwaysInclude": [
+      "AGENTS.md",
+      "CLAUDE.md",
+      ".agent/protocols/subagents.md",
+      ".agent/protocols/routing.md"
+    ]
+  }
+}

@@ -201,7 +201,6 @@ enforcement_adapters:
   - codex
   - opencode
   - cursor
-  - gemini
   - antigravity
   - ollama
 """
@@ -380,44 +379,15 @@ def install_cursor_adapter(src_dir: str, target_dir: str) -> None:
     if os.path.exists(src) and _copy_if_missing(src, dest):
         print("[x] Adapter Cursor instalado: .cursor/rules/bali-agent.mdc")
 
-def _merge_gemini_settings(existing: str) -> str:
-    data = {}
-    if os.path.exists(existing):
-        try:
-            with open(existing, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
-    context = data.get("context")
-    if not isinstance(context, dict):
-        context = {}
-    current = context.get("fileName")
-    names = []
-    if isinstance(current, str):
-        names = [current]
-    elif isinstance(current, list):
-        names = [str(item) for item in current]
-    for name in ("AGENTS.md", "GEMINI.md"):
-        if name not in names:
-            names.append(name)
-    context["fileName"] = names
-    data["context"] = context
-    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-
-def install_gemini_adapter(target_dir: str) -> None:
-    gemini_dir = os.path.join(target_dir, ".gemini")
-    os.makedirs(gemini_dir, exist_ok=True)
-    dest = os.path.join(gemini_dir, "settings.json")
-    merged = _merge_gemini_settings(dest)
-    _write_text(dest, merged)
-    print("[x] Adapter Gemini CLI instalado/mesclado: .gemini/settings.json")
-
 def install_antigravity_skill(target_dir: str) -> None:
-    skill_dir = os.path.join(target_dir, ".antigravity", "skills", "bali-agent")
-    dest = os.path.join(skill_dir, "SKILL.md")
+    # Suporta Antigravity IDE (legado) e Antigravity CLI (agy)
+    skill_paths = [
+        (".antigravity/skills/bali-agent/SKILL.md", "Antigravity IDE"),
+        (".agents/skills/bali-agent/SKILL.md", "Antigravity CLI (agy)"),
+    ]
     content = """---
 name: bali-agent
-description: Materializa o time Bali-Agent com subagentes reais; usa define_subagent/background subagents quando disponíveis e Bali Runtime como fallback.
+description: Materializa o time Bali-Agent com subagentes reais; usa define_subagent/background subagents quando disponiveis e Bali Runtime como fallback.
 ---
 
 # Bali-Agent para Antigravity
@@ -427,17 +397,18 @@ Sempre opere com subagentes reais:
 1. Leia `AGENTS.md`, `.agent/subagent.config.yaml` e `.agent/protocols/subagents.md`.
 2. Para cada arquivo em `.agent/team/*.md`, defina um subagente Antigravity equivalente quando a ferramenta disponibilizar `define_subagent`.
 3. Execute Orchestrator, Planner, especialista e Reviewer como subagentes/threads separados.
-4. Se a superfície atual não permitir subagentes isolados, use `python .agent/runtime/bali_runtime.py run "<tarefa>"`.
-5. Se faltar especialista, use `python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"` e então invoque o novo subagente.
+4. Se a superficie atual nao permitir subagentes isolados, use `python .agent/runtime/bali_runtime.py run "<tarefa>"`.
+5. Se faltar especialista, use `python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"` e entao invoque o novo subagente.
 """
-    if _write_if_missing(dest, content):
-        print("[x] Skill Antigravity instalada: .antigravity/skills/bali-agent/SKILL.md")
+    for rel_path, label in skill_paths:
+        dest = os.path.join(target_dir, rel_path)
+        if _write_if_missing(dest, content):
+            print(f"[x] Skill Antigravity instalada ({label}): {rel_path}")
 
 def install_native_surface_adapters(src_dir: str, target_dir: str, agent_dir: str) -> None:
     install_codex_native_agents(target_dir, agent_dir)
     install_opencode_native_agents(target_dir, agent_dir)
     install_cursor_adapter(src_dir, target_dir)
-    install_gemini_adapter(target_dir)
     install_antigravity_skill(target_dir)
 
 def install_runtime_and_adapters(src_dir: str, agent_dir: str) -> None:

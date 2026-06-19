@@ -50,11 +50,10 @@ O Setup Agent deve **materializar subagentes reais sempre**. Não trate Orchestr
        Se o usuário exigir isolamento total, mantenha o `AGENTS.md` original intocado e salve a constituição de referência como `.agent/bootstrap-AGENTS.md`.
    - Instancie os **Adaptadores de Enforcamento** selecionados no manifesto:
      - **Claude Code**: O `init.py` cria `CLAUDE.md` importando `AGENTS.md`, mescla os hooks Bali em `.claude/settings.json` e instala `.agent/hooks/claude_hook.py`. Sua tarefa aqui é confirmar que `CLAUDE.md` ou `.claude/CLAUDE.md`, `.claude/settings.json`, `.agent/hooks/claude_hook.py` e `.claude/agents/*.md` existem.
-     - **Cursor**: O `init.py` cria `.cursor/rules/bali-agent.mdc`. Esta regra só injeta contexto; quando não houver isolamento nativo no Cursor, execute os subagentes pelo Bali Runtime.
-     - **Gemini CLI**: O `init.py` cria/mescla `.gemini/settings.json` com `context.fileName: ["AGENTS.md", "GEMINI.md"]`; use Bali Runtime para isolamento real.
-     - **Codex CLI / Codex Desktop**: O `init.py` cria `.codex/agents/*.toml` e `.codex/config.toml`; use esses custom agents para spawn real.
-     - **OpenCode**: O `init.py` cria `opencode.json` com instruções críticas e `.opencode/agents/*.md` com `mode: subagent`; use @mention/comandos com subtask.
-     - **Antigravity**: O `init.py` cria `.antigravity/skills/bali-agent/SKILL.md`; use `define_subagent`/background subagents quando disponíveis.
+      - **Cursor**: O `init.py` cria `.cursor/rules/bali-agent.mdc`. Esta regra só injeta contexto; quando não houver isolamento nativo no Cursor, execute os subagentes pelo Bali Runtime.
+      - **Codex CLI / Codex Desktop**: O `init.py` cria `.codex/agents/*.toml` e `.codex/config.toml`; use esses custom agents para spawn real.
+      - **OpenCode**: O `init.py` cria `opencode.json` com instruções críticas e `.opencode/agents/*.md` com `mode: subagent`; use @mention/comandos com subtask.
+      - **Antigravity 2.0 / CLI**: O `init.py` cria skills em `.antigravity/skills/` (desktop) e `.agents/skills/` (CLI); use `define_subagent`/Manager view/background subagents nativos.
      - **Ollama / API crua**: Não há orquestrador nativo; use Bali Runtime com `BALI_LLM_COMMAND`.
      - **Memória de Trabalho (`.agent/working-context.md`)**:
        - Atualize o arquivo `.agent/working-context.md` de forma a definir o `Status Atual do Projeto` como "Setup do time concluído".
