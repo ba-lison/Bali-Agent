@@ -5,9 +5,9 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-2.2.0-green.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/CHANGELOG.md)
 
-Bali-Agent e um framework **subagent-first** para trabalho de engenharia de software. Ele instala em cada projeto um time real de agentes: Orchestrator, espinha de produto, especialistas de execucao, gates de revisao, regras de seguranca e memoria duravel do projeto.
+Bali-Agent e um framework **subagent-first** para trabalho de engenharia de software. A ideia e simples: eu entro num projeto com um time base de agentes, uso Discovery/PRD/SDD para entender antes de sair executando, delego a implementacao para especialistas e deixo QA/Seguranca/Reviewer fecharem a entrega.
 
-O objetivo nao e "usar varios modelos a qualquer custo". O objetivo e delegar trabalho de verdade para subagentes reais. Se o host permitir escolher modelo por subagente, Bali usa `model_policy`. Se nao permitir, todos os subagentes usam o modelo padrao do host e o fluxo continua funcionando.
+O foco nao e "usar varios modelos a qualquer custo". O foco e ter separacao real de responsabilidade. Se o host deixar escolher modelo por agente, eu uso `model_policy`. Se nao deixar, todo mundo roda no modelo atual do host e o fluxo continua.
 
 ## Ideia Central
 
@@ -24,11 +24,11 @@ Humano
   -> Humano
 ```
 
-O Orchestrator e o unico ponto de contato com o humano. Ele nao implementa codigo. Ele coordena subagentes, valida saidas, manda refazer quando algo esta incompleto e so devolve resultado revisado.
+Na pratica, eu falo com o Orchestrator. Dali, o trabalho e organizado, os agentes certos entram em cena, as saidas sao revisadas e o que ficou incompleto volta para ajuste.
 
 ## O Que E Um Subagente
 
-Um subagente Bali nao e um papel interpretado no mesmo chat. Um subagente real tem definicao propria, escopo, prompt, fronteira de contexto e caminho de execucao.
+Aqui, subagente nao e so "finge que agora voce e QA" no mesmo chat. A intencao e cada agente ter definicao propria, escopo, prompt, fronteira de contexto e um caminho de execucao claro.
 
 Bali usa tres tipos de subagente:
 
@@ -38,7 +38,7 @@ Bali usa tres tipos de subagente:
 | Especialistas fixos do projeto | `spec-supabase`, `spec-cloudflare`, `spec-lgpd` | Persistem no projeto e assumem trabalho recorrente |
 | Agentes temporarios | `temp-debug-timeout`, `temp-pdf-audit` | Criados para um run e descartados depois |
 
-Agent-as-tool e outro padrao. Use agent-as-tool para operacoes pequenas, stateless e encapsuladas. Use subagentes para trabalho delegado de projeto, com contexto, handoff e revisao.
+Agent-as-tool ainda faz sentido para coisa pequena, stateless e bem encapsulada. Para trabalho de projeto, eu prefiro subagente: tem contexto, handoff e revisao.
 
 ## Core Team Obrigatorio
 
@@ -57,11 +57,11 @@ Todo projeto inicializado com Bali tem este time em `.agent/team/`:
 - `memory-curator`: atualiza working context e memoria duravel.
 - `docs`: especialista de documentacao e conhecimento.
 
-`spec-implementer` ainda e criado como fallback legado para o caminho atual do Runtime. Isso preserva compatibilidade enquanto o novo contrato de Core Team entra.
+`spec-implementer` ainda e criado como fallback legado para o caminho atual do Runtime. Mantive isso para nao quebrar compatibilidade enquanto o Core Team novo fica mais firme.
 
 ## Product Spine
 
-Discovery, PRD e SDD ficam acima da execucao. Eles nao sao enfeite.
+Antes de implementar mudanca grande, eu passo pela Product Spine:
 
 ```text
 Discovery -> PRD Writer -> SDD Architect
@@ -76,7 +76,25 @@ Use a Product Spine para:
 - integracoes, auth, permissoes, billing, IA, deploy ou seguranca;
 - projetos existentes quando o contexto do repo esta incerto.
 
-Tarefas pequenas podem usar um caminho reduzido, mas trabalho real de projeto ainda passa por especialista e Reviewer.
+Tarefa pequena pode ir por um caminho reduzido. Mudanca grande, produto novo, arquitetura, seguranca, dados ou integracao pede Discovery, PRD e SDD antes da execucao.
+
+## Estado Atual: O Que Ja Roda
+
+Nem tudo no README tem o mesmo nivel de automacao hoje. Esta e a leitura honesta do projeto:
+
+| Area | Estado | Observacao |
+|---|---|---|
+| `bali init` | Funcional | Instala `.agent/`, Core Team, runtime, protocolos, memoria, hooks e adapters. |
+| `verify` / `list-agents` | Funcional | Valida manifesto, time obrigatorio e arquivos principais. |
+| `create-agent` | Funcional | Cria especialista fixo `spec-*`, registra no manifesto e espelha para Claude/Codex/OpenCode quando as pastas existem. |
+| `remember` | Funcional | Escreve memoria curada e bloqueia padroes obvios de segredo. |
+| Runtime `run --dry-run` | Funcional via `.agent/runtime/bali_runtime.py` | Gera cadeia e artefatos sem chamar LLM. |
+| Runtime com LLM | Funcional quando `BALI_LLM_COMMAND` esta configurado | Executa agentes por comando externo, com prompts/outputs isolados. |
+| Product Spine `greenfield` | Funcional como cadeia de runtime | Roda `orchestrator -> discovery -> prd-writer -> sdd-architect -> planner -> especialista -> reviewer`. |
+| Routing dinamico do Orchestrator | Parcial | O runtime ja entende routing plan JSON, cria especialistas temporarios/permanentes e faz retry com Reviewer, mas depende do Orchestrator/LLM devolver o contrato certo. |
+| Multi-modelo por agente | Parcial/depende do host | `model_policy` existe no manifesto; aplicar modelo diferente por agente depende do adapter/host suportar isso. |
+| Subagentes nativos por host | Depende do host | Bali materializa arquivos para Claude, Codex e OpenCode, mas quem executa isolamento nativo e a ferramenta. Se nao houver isolamento nativo, use Bali Runtime. |
+| Memoria automatica no fim de toda task | Parcial | A infraestrutura existe (`remember`, `memory-curator`, templates e protocolos). A chamada 100% automatica em todo caminho ainda depende do fluxo/runtime usado. |
 
 ## Fluxo de Vida
 
@@ -98,7 +116,7 @@ Tarefas pequenas podem usar um caminho reduzido, mas trabalho real de projeto ai
 ### Projeto Existente
 
 ```text
-1. Bali preserva regras e governanca ja existentes no repo.
+1. Primeiro eu preservo regras e governanca ja existentes no repo.
 2. Discovery le contexto do repo, docs, working context e memoria.
 3. Orchestrator classifica o pedido.
 4. Product Spine roda se o pedido muda produto ou arquitetura.
@@ -122,7 +140,7 @@ Bali mantem um time de projeto e materializa esse time para cada host.
 | Cursor | Cursor rules + Bali Runtime | Rules dao contexto; Runtime da isolamento quando nao houver subagente nativo. |
 | Ollama / API crua / outros CLIs | Bali Runtime | Usa `BALI_LLM_COMMAND` ou configuracao de provider para chamadas isoladas. |
 
-A pergunta principal nao e "desktop ou API?". A pergunta e: o host tem mecanismo real de subagente isolado ou tool-calling? Se sim, use adapter nativo. Se nao, use Bali Runtime. Se nenhum caminho existe, falhe fechado em vez de fingir.
+Para escolher o caminho, eu olho menos para "desktop ou API?" e mais para isto: o host consegue rodar subagente isolado ou tool-calling de verdade? Se sim, vale usar o adapter nativo. Se nao, entra o Bali Runtime. Se nenhum caminho real existir, melhor parar do que fingir isolamento.
 
 ## Model Policy
 
@@ -310,7 +328,7 @@ Bali separa estado vivo de aprendizado duravel.
 | `.agent/memory.md` | Decisoes curadas, incidentes, aprendizados reutilizaveis e convencoes do projeto. |
 | `.agent/memory.db` | Indice SQLite FTS5 usado por busca de memoria. Ignorado pelo git. |
 
-A memoria e automatica no ciclo de vida. Ao fim de tasks, gates, decisoes, incidentes, PRs ou commits relevantes, o Orchestrator chama `memory-curator`.
+No ciclo ideal, memoria entra no fim de tasks, gates, decisoes, incidentes, PRs ou commits relevantes. Hoje a base disso ja existe com `remember`, `memory-curator`, templates e protocolos; a automacao total depende do fluxo/runtime usado.
 
 O Memory Curator:
 
@@ -321,7 +339,7 @@ O Memory Curator:
 
 ## Seguranca
 
-Bali preserva o modelo de seguranca anterior e o torna parte do contrato do Runtime.
+Mantive o modelo de seguranca anterior e trouxe ele para dentro do contrato do Runtime.
 
 ### Seguranca De Arquivos
 
@@ -354,7 +372,7 @@ Tools sao default-deny:
 
 ### Reviewer Fail-Closed
 
-A saida do Reviewer deve ser JSON estruturado valido. Se a saida for malformada, omitir campos obrigatorios, aprovar com blockers ou pular checks obrigatorios, o Runtime falha fechado em vez de aprovar silenciosamente.
+O Reviewer trabalha com JSON estruturado valido. Se a saida vier malformada, sem campos obrigatorios, aprovada com blockers ou pulando checks obrigatorios, o Runtime falha fechado em vez de aprovar silenciosamente.
 
 ### Protecao De Segredos
 
@@ -364,9 +382,9 @@ A saida do Reviewer deve ser JSON estruturado valido. Se a saida for malformada,
 
 ## Runtime E Observabilidade
 
-Bali Runtime e o fallback universal quando subagentes nativos nao estao disponiveis.
+Uso o Bali Runtime como fallback quando subagentes nativos nao estao disponiveis.
 
-Ele registra artefatos de run em `.agent/output/` ou pastas especificas do runtime, incluindo prompts, outputs, traces, eventos de falha, handoffs e dry-run output.
+O runtime registra artefatos de run em `.agent/output/` ou pastas especificas, incluindo prompts, outputs, traces, eventos de falha, handoffs e dry-run output.
 
 O Runtime suporta:
 
@@ -422,7 +440,7 @@ Learning Spine:
   Memory Curator -> working-context.md + memory.md
 ```
 
-Isso preserva seguranca, memoria, runtime, adapters e revisao anteriores, mas deixa a identidade do produto mais clara: Bali e um time persistente de subagentes para cada projeto.
+Essa mudanca de foco nao joga fora o que ja existia. Seguranca, memoria, runtime, adapters e revisao continuam no projeto; a diferenca e que agora tudo gira em torno de um time persistente de subagentes por projeto.
 
 ## Licenca
 
