@@ -145,10 +145,11 @@ def _mirror_native_agent(root: Path, agent_path: Path, adapter_type: str) -> boo
             return False
         agent_id = agent_path.stem
         body = agent_path.read_text(encoding="utf-8")
+        safe_body = body.replace('"""', '\\"\\"\\"')
         content = "\n".join([
             f'name = "{agent_id}"',
             f'description = "Especialista Bali-Agent: {agent_id}"',
-            f'developer_instructions = """{body.replace('"""', '\\"\\"\\"')}"""',
+            f'developer_instructions = """{safe_body}"""',
             "",
         ])
         dest = native_dir / f"{agent_id}.toml"
