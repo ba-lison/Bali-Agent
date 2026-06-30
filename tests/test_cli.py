@@ -30,6 +30,22 @@ def test_cli_init_command():
         assert (proj_path / ".agent").is_dir()
         assert (proj_path / ".agent" / "subagent.config.yaml").is_file()
         assert (proj_path / ".agent" / "team" / "orchestrator.md").is_file()
+        core_team = [
+            "orchestrator",
+            "discovery",
+            "prd-writer",
+            "sdd-architect",
+            "planner",
+            "implementer",
+            "qa",
+            "security",
+            "reviewer",
+            "recruiter",
+            "memory-curator",
+            "docs",
+        ]
+        for agent_id in core_team:
+            assert (proj_path / ".agent" / "team" / f"{agent_id}.md").is_file()
         assert (proj_path / ".agent" / "runtime" / "bali_runtime.py").is_file()
         assert (proj_path / ".agent" / "verify_setup.py").is_file()
         assert (proj_path / ".agent" / "run.py").is_file()
@@ -40,6 +56,10 @@ def test_cli_init_command():
 
         manifest_text = (proj_path / ".agent" / "subagent.config.yaml").read_text(encoding="utf-8")
         assert 'runtime_authority: "bali-runtime"' in manifest_text
+        assert "product_spine:" in manifest_text
+        assert "model_policy:" in manifest_text
+        assert "project_fixed:" in manifest_text
+        assert "temporary_policy:" in manifest_text
         assert "skills_policy:" in manifest_text
         assert 'store: ".agent/skills"' in manifest_text
         assert 'audit_log: ".agent/skills/AUDIT.md"' in manifest_text

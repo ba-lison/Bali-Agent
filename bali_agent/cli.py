@@ -14,7 +14,7 @@ from typing import List, Optional
 
 import bali_agent
 from bali_agent.core.runner import Runner
-from bali_agent.core.agent_manager import list_agents, create_agent
+from bali_agent.core.agent_manager import CORE_TEAM, list_agents, create_agent
 from bali_agent.core.memory import remember
 from bali_agent.adapters import ADAPTERS
 
@@ -50,19 +50,31 @@ def init_command(target_dir: Path) -> int:
     team_dir = agent_dir / "team"
     team_dir.mkdir(parents=True, exist_ok=True)
     
-    agent_sources = [
-        ("orchestrator.md", src_dir / "agents" / "_spine" / "orchestrator" / "AGENT.md"),
-        ("discovery.md", src_dir / "agents" / "discovery" / "AGENT.md"),
-        ("prd-writer.md", src_dir / "agents" / "prd-writer" / "AGENT.md"),
-        ("sdd-architect.md", src_dir / "agents" / "sdd-architect" / "AGENT.md"),
-        ("planner.md", src_dir / "agents" / "_spine" / "planner" / "AGENT.md"),
-        ("reviewer.md", src_dir / "agents" / "_spine" / "reviewer" / "AGENT.md"),
-        ("spec-implementer.md", src_dir / "agents" / "_specialists" / "implementer.md"),
-    ]
-    for filename, src_p in agent_sources:
+    agent_sources = {
+        "orchestrator.md": src_dir / "agents" / "_spine" / "orchestrator" / "AGENT.md",
+        "discovery.md": src_dir / "agents" / "discovery" / "AGENT.md",
+        "prd-writer.md": src_dir / "agents" / "prd-writer" / "AGENT.md",
+        "sdd-architect.md": src_dir / "agents" / "sdd-architect" / "AGENT.md",
+        "planner.md": src_dir / "agents" / "_spine" / "planner" / "AGENT.md",
+        "reviewer.md": src_dir / "agents" / "_spine" / "reviewer" / "AGENT.md",
+        "implementer.md": src_dir / "agents" / "_specialists" / "implementer.md",
+        "spec-implementer.md": src_dir / "agents" / "_specialists" / "implementer.md",
+        "qa.md": src_dir / "agents" / "_specialists" / "testing.md",
+        "security.md": src_dir / "agents" / "_specialists" / "security.md",
+        "docs.md": src_dir / "agents" / "_specialists" / "docs.md",
+    }
+    generated_core_prompts = {
+        "recruiter.md": "# Recruiter / Team Builder\n\nVoce e o subagente responsavel por avaliar lacunas recorrentes de competencia no projeto, propor especialistas fixos e evitar criar agentes desnecessarios.\n\n## Contrato\n\n- Crie especialista fixo apenas quando a competencia for recorrente ou estrutural no projeto.\n- Para demandas pontuais, recomende agente temporario.\n- Registre escopo, gatilhos de roteamento e motivo da criacao.\n- Nunca substitua Discovery, PRD Writer ou SDD Architect.\n",
+        "memory-curator.md": "# Memory Curator\n\nVoce e o subagente responsavel por transformar resultados aprovados em memoria util do projeto.\n\n## Contrato\n\n- Atualize `.agent/working-context.md` com estado vivo, handoff e riscos ativos.\n- Registre em `.agent/memory.md` apenas decisoes, aprendizados, incidentes, commits, PRs e fatos reutilizaveis.\n- Rejeite logs brutos, segredos, tokens e dados pessoais desnecessarios.\n- Trabalhe depois do Reviewer ou em gates explicitos do Orchestrator.\n",
+    }
+    for filename, src_p in agent_sources.items():
         dest_p = team_dir / filename
         if src_p.is_file() and not dest_p.is_file():
             shutil.copy2(src_p, dest_p)
+    for filename, content in generated_core_prompts.items():
+        dest_p = team_dir / filename
+        if not dest_p.is_file():
+            dest_p.write_text(content, encoding="utf-8")
 
     # 3. Create manifest and markdown documents
     manifest = agent_dir / "subagent.config.yaml"
@@ -82,18 +94,57 @@ skills_policy:
 enforcement_adapters:
   - bali-runtime
 time:
+  core:
+    - orchestrator
+    - discovery
+    - prd-writer
+    - sdd-architect
+    - planner
+    - implementer
+    - qa
+    - security
+    - reviewer
+    - recruiter
+    - memory-curator
+    - docs
   espinha:
     - orchestrator
     - planner
     - reviewer
+  product_spine:
+    - discovery
+    - prd-writer
+    - sdd-architect
   base:
     - discovery
     - prd-writer
     - sdd-architect
   especialistas:
-    - id: spec-implementer
-      arquivo: .agent/team/spec-implementer.md
-      escopo: "Especialista geral"
+  project_fixed: []
+  temporary_policy:
+    max_per_task: 3
+    promote_after_reuse_count: 3
+model_policy:
+  default: host-default
+  classes:
+    cheap-fast:
+      fallback: host-default
+    balanced:
+      fallback: host-default
+    strong-coding:
+      fallback: host-default
+    strong-reasoning:
+      fallback: host-default
+  agents:
+    orchestrator:
+      preferred: strong-reasoning
+      fallback: host-default
+    reviewer:
+      preferred: strong-reasoning
+      fallback: host-default
+    implementer:
+      preferred: strong-coding
+      fallback: host-default
 """, encoding="utf-8")
 
     # Working context and memory

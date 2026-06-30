@@ -1,146 +1,191 @@
 # Protocolo de Subagentes Reais
 
 > Define o contrato operacional do Bali-Agent: o framework e seus adapters devem
-> materializar subagentes reais. Role-play de vários papéis no mesmo contexto não
-> é modo válido de execução.
+> materializar subagentes reais. Role-play de varios papeis no mesmo contexto nao
+> e modo valido de execucao.
 
 ---
 
 ## 1. Objetivo Master
 
-O Bali-Agent deve operar com subagentes reais em **todo projeto, toda tarefa, sem exceção**. "Real" significa que Orchestrator, Planner, especialistas e Reviewer possuem definição própria e são executados por um mecanismo que preserve **isolamento operacional**: subagente nativo da ferramenta, processo separado, sessão separada ou chamada separada ao modelo.
+O Bali-Agent e subagent-first. Ele deve operar com subagentes reais em todo projeto e em toda tarefa que exija trabalho de time. "Real" significa que Orchestrator, Discovery, PRD Writer, SDD Architect, Planner, Implementer, QA, Security, Reviewer, Recruiter, Memory Curator, Docs e especialistas possuem definicao propria e sao executados por um mecanismo que preserve isolamento operacional: subagente nativo da ferramenta, processo separado, sessao separada ou chamada separada ao modelo.
 
-O modelo de linguagem é intercambiável (Claude, GPT, Gemini, Llama, Ollama...). A **orquestração não é**. O modelo alimenta os subagentes, mas não substitui a materialização do time.
+O modelo de linguagem e intercambiavel. A orquestracao por subagentes nao e opcional. Multi-modelo e uma capacidade opcional: se o host permite escolher modelo por subagente, use `model_policy`; se nao permite, todos os subagentes usam `host-default`.
 
-Este protocolo deve funcionar em qualquer ambiente — Antigravity, Claude Code surfaces (CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud com workspace), Codex, OpenCode, Cursor, Ollama e qualquer IDE/LLM futuro — através de um dos dois caminhos: **adapter nativo** ou **Bali Runtime**. API pura sem shell/tools precisa de wrapper externo (MCP, CI job, webhook ou servico) para acionar o Bali Runtime.
+Este protocolo deve funcionar em qualquer ambiente por um destes caminhos:
 
----
-
-## 2. Topologia Hub-and-Spoke
-
-O Orchestrator é o **hub central**. Ele é o único ponto de contato com o humano. Toda tarefa flui assim:
-
-```
-Humano → Orchestrator → [Subagente Real 1..N] → Orchestrator (valida) → Reviewer (Subagente Real) → Orchestrator → Humano
-```
-
-O Orchestrator **nunca** executa tarefas diretamente. Ele **sempre** delega a subagentes reais e isolados. Se a saída for insuficiente, ele rejeita e reenvia (até 3 tentativas por especialista).
+1. Adapter nativo da ferramenta.
+2. Bali Runtime.
+3. Falha fechada se nenhum isolamento real estiver disponivel.
 
 ---
 
-## 3. Ordem de Resolução
+## 2. Product Spine
 
-O Orchestrator segue esta ordem para materializar subagentes reais:
+Discovery, PRD Writer e SDD Architect ficam acima de qualquer execucao grande. Eles sao o funil obrigatorio de entendimento.
 
-| Prioridade | Mecanismo | Descrição |
+```text
+Discovery -> PRD Writer -> SDD Architect
+```
+
+Projeto novo sempre passa por essa espinha. Projeto existente ou feature grande tambem passa por ela quando altera produto, dados, arquitetura, integracao, permissoes, billing, IA, deploy ou seguranca.
+
+Tarefas pequenas podem seguir fluxo reduzido, mas ainda usam especialista e Reviewer.
+
+---
+
+## 3. Core Team Obrigatorio
+
+Todo projeto Bali deve conter estes agentes em `.agent/team/`:
+
+- `orchestrator`
+- `discovery`
+- `prd-writer`
+- `sdd-architect`
+- `planner`
+- `implementer`
+- `qa`
+- `security`
+- `reviewer`
+- `recruiter`
+- `memory-curator`
+- `docs`
+
+O Core Team existe em todo projeto. Ele nao depende da stack.
+
+---
+
+## 4. Tipos de Subagente
+
+| Tipo | Exemplos | Ciclo de vida |
+|------|----------|---------------|
+| Core Team | `discovery`, `prd-writer`, `sdd-architect`, `reviewer`, `memory-curator` | Sempre presente |
+| Project-fixed | `spec-supabase`, `spec-cloudflare`, `spec-lgpd` | Fixo no projeto quando a competencia e recorrente |
+| Temporary | `temp-debug-timeout`, `temp-pdf-audit` | Criado para uma tarefa pontual e descartado apos o run |
+
+Regra de criacao:
+
+- Recorrente ou estrutural no projeto: especialista fixo `spec-*`.
+- Pontual ou exploratorio: agente temporario.
+- Essencial a todo projeto: Core Team.
+
+---
+
+## 5. Recruiter / Team Builder
+
+O Recruiter decide quando o projeto precisa de um novo especialista fixo. Ele nao substitui Discovery, PRD ou SDD.
+
+O Recruiter deve:
+
+- Avaliar stack, dominios recorrentes e lacunas do time.
+- Propor `spec-*` fixo quando a competencia for recorrente.
+- Recomendar agente temporario quando a demanda for pontual.
+- Registrar escopo, gatilhos de roteamento e motivo da criacao.
+- Acionar Memory Gate apos criar ou promover especialista.
+
+---
+
+## 6. Ordem de Resolucao
+
+| Prioridade | Mecanismo | Descricao |
 |-----------|-----------|-----------|
-| **1. Adapter nativo** | Mecanismo oficial da ferramenta | Subagentes nativos: `.claude/agents/`, `.opencode/agents/`, `.codex/agents/`, Task tool, `@mention`, `define_subagent` |
-| **2. Bali Runtime** | `python .agent/runtime/bali_runtime.py run` | Executa cada agente em processo isolado via `subprocess`, com entrada/saída em `.agent/output/` |
-| **3. Falha fechada** | Bloquear tarefa, informar humano | Se não houver adapter nativo nem Bali Runtime disponível |
+| 1. Adapter nativo | Mecanismo oficial da ferramenta | `.claude/agents/`, `.opencode/agents/`, `.codex/agents/`, Task tool, `@mention`, `define_subagent` |
+| 2. Bali Runtime | `python .agent/runtime/bali_runtime.py run` | Executa agentes isolados com prompt/output proprios |
+| 3. Falha fechada | Bloquear tarefa e informar humano | Usado quando nao ha adapter nativo nem Runtime disponivel |
 
 ---
 
-## 4. Requisitos Mínimos de Instalação
+## 7. Requisitos Minimos de Instalacao
 
 - `.agent/subagent.config.yaml` deve existir com `subagents_policy.role_play_permitido: false`.
-- `.agent/team/orchestrator.md`, `.agent/team/planner.md` e `.agent/team/reviewer.md` devem existir.
-- `.agent/team/discovery.md`, `.agent/team/prd-writer.md` e `.agent/team/sdd-architect.md` devem existir como agentes base.
-- Pelo menos um especialista `spec-*.md` deve existir em `.agent/team/`.
-- Se nenhum especialista cobrir a tarefa, o Orchestrator deve criar um novo `spec-*.md`, registrar no manifesto e espelhar no formato nativo da ferramenta.
-- Os adapters nativos devem espelhar os agentes do time no formato da ferramenta hospedeira (ex.: `.opencode/agents/*.md`, `.claude/agents/*.md`).
-- O Reviewer deve ser executado como subagente separado do agente que implementou a mudança.
+- O Core Team completo deve existir em `.agent/team/`.
+- `time.product_spine` deve declarar `discovery`, `prd-writer` e `sdd-architect`.
+- `time.project_fixed` deve existir, mesmo vazio.
+- `time.temporary_policy` deve declarar limites para temporarios.
+- `model_policy.default` deve existir e aceitar fallback `host-default`.
+- Adapters nativos devem espelhar o time no formato da ferramenta hospedeira.
+- Reviewer deve ser executado como subagente separado do agente que implementou a mudanca.
 - `.agent/runtime/bali_runtime.py` deve suportar `verify`, `list-agents`, `create-agent` e `run`.
-- `.agent/memory.md` deve existir para memória curada do projeto.
-- `BALI_LLM_COMMAND` é o contrato universal para plugar qualquer CLI/modelo. O comando pode usar `{prompt_file}`, `{output_file}` e `{agent}`.
+- `.agent/memory.md` e `.agent/working-context.md` devem existir.
 
 ---
 
-## 5. Verificação de Integridade
+## 8. Verificacao de Integridade
 
-O comando `verify` do runtime deve checar:
+O comando `verify` deve checar:
 
-```bash
-python .agent/runtime/bali_runtime.py verify
+- [ ] `.agent/subagent.config.yaml` existe e e valido.
+- [ ] `subagents_policy.role_play_permitido` e `false`.
+- [ ] Core Team completo existe em `.agent/team/`.
+- [ ] `time.product_spine`, `time.project_fixed`, `time.temporary_policy` e `model_policy` existem.
+- [ ] Adapters nativos estao sincronizados com `.agent/team/`.
+- [ ] Bali Runtime esta funcional.
+- [ ] Memoria curada e working context existem.
+
+---
+
+## 9. Contrato de Isolamento por Ferramenta
+
+| Ferramenta | Mecanismo de isolamento | Caminho |
+|-----------|-------------------------|---------|
+| Claude Code | Subagentes nativos quando a superficie tem Agent/Task tool | `.claude/agents/*.md` |
+| Codex | Subagentes nativos/custom agents | `.codex/agents/*.toml` |
+| OpenCode | Subagentes nativos com `mode: subagent` | `.opencode/agents/*.md` |
+| Antigravity | `define_subagent` e background subagents com fila segura | `.antigravity/skills/` ou `.agents/skills/` |
+| Cursor | Bali Runtime quando nao houver isolamento nativo | `.cursor/rules/bali-agent.mdc` + Runtime |
+| Ollama/API crua/outros | Bali Runtime via `BALI_LLM_COMMAND` | `.agent/runtime/bali_runtime.py` |
+
+API vs Desktop nao e o criterio principal. O criterio e: existe mecanismo real de subagente/tool calling isolado? Se sim, adapter nativo. Se nao, Runtime. Se nenhum existe, falha fechada.
+
+---
+
+## 10. Model Policy
+
+`model_policy` descreve preferencia, nao obrigacao. Todo agente deve ter fallback para `host-default`.
+
+```yaml
+model_policy:
+  default: host-default
+  agents:
+    orchestrator:
+      preferred: strong-reasoning
+      fallback: host-default
+    reviewer:
+      preferred: strong-reasoning
+      fallback: host-default
+    implementer:
+      preferred: strong-coding
+      fallback: host-default
 ```
 
-Itens verificados:
-- [ ] `.agent/subagent.config.yaml` existe e é válido
-- [ ] `subagents_policy.role_play_permitido` é `false`
-- [ ] `.agent/team/orchestrator.md`, `planner.md`, `reviewer.md` existem
-- [ ] `.agent/team/discovery.md`, `prd-writer.md`, `sdd-architect.md` existem
-- [ ] Pelo menos um `spec-*.md` existe
-- [ ] Adapters nativos estão sincronizados com `.agent/team/`
-- [ ] Bali Runtime está funcional
+Se o host nao suporta selecao de modelo por subagente, todos usam o modelo atual do host.
 
 ---
 
-## 6. Contrato de Isolamento por Ferramenta
+## 11. Subagent vs Agent-as-Tool
 
-| Ferramenta | Mecanismo de Isolamento | Caminho |
-|-----------|------------------------|---------|
-| **OpenCode** | Subagentes nativos (`mode: subagent`) + Task tool | `.opencode/agents/*.md` |
-| **Claude Code surfaces** | CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud com workspace usam subagentes nativos + Task tool; API pura sem shell exige wrapper para Bali Runtime | `.claude/agents/*.md` ou `.agent/runtime/bali_runtime.py` |
-| **Codex** | Subagentes nativos | `.codex/agents/*.toml` |
-| **Antigravity 2.0 / CLI** | `define_subagent` nativo + Manager view/background subagents com fila segura | `.antigravity/skills/` (desktop) ou `.agents/skills/` (CLI) |
-| **Cursor** | Bali Runtime (sem subagentes nativos) | `.cursor/rules/bali-agent.mdc` |
-| **Ollama / API crua / outros** | Bali Runtime via `BALI_LLM_COMMAND` | `.agent/runtime/bali_runtime.py` |
+Subagent e membro delegado do time, com identidade, contexto minimo, handoff e revisao. Agent-as-tool e chamada pontual, stateless e encapsulada para uma funcao estreita.
 
-Capacidade de background/multi-agente não é permissão para paralelismo livre. Agentes de escrita usam `max_parallel: 1` por padrão, contexto mínimo e handoff por contrato (`produces`/`consumes`) quando uma etapa depende da outra.
+Use subagent para trabalho complexo, autonomo ou com estado de projeto. Use agent-as-tool para funcoes pequenas e reutilizaveis, como transformar texto, consultar um indice ou executar uma analise isolada.
 
 ---
 
-## 7. Criação de Novo Subagente
+## 12. Falha Fechada
 
-Quando a tarefa exige competência que não existe no time:
-
-```bash
-python .agent/runtime/bali_runtime.py create-agent --id spec-<nome> --scope "<escopo>"
-```
-
-O runtime:
-1. Cria `.agent/team/spec-<nome>.md` com o escopo fornecido.
-2. Registra o novo especialista em `.agent/subagent.config.yaml`.
-3. Espelha no formato nativo de cada adapter configurado.
-4. Registra o evento em `.agent/output/subagents-created.md`.
+Nunca substitua subagentes reais por "um modelo respondendo como se fosse varios". Se a execucao isolada nao estiver disponivel via adapter nativo nem Bali Runtime, a resposta correta e bloquear a tarefa, explicar qual adapter/runtime falta e orientar a instalacao necessaria.
 
 ---
 
-## 8. Bali Runtime
+## 13. Regras Inviolaveis
 
-Comandos:
-
-```bash
-python .agent/runtime/bali_runtime.py verify
-python .agent/runtime/bali_runtime.py list-agents
-python .agent/runtime/bali_runtime.py create-agent --id spec-pagamentos --scope "pagamentos e webhooks"
-python .agent/runtime/bali_runtime.py run "descreva a tarefa"
-```
-
-Exemplo com Ollama:
-
-```bash
-BALI_LLM_COMMAND='ollama run llama3.1 < {prompt_file}' python .agent/runtime/bali_runtime.py run "descreva a tarefa"
-```
-
-Cada etapa recebe prompt próprio e grava output próprio. O Reviewer é executado como agente separado do agente que implementou.
+1. Nunca fazer role-play de multiplos agentes no mesmo contexto.
+2. Nunca o Orchestrator implementar codigo.
+3. Sempre preservar Discovery -> PRD -> SDD para projeto novo e feature grande.
+4. Sempre executar Reviewer como subagente separado.
+5. Sempre atualizar memoria via Memory Gate ao concluir task/gate relevante.
+6. Sempre usar adapter nativo quando disponivel; Bali Runtime como fallback.
+7. Sempre falhar fechado se nenhum caminho de isolamento estiver disponivel.
 
 ---
 
-## 9. Falha Fechada
-
-Nunca substitua subagentes reais por "um modelo respondendo como se fosse vários". Se a execução isolada não estiver disponível via adapter nativo nem Bali Runtime, a resposta correta é **bloquear a tarefa**, explicar qual adapter/runtime falta e orientar a instalação necessária.
-
----
-
-## 10. Regras Invioláveis
-
-1. ❌ **NUNCA** role-play de múltiplos agentes no mesmo contexto.
-2. ❌ **NUNCA** pular subagentes — toda tarefa passa por especialista(s) + Reviewer.
-3. ❌ **NUNCA** o Orchestrator executar tarefas diretamente.
-4. ✅ **SEMPRE** isolar subagentes (processo, sessão ou chamada separada).
-5. ✅ **SEMPRE** usar adapter nativo quando disponível; Bali Runtime como fallback.
-6. ✅ **SEMPRE** falhar fechado se nenhum caminho de isolamento estiver disponível.
-
----
-
-<p align="center"><em>Subagentes reais sempre. Isolamento operacional. Nunca role-play.</em></p>
+Subagentes reais sempre. Product Spine acima da execucao. Multi-modelo e opcional.

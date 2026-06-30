@@ -1,162 +1,130 @@
-# Protocolo de Roteamento (Hub-and-Spoke)
+# Protocolo de Roteamento
 
-> Como o Orchestrator (hub central) transforma QUALQUER pedido em trabalho de time.
-> Aplica-se a todo projeto que tenha `.agent/subagent.config.yaml`.
+> Como o Orchestrator transforma pedidos humanos em trabalho de time.
 
 ---
 
 ## 1. Topologia
 
-O Orchestrator opera como **hub central** de uma topologia estrela. Todo pedido do humano entra pelo Orchestrator, é delegado a subagentes reais e isolados, validado, revisado e só então devolvido ao humano.
+O Orchestrator e o hub central. Ele fala com o humano, classifica o pedido, escolhe o fluxo, despacha subagentes reais, valida saidas, aciona Reviewer e so entao devolve resultado.
 
-```
-Humano ↔ Orchestrator (hub)
-              ↕
-    ┌─────────┼─────────┐
-    ↓         ↓         ↓
-  Planner  Espec.1   Espec.2   ← subagentes reais (isolados)
-              ↕
-         Orchestrator           ← valida, rejeita, reenvia
-              ↓
-          Reviewer               ← gate final obrigatório
-              ↕
-         Orchestrator           ← devolve ao humano
-              ↕
-           Humano
+```text
+Human -> Orchestrator -> Subagent(s) -> Orchestrator -> Reviewer -> Orchestrator -> Human
 ```
 
-**Regra zero:** O Orchestrator NUNCA trabalha solo. NENHUM pedido — por mais trivial que seja — escapa de passar por subagente(s) + Reviewer.
+O Orchestrator nunca implementa codigo e nunca faz role-play de outro agente.
 
 ---
 
 ## 2. Triagem
 
-Ao receber um pedido, o Orchestrator classifica:
-
 | Classe | Exemplos | Caminho |
 |--------|----------|---------|
-| **Trivial** | Dúvida pontual, "que horas são?", explicação de 1 arquivo | Orchestrator responde direto → Reviewer (sanity-check) |
-| **Pequeno** | Bugfix localizado, ajuste de copy, tweak de config | Especialista executa → Orchestrator valida → Reviewer |
-| **Médio** | Feature em 2-3 arquivos, refactor local | Planner (cria plano) → Reviewer (valida plano) → Especialista(s) → Reviewer |
-| **Grande** | Feature multi-módulo, refactor estrutural, migração | Planner → Reviewer (plano) → Especialista(s) em sequência → Reviewer |
+| Trivial | duvida pontual, explicacao curta | Orchestrator responde e usa Reviewer quando houver entrega de projeto |
+| Pequeno | bugfix local, copy, config simples | Especialista -> Reviewer -> Orchestrator |
+| Medio | feature local, refactor pequeno | Planner -> Reviewer do plano -> Especialista -> Reviewer |
+| Grande | projeto novo, feature estrutural, migracao | Product Spine -> Recruiter se necessario -> Planner -> Especialistas -> QA/Security -> Reviewer |
 
-**Regra de ouro:** Esforço proporcional. O Orchestrator responde trivial direto — sem burocracia. Tarefas complexas passam pelo pipeline completo (plano → validação do plano → execução → revisão).
-
-A triagem é explícita: o Orchestrator informa ao humano a classe e o caminho em 1-2 linhas.
+Esforco proporcional: tarefa pequena nao vira burocracia, mas trabalho real de projeto nao pula subagente nem Reviewer.
 
 ---
 
-## 3. Ciclo de Validação (Iteração)
+## 3. Product Spine
 
-Após receber a saída de um subagente, o Orchestrator **valida** antes de prosseguir:
+Projeto novo sempre segue:
 
-```
-Recebe saída do especialista
-        ↓
-    Está completa e correta?
-    ├── ✅ Sim → Encaminha ao Reviewer
-    └── ❌ Não → Rejeita + reenvia ao especialista com feedback
-                    ↓
-              Especialista refaz (até 3 tentativas)
-                    ↓
-              Na 4ª falha → escala ao humano
+```text
+Discovery -> PRD Writer -> SDD Architect
 ```
 
-**Regra de ouro:** O Orchestrator é o **guardião da qualidade**. Ele não é um repassador passivo de mensagens — ele examina, questiona, rejeita e exige correção.
+Feature grande tambem usa Product Spine quando altera produto, dados, arquitetura, integracao, permissoes, billing, IA, deploy ou seguranca.
+
+Discovery faz entrevista e descoberta de projeto em andamento. PRD Writer transforma entendimento em requisitos. SDD Architect transforma PRD em arquitetura e plano tecnico. Planner e especialistas executam depois.
 
 ---
 
-## 4. Gate do Reviewer
+## 4. Selecao de Time
 
-**Toda entrega**, sem exceção, passa pelo Reviewer como subagente real antes de chegar ao humano.
+1. Leia `.agent/subagent.config.yaml`.
+2. Consulte `time.core`, `time.project_fixed`, `time.especialistas` e `model_policy`.
+3. Use especialistas fixos existentes quando o escopo bater.
+4. Acione Recruiter quando uma competencia recorrente nao existir.
+5. Crie agente temporario quando a demanda for pontual.
+6. Nunca crie especialista fixo sem escopo, gatilhos de roteamento e motivo.
 
-O Reviewer retorna um veredito JSON:
+---
+
+## 5. Ciclo de Validacao
+
+```text
+Subagent output
+  -> Orchestrator valida
+  -> Reviewer revisa
+  -> se aprovado: Memory Gate
+  -> se reprovado: volta ao subagent com feedback
+```
+
+Limite padrao: ate 3 tentativas por especialista. Na quarta falha, escale ao humano com diagnostico.
+
+---
+
+## 6. Memory Gate
+
+Ao concluir task, gate, decisao, bug nao obvio, incidente, PR ou commit, o Orchestrator aciona `memory-curator`.
+
+O Memory Curator:
+
+- Atualiza `.agent/working-context.md` com estado vivo.
+- Registra `.agent/memory.md` apenas quando houver aprendizado duravel.
+- Rejeita logs brutos, segredos e dados pessoais desnecessarios.
+
+---
+
+## 7. Sequenciamento
+
+Agentes de escrita usam `max_parallel: 1` por padrao. Tarefas acopladas declaram `depends_on`, `produces` e `consumes`.
+
+Backend/API/schema precede frontend/UI quando a UI depende do contrato de dados. Security e QA entram antes do Reviewer final quando a mudanca tocar risco, permissao, dados ou comportamento critico.
+
+---
+
+## 8. Runtime Routing Plan
+
+Quando estiver rodando via Bali Runtime, a primeira resposta do Orchestrator deve conter um bloco JSON `routing_plan` extraivel:
+
 ```json
 {
-  "approved": true|false,
-  "blockers": [{"reason": "..."}],
-  "warnings": [{"reason": "..."}],
-  "nits": [{"reason": "..."}]
+  "routing_plan": true,
+  "classification": "small|medium|large",
+  "execution_mode": "sequential",
+  "max_parallel": 1,
+  "context_scope": "minimal",
+  "max_retries": 3,
+  "steps": [
+    {
+      "id": "step-id",
+      "agent": "implementer",
+      "prompt": "tarefa atomica",
+      "depends_on": [],
+      "produces": [],
+      "consumes": [],
+      "review": true
+    }
+  ]
 }
 ```
 
-- **approved: true** → Orchestrator devolve ao humano.
-- **approved: false** → Orchestrator reenvia ao especialista com os blockers listados.
+---
 
-O Orchestrator **nunca** ignora ou sobrepõe o veredito do Reviewer.
+## 9. Anti-Patterns
+
+- Orchestrator implementando codigo.
+- Role-play de multiplos agentes no mesmo contexto.
+- Especialista fixo criado para tarefa pontual.
+- Execucao grande sem Discovery/PRD/SDD.
+- Memoria tratada como log bruto.
+- Reviewer executado pelo mesmo agente que implementou.
 
 ---
 
-## 5. Seleção de Especialista
-
-1. Leia `time.especialistas[].escopo` no manifesto.
-2. Mapeie pela extensão do arquivo ou domínio:
-   - **`spec-frontend`**: `.tsx`, `.jsx`, `.html`, `.css`, `.scss`, `.vue`, componentes client-side
-   - **`spec-backend`**: `.py`, `.go`, `.cs`, `.js`/`.ts` server-side, rotas, APIs
-   - **`spec-database`**: `.sql`, schema ORM, migrations, queries
-   - **`spec-devops`**: `Dockerfile`, CI/CD, infra, containers
-   - **`spec-security`**: RLS, auth middlewares, permissões
-   - **`spec-testing`**: diretórios `tests/`, `__tests__/`, `.test.*`, `.spec.*`
-   - **`spec-docs`**: `.md` de documentação, OpenAPI/Swagger
-   - **`spec-implementer`**: Fallback geral para qualquer stack não coberta
-3. Se nenhum especialista cobrir: **crie um novo** antes de executar a tarefa.
-4. Tarefas multi-stack seguem fila sequencial por padrão (`max_parallel: 1`). Agentes de escrita não devem iniciar em paralelo.
-
----
-
-## 6. Sequenciamento, Contratos e Quota
-
-O paralelismo ingênuo é proibido para trabalho de escrita. Mesmo quando a ferramenta nativa suporta background agents, o Orchestrator deve despachar uma etapa por vez, com `execution_mode: "sequential"` e `max_parallel: 1`.
-
-Para tarefas acopladas, declare o contrato entre etapas:
-
-1. O produtor roda primeiro e grava o artefato contratual em `produces` (schema, tipo, endpoint, migração, interface).
-2. O consumidor roda depois com `depends_on` e `consumes`, recebendo apenas o contrato necessário.
-3. Backend/API/schema deve preceder frontend/UI quando a UI depende do formato de resposta.
-4. O Reviewer valida o artefato final e também pode validar o contrato intermediário.
-
-Cada subagente deve receber `context_scope: "minimal"` por padrão: prompt do agente, tarefa, artefatos/contratos relevantes e prior output necessário. Não herde histórico completo da sessão pai.
-
-Se um subagente falhar por quota, timeout ou crash, o runtime/adaptador deve registrar um evento `agent_failed` estruturado com `agent`, `error_type`, `retryable`, `message` e `next_retry_at`, então devolver esse evento ao Orchestrator antes de qualquer novo dispatch.
-
----
-
-## 7. Modo Greenfield
-
-Quando `modo: greenfield`, o roteamento segue o pipeline SDLC com gates humanos:
-
-```
-Discovery → Gate 1 (humano) → PRD Writer → Gate 2 (humano) → SDD Architect →
-Gate 3 (humano) → Planner → Especialista(s) → Reviewer → Gate 5 (humano)
-```
-
-Cada gate para e aguarda aprovação humana antes de prosseguir. Ver `protocols/approval-gates.md`.
-
----
-
-## 8. Contrato de Isolamento
-
-Subagentes **SEMPRE** são reais. Ver `protocols/subagents.md` para o contrato completo.
-
-Resumo da ordem de resolução:
-1. **Subagentes nativos da ferramenta** (Task tool, `@mention`, `.opencode/agents/`, `.claude/agents/`, etc.)
-2. **Bali Runtime** (`python .agent/runtime/bali_runtime.py run` com subprocesso isolado)
-3. **Falha fechada** (bloquear, informar humano)
-
----
-
-## 9. Anti-Padrões
-
-| Anti-padrão | Por que é errado |
-|-------------|-----------------|
-| Orchestrator respondendo sozinho | Viola "nunca solo" |
-| Orchestrator implementando código | Viola separação de responsabilidades |
-| Cadeia linear fixa (A→B→C) sem validação | Viola hub-and-spoke + iteração |
-| Agentes de escrita em paralelo sem contrato | Estoura quota e quebra integração entre produtor/consumidor |
-| Herdar histórico completo do agente pai | Multiplica tokens, vaza contexto irrelevante e aumenta chance de 429 |
-| Output bruto de subagente ao humano | Viola papel de porta-voz do Orchestrator |
-| Subagente role-play no mesmo contexto | Viola contrato de isolamento real |
-
----
-
-<p align="center"><em>Routing v3.0 — Hub central. Nunca solo. Sempre validado. Sempre revisado.</em></p>
+Routing v4: Product Spine primeiro, subagentes reais sempre, memoria automatica no fim do ciclo.

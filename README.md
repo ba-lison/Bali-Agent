@@ -3,58 +3,156 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/LICENSE)
 [![CI](https://github.com/ba-lison/Bali-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/ba-lison/Bali-Agent/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-2.3.0-green.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.2.0-green.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/CHANGELOG.md)
 
-Framework LLM-agnóstico para engenharia de software com **subagentes reais em topologia hub-and-spoke**. O Orchestrator é o maestro — tria pedidos, responde trivial direto, e para tarefas complexas monta plano, valida o plano, despacha especialistas, itera se necessário, e só entrega após o gate do Reviewer.
+Bali-Agent is a subagent-first framework for software engineering work. It gives every project a real agent team: an Orchestrator, a product spine, execution specialists, review gates, security rules, and durable project memory.
 
----
+The goal is not "many models at any cost." The goal is real delegated work. If a host can run different models per subagent, Bali can route by model policy. If it cannot, every subagent uses the host default model and the workflow still works.
 
-## Arquitetura: Hub-and-Spoke
+## Core Idea
 
-```
-Humano ↔ Orchestrator (hub — único ponto de contato)
-              ↕
-    ┌─────────┼─────────┐
-    ↓         ↓         ↓
-  Planner  Espec.1   Espec.2   ← subagentes reais (isolados)
-              ↕
-         Orchestrator           ← valida, rejeita, reenvia (até 3x)
-              ↓
-          Reviewer               ← gate final obrigatório
-              ↕
-         Orchestrator           ← devolve (ou reenvia se reprovado)
-              ↕
-           Humano
+```text
+Human
+  -> Orchestrator
+      -> Discovery / PRD / SDD when product or architecture changes
+      -> Recruiter when the project needs a new recurring specialist
+      -> Planner for task decomposition
+      -> Specialists for execution
+      -> QA / Security when needed
+      -> Reviewer for final gate
+      -> Memory Curator for project learning
+  -> Human
 ```
 
-### Como funciona na prática
+The Orchestrator is the single contact point with the human. It does not implement code. It coordinates subagents, validates their output, sends work back when it is incomplete, and returns only reviewed results.
 
-| Classe do pedido | Quem resolve | Fluxo |
-|------------------|-------------|-------|
-| **Trivial** ("explica esse arquivo", "que horas são?") | O próprio Orchestrator | Responde direto → Reviewer (sanity-check) |
-| **Pequeno** (bugfix, tweak de config) | Especialista | Especialista → Reviewer |
-| **Médio/Grande** (feature, refactor, migração) | Time completo | Planner (cria plano) → Reviewer (valida plano) → Especialista(s) → Reviewer |
+## What A Subagent Means
 
-O Orchestrator tem o poder de **criar subagentes** (`spec-*`) permanentes ou temporários conforme a demanda. Subagentes autorizados (`can_spawn_agents: true`) podem criar seus próprios subagentes (até 2 níveis de profundidade).
+A Bali subagent is not a role played in the same chat context. A real subagent has its own definition, scope, prompt, context boundary, and execution path.
 
-### Plataformas suportadas
+Bali supports three kinds of subagents:
 
-- Claude Code, Codex, OpenCode, Antigravity, Cursor, Ollama — todo projeto opera o mesmo time `.agent/`.
-- Claude Code surfaces cobrem CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud quando a sessao tem workspace; API pura sem shell precisa de wrapper externo.
-- Se a ferramenta tem subagentes nativos → o setup cria os arquivos no formato nativo (`.opencode/agents/`, `.claude/agents/`, `.codex/agents/`).
-- Se não tem → Bali Runtime executa subagentes isolados por processo (`subprocess.run`, prompt/ output em arquivos separados).
-- Se nenhum caminho funciona → falha fechada (sem fingir que role-play é subagente).
+| Type | Examples | Lifecycle |
+|---|---|---|
+| Core team | `orchestrator`, `discovery`, `prd-writer`, `sdd-architect`, `reviewer` | Always present in every project |
+| Project-fixed specialists | `spec-supabase`, `spec-cloudflare`, `spec-lgpd` | Persist in that project and handle recurring work |
+| Temporary agents | `temp-debug-timeout`, `temp-pdf-audit` | Created for one run and discarded afterward |
 
----
+Agent-as-tool is a different pattern. Use agent-as-tool for narrow, stateless operations. Use subagents for delegated project work with context, handoff, and review.
 
-## Instalação
+## The Required Core Team
 
-### Pré-requisitos
+Every initialized Bali project has this team in `.agent/team/`:
+
+- `orchestrator`: the hub and only human-facing coordinator.
+- `discovery`: interviews the user and discovers existing-project context.
+- `prd-writer`: turns discovery into product requirements.
+- `sdd-architect`: turns PRD into technical architecture and implementation design.
+- `planner`: decomposes approved work into ordered tasks.
+- `implementer`: general implementation specialist.
+- `qa`: test and verification specialist.
+- `security`: security and data-risk specialist.
+- `reviewer`: mandatory quality gate.
+- `recruiter`: creates or promotes project-fixed specialists.
+- `memory-curator`: updates working context and durable memory.
+- `docs`: documentation and knowledge specialist.
+
+`spec-implementer` is still created as a legacy fallback for the current runtime path, so older flows keep working while the new core team contract lands.
+
+## Product Spine
+
+Discovery, PRD, and SDD sit above execution. They are not optional decorations.
+
+```text
+Discovery -> PRD Writer -> SDD Architect
+```
+
+Use the Product Spine for:
+
+- new projects;
+- large features;
+- product behavior changes;
+- architecture or data model changes;
+- integrations, auth, permissions, billing, AI, deploy, or security changes;
+- existing projects when the repo context is unclear.
+
+Small tasks can use a shorter path, but real project work still goes through a specialist and Reviewer.
+
+## Lifecycle
+
+### New Project
+
+```text
+1. Install Bali in the target repo.
+2. Discovery interviews the user.
+3. PRD Writer creates the product requirements.
+4. SDD Architect creates the technical design.
+5. Recruiter creates project-fixed specialists for recurring domains.
+6. Planner breaks the work into executable tasks.
+7. Specialists implement.
+8. QA and Security validate when relevant.
+9. Reviewer approves or rejects.
+10. Memory Curator updates project memory.
+```
+
+### Existing Project
+
+```text
+1. Bali preserves the repo's existing rules and governance.
+2. Discovery reads repo context, docs, working context, and memory.
+3. Orchestrator classifies the request.
+4. Product Spine runs if the request changes product or architecture.
+5. Existing specialists handle matching scopes.
+6. Recruiter creates a fixed specialist only when the need is recurring.
+7. Temporary agents handle one-off investigations.
+8. Reviewer gates the result.
+9. Memory Curator records what should survive future sessions.
+```
+
+## Host And Adapter Model
+
+Bali keeps one project team and materializes it for each host.
+
+| Host | Native path | Notes |
+|---|---|---|
+| Claude Code | `.claude/agents/*.md` | Uses native subagents when the surface has Agent/Task tooling. Hooks remain useful for context reinjection. |
+| Codex | `.codex/agents/*.toml` | Uses project custom agents when available. |
+| OpenCode | `.opencode/agents/*.md` | Uses `mode: subagent`. |
+| Antigravity | `.antigravity/skills/` or `.agents/skills/` | Uses `define_subagent` and background subagents with safe queueing. |
+| Cursor | Cursor rules plus Bali Runtime | Rules provide context; Runtime provides isolation when native subagents are unavailable. |
+| Ollama / raw API / other CLIs | Bali Runtime | Uses `BALI_LLM_COMMAND` or provider settings to run isolated agent calls. |
+
+The important question is not "desktop or API?" The important question is: does the host expose a real isolated subagent or tool-calling mechanism? If yes, use the native adapter. If not, use Bali Runtime. If neither exists, fail closed instead of pretending.
+
+## Model Policy
+
+Multi-model routing is optional. A project can declare preferences by agent class:
+
+```yaml
+model_policy:
+  default: host-default
+  agents:
+    orchestrator:
+      preferred: strong-reasoning
+      fallback: host-default
+    reviewer:
+      preferred: strong-reasoning
+      fallback: host-default
+    implementer:
+      preferred: strong-coding
+      fallback: host-default
+```
+
+If the host supports per-agent model selection, the adapter can use this. If not, every agent uses the current host model.
+
+## Installation
+
+Requirements:
 
 - Python 3.11+
 - `pyyaml`
 
-### Instalar o pacote
+Install Bali-Agent locally:
 
 ```bash
 git clone https://github.com/ba-lison/Bali-Agent.git
@@ -62,380 +160,270 @@ cd Bali-Agent
 pip install -e .
 ```
 
-Isso instala o comando `bali` no PATH.
-
-### Instalar no projeto alvo
+Initialize a target project:
 
 ```bash
-bali init /caminho/do/projeto
+bali init /path/to/project
 ```
 
-Ou usando o script legado:
+Verify the installation:
 
 ```bash
-python init.py /caminho/do/projeto
+bali --root /path/to/project verify
 ```
 
----
+## CLI
 
-## CLI — Comandos Disponíveis
-
-```
-bali <comando> [opções]
+```bash
+bali --root /path/to/project <command>
 ```
 
-| Comando | Descrição |
+| Command | Purpose |
 |---|---|
-| `bali init <dir>` | Instala o framework no projeto alvo |
-| `bali verify` | Valida a instalação e os adapters ativos |
-| `bali verify-adapter <nome>` | Verifica um adapter específico (claude, antigravity, etc.) |
-| `bali list-agents` | Lista agentes registrados no manifesto |
-| `bali create-agent` | Cria um especialista permanente |
-| `bali run <prompt>` | Executa o Orchestrator com o prompt fornecido |
-| `bali run --dry-run <prompt>` | Simula execução sem chamar LLM |
-| `bali remember` | Registra entrada curada na memória SQLite |
-| `bali inspect-runs` | Inspeciona artefatos de execuções anteriores |
+| `init` | Installs `.agent/`, runtime, templates, protocols, team files, memory files, and adapters. |
+| `verify` | Validates required team, manifest, runtime, memory, and adapter contract. |
+| `verify-adapter <name>` | Checks one adapter such as `claude`, `codex`, or `antigravity`. |
+| `list-agents` | Lists agents registered in `.agent/team/`. |
+| `create-agent --id spec-name --scope "..."` | Creates a project-fixed specialist. |
+| `run "task"` | Runs the Orchestrator flow. |
+| `run --workflow greenfield "task"` | Runs the greenfield Product Spine flow. |
+| `remember` | Adds a curated memory entry. |
+| `inspect-runs` | Shows recorded runtime traces. |
 
-### Exemplos
+Examples:
 
 ```bash
-# Verificar adapters instalados
-bali verify
-
-# Criar especialista permanente
-bali create-agent --id spec-payments --scope "Pagamentos, checkout e webhooks"
-
-# Rodar orquestração
-bali run "implementar autenticação JWT"
-
-# Registrar memória curada
-bali remember --kind commit --title "corrige fluxo de auth" --ref "abc1234"
-
-# Inspecionar último run
-bali inspect-runs
+bali --root . verify
+bali --root . create-agent --id spec-supabase --scope "Supabase auth, RLS, storage, migrations"
+bali --root . run "fix the login redirect bug"
+bali --root . remember --kind decision --title "Use Supabase RLS" --summary "Auth data stays protected by database policy"
 ```
 
-### Variáveis de Ambiente
+## Environment Variables
 
-| Variável | Descrição | Padrão |
-|---|---|---|
-| `BALI_LLM_PROVIDER` | Provider do LLM (`openai`, `anthropic`, `gemini`, `ollama`) | `ollama` |
-| `BALI_LLM_MODEL` | Modelo a usar (`gpt-4o`, `claude-3-5-sonnet-20241022`, `llama3`) | — |
-| `BALI_API_KEY` | Chave da API (ou use `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) | — |
-| `BALI_LLM_ENDPOINT` | URL base alternativa (Ollama local, proxy) | — |
-| `BALI_LLM_COMMAND` | Comando shell para LLM via template (`{prompt_file}`, `{output_file}`) | — |
-| `BALI_SUBAGENT_DEPTH` | Profundidade atual de subagentes (interno, máx. 2) | `0` |
+| Variable | Purpose |
+|---|---|
+| `BALI_LLM_PROVIDER` | Provider name: `openai`, `anthropic`, `gemini`, or `ollama`. |
+| `BALI_LLM_MODEL` | Model name used by the runtime provider. |
+| `BALI_API_KEY` | Provider API key, or use provider-specific env vars. |
+| `BALI_LLM_ENDPOINT` | Optional custom endpoint. |
+| `BALI_LLM_COMMAND` | Shell command template for CLI/local models using `{prompt_file}`, `{output_file}`, and `{agent}`. |
+| `BALI_SUBAGENT_DEPTH` | Internal recursion depth for spawned subagents. Max intended depth is 2. |
 
----
+## What `bali init` Installs
 
-## Estrutura do Pacote
-
-```
-bali_agent/
-├── cli.py                  # Entrypoint da CLI (bali)
-├── core/
-│   ├── agent.py            # Classe Agent — carrega frontmatter YAML
-│   ├── context.py          # ContextPacker — sliding window, redação de segredos
-│   ├── event_log.py        # EventLogger — trace.jsonl, tool_calls.json, approvals.json
-│   ├── handoff.py          # HandoffBus — comunicação entre subagentes
-│   ├── llm_client.py       # Cliente HTTP para APIs de LLM (OpenAI-compatible)
-│   ├── memory.py           # Memória SQLite com FTS5
-│   ├── policy.py           # ToolPolicy — classificação de risco e aprovações
-│   ├── runner.py           # Runner — loop de orquestração de agentes
-│   ├── session.py          # SessionManager — persistência de histórico
-│   └── tool_registry.py    # Schemas de tools + get_allowed_schemas (default-deny)
-├── security/
-│   ├── command_policy.py   # Allowlist de subcomandos por executável
-│   ├── path_policy.py      # Validação de paths com realpath normalisation
-│   ├── sandbox.py          # _safe_path com commonpath (anti-traversal)
-│   └── secret_scanner.py   # Detector de segredos em conteúdo de arquivos
-├── tools/
-│   ├── approval.py         # request_human_approval_tool
-│   ├── filesystem.py       # read_file_tool, write_file_tool
-│   ├── git.py              # git_tool (operações read-only)
-│   └── shell.py            # run_command_tool (shell=False, timeout=60)
-├── adapters/
-│   ├── antigravity.py      # Adapter Antigravity (IDE + CLI agy)
-│   ├── claude.py           # Adapter Claude Code
-│   ├── codex.py            # Adapter Codex
-│   ├── cursor.py           # Adapter Cursor
-│   ├── ollama.py           # Adapter Ollama
-│   └── opencode.py         # Adapter OpenCode
-└── templates/
-    └── runtime/
-        └── bali_runtime.py # Runtime template para modo CLI (BALI_LLM_COMMAND)
-```
-
-### O que o setup instala no projeto alvo
-
-```
+```text
 .agent/
-├── AGENTS.md               # Constituição operacional do projeto
-├── team/
-│   ├── orchestrator.md     # Recebe pedido, escolhe fluxo, chama subagentes
-│   ├── planner.md          # Decompõe trabalho em tarefas atômicas
-│   ├── reviewer.md         # Gate de qualidade (veredicto JSON obrigatório)
-│   ├── discovery.md        # Entrevista e clarificação de problema
-│   ├── prd-writer.md       # Gera PRD
-│   ├── sdd-architect.md    # Gera SDD e arquitetura
-│   └── spec-implementer.md # Especialista genérico de implementação
-├── runtime/
-│   └── bali_runtime.py     # Runtime universal (fallback sem subagentes nativos)
-├── memory/                 # Banco SQLite (memória FTS5)
-├── runs/                   # Artefatos por execução
-│   └── <run-id>/
-│       ├── trace.jsonl
-│       ├── tool_calls.json
-│       ├── approvals.json
-│       ├── handoffs.json
-│       ├── context_manifest.json
-│       ├── final_diff.patch
-│       └── reviewer_report.md
-├── protocols/
-│   ├── routing.md
-│   ├── subagents.md
-│   └── memory.md
-├── subagent.config.yaml    # Manifesto do time
-└── working-context.md      # Estado vivo da sessão atual
+  subagent.config.yaml       # team manifest, product spine, model policy
+  working-context.md         # live project state
+  memory.md                  # curated durable memory
+  task.md                    # current task checklist
+  run.py                     # bootstrapper that delegates to runtime
+  verify_setup.py            # setup verifier
+  .gitignore                 # ignores runtime outputs and secrets
+  hooks/
+    prevent_secrets.py
+  runtime/
+    bali_runtime.py
+  team/
+    orchestrator.md
+    discovery.md
+    prd-writer.md
+    sdd-architect.md
+    planner.md
+    implementer.md
+    qa.md
+    security.md
+    reviewer.md
+    recruiter.md
+    memory-curator.md
+    docs.md
+    spec-implementer.md
+  protocols/
+    subagents.md
+    routing.md
+    memory.md
+    handoff.md
+    quality-gates.md
+    approval-gates.md
+  agents/
+  templates/
+  skills/
+    AUDIT.md
 ```
 
----
+Adapters may also create host-specific folders:
 
-## Adapters Suportados
+```text
+.claude/agents/*.md
+.codex/agents/*.toml
+.opencode/agents/*.md
+.antigravity/skills/
+.agents/skills/
+.cursor/rules/bali-agent.mdc
+```
 
-| Adapter | Subagentes Nativos | Hooks | Verificado |
-|---|---|---|---|
-| Claude Code | ✅ | ✅ SessionStart / UserPromptSubmit | ✅ |
-| Antigravity 2.0 / CLI | ✅ | ❌ | ✅ |
-| Codex | ✅ | ❌ | ✅ |
-| OpenCode | ✅ | ❌ | ✅ |
-| Cursor | ❌ (rules) | ❌ | ✅ |
-| Ollama / API crua | ❌ (runtime) | ❌ | ✅ |
+## Manifest Shape
 
----
+The manifest is the source of truth for the team:
 
-## Segurança
+```yaml
+runtime_authority: "bali-runtime"
+subagents_policy:
+  role_play_permitido: false
+  fallback_obrigatorio: "adapter-nativo-ou-bali-runtime"
 
-O Bali-Agent tem um modelo de segurança em camadas aplicado ao runtime:
+time:
+  core:
+    - orchestrator
+    - discovery
+    - prd-writer
+    - sdd-architect
+    - planner
+    - implementer
+    - qa
+    - security
+    - reviewer
+    - recruiter
+    - memory-curator
+    - docs
+  product_spine:
+    - discovery
+    - prd-writer
+    - sdd-architect
+  project_fixed: []
+  temporary_policy:
+    max_per_task: 3
+    promote_after_reuse_count: 3
 
-### Sandbox de filesystem
-- `_safe_path()` usa `os.path.commonpath()` para bloquear ataques de prefixo de diretório irmão.
-- `is_path_allowed()` usa `os.path.realpath()` para normalizar paths antes de comparar padrões.
-- Padrões globalmente bloqueados: `.env`, `.git`, `secrets`.
+model_policy:
+  default: host-default
+```
 
-### Política de comandos (shell=False)
-Todos os comandos passam por `classify_command()` com allowlist **por subcomando**, não apenas por executável:
+## Memory
 
-| Executável | Subcomandos permitidos | Bloqueados |
+Bali separates live state from durable learning.
+
+| File | Meaning |
+|---|---|
+| `.agent/working-context.md` | Current status, active handoff, recent progress, risks, next action. Not a history log. |
+| `.agent/memory.md` | Curated decisions, incidents, reusable lessons, project-specific conventions. |
+| `.agent/memory.db` | SQLite FTS5 index used by memory search. Ignored by git. |
+
+Memory is automatic in the lifecycle. At the end of relevant tasks, gates, decisions, incidents, PRs, or commits, the Orchestrator calls `memory-curator`.
+
+The Memory Curator:
+
+- updates `working-context.md` for live state;
+- writes to `memory.md` only when there is reusable learning;
+- rejects raw logs;
+- blocks secrets, tokens, keys, and unnecessary personal data.
+
+## Security
+
+Bali keeps the previous security model and makes it part of the runtime contract.
+
+### Filesystem Safety
+
+- Paths are normalized before access.
+- Traversal and sibling-prefix attacks are blocked with safe path checks.
+- Sensitive paths such as `.env`, `.git`, and secret folders are blocked.
+
+### Command Safety
+
+Commands are classified and executed without shell string composition. The command policy is subcommand-aware:
+
+| Executable | Allowed examples | Blocked examples |
 |---|---|---|
-| `python` | — | `-c`, `-m` (use pytest/mypy direto) |
-| `pytest` | (invocação direta) | — |
-| `mypy` | (invocação direta) | — |
-| `npm` | `test`, `run` | `exec`, `install`, `i`, `ci`, `publish` |
-| `pip` | nenhum | tudo (risco de supply-chain) |
+| `pytest` | direct test runs | none by default |
+| `npm` | `test`, `run` | `install`, `ci`, `publish`, `exec` |
 | `cargo` | `test`, `check`, `build` | `run`, `install` |
 | `go` | `test`, `build`, `vet`, `fmt` | `run`, `install`, `get` |
 | `git` | `status`, `diff`, `log`, `show` | `push`, `commit`, `reset`, `checkout` |
+| `pip` | none | all, by default |
 
-Operadores de encadeamento (`;`, `&&`, `\|`, `$(`) são sempre bloqueados.
+Chaining operators such as `;`, `&&`, pipes, and command substitution are blocked in runtime tool execution.
 
-### Tool registry — default-deny
-- `allowed_tools: []` → agente recebe **zero tools**.
-- `allowed_tools: ["*"]` → agente recebe todas as tools (opt-in explícito).
-- `allowed_tools: ["read_file", "search_memory"]` → apenas essas duas.
+### Tool Registry
 
-### Reviewer gate — fail-closed
-O agente `reviewer` **deve** retornar um JSON válido e estruturado. Qualquer desvio (sem JSON, JSON malformado, campo ausente, summary genérico ou aprovação com checks falsos) levanta `ValueError` — a execução nunca passa silenciosamente.
+Tools are default-deny:
 
-```json
-{
-  "approved": true,
-  "summary": "Implementação correta, testes cobrem os fluxos principais e nenhum risco de regressão foi identificado.",
-  "checks": {
-    "scope": true,
-    "tests": true,
-    "security": true,
-    "regression": true
-  },
-  "blockers": [],
-  "warnings": [],
-  "nits": []
-}
-```
+- `allowed_tools: []` means no tools.
+- `allowed_tools: ["read_file", "search_memory"]` means only those tools.
+- `allowed_tools: ["*"]` is an explicit opt-in to all registered tools.
 
-`approved: true` exige `blockers: []` e todos os checks como `true`. Para reprovar, o Reviewer deve declarar pelo menos um blocker ou um check falso.
+### Reviewer Fail-Closed
 
-### Controle de subagentes
-- `can_spawn_agents: false` no manifesto do agente → bloqueio hard no Runner.
-- Profundidade máxima de subagentes aninhados: 2 (`BALI_SUBAGENT_DEPTH`).
+Reviewer output must be valid structured JSON. If the Reviewer output is malformed, missing required fields, approves with blockers, or skips required checks, the runtime fails closed instead of silently approving.
 
----
+### Secret Protection
 
-## Time Base
+- `prevent_secrets.py` is installed into `.agent/hooks/`.
+- Memory writes reject obvious secret patterns.
+- Runtime outputs and memory database files are ignored by `.agent/.gitignore`.
 
-### Hub central
+## Runtime And Observability
 
-- **Orchestrator**: ponto de contato único com o humano. Tria pedidos, responde trivial direto, e para tarefas complexas coordena Planner → Reviewer do plano → Especialistas → Reviewer final. **Nunca implementa código.** Cria `spec-*` permanentes ou temporários conforme necessário. Valida saída de subagentes e reenvia com feedback se insuficiente (até 3 tentativas).
+Bali Runtime is the universal fallback when native subagents are unavailable.
 
-### Espinha fixa (`_spine/`)
+It records run artifacts under `.agent/output/` or runtime-specific run folders, including prompts, outputs, traces, failure events, handoffs, and dry-run output.
 
-- **Planner**: quebra trabalho complexo em tarefas atômicas, ordenadas e verificáveis. Acionado para pedidos médios/grandes.
-- **Reviewer**: gate de qualidade obrigatório em **toda** entrega. Retorna JSON com `approved: true/false` + blockers/warnings/nits.
+The runtime supports:
 
-### Time de produto (`.agent/team/`)
+- `verify`
+- `list-agents`
+- `create-agent`
+- `run`
+- `remember`
 
-- **discovery**: entrevista e clarificação de problema (modo greenfield).
-- **prd-writer**: transforma discovery em PRD.
-- **sdd-architect**: transforma PRD em SDD e arquitetura.
-- **spec-implementer**: especialista genérico de implementação.
+When provider mode is used, execution routes through `.agent/templates/run.py` to avoid recursive bootstrap loops.
 
-### Especialistas permanentes
+## Tests
 
-Usam o prefixo `spec-*` (ex: `spec-payments`, `spec-auth`, `spec-frontend`). Não morrem no fim da sessão — ficam em `.agent/team/`, entram no `subagent.config.yaml` e são espelhados nos adapters nativos.
-
----
-
-## Fluxo do Ciclo de Vida
-
-### Projeto Novo (Greenfield)
-
-```mermaid
-flowchart TD
-  A["Instalar Bali-Agent"] --> B["Setup cria .agent/"]
-  B --> C["Discovery entrevista o humano"]
-  C --> D["PRD Writer gera PRD"]
-  D --> E{"Humano aprova PRD?"}
-  E -- "Não" --> C
-  E -- "Sim" --> F["SDD Architect gera SDD"]
-  F --> G{"Humano aprova SDD?"}
-  G -- "Não" --> F
-  G -- "Sim" --> H["Planner decompõe tasks"]
-  H --> I["Reviewer valida plano"]
-  I --> J{"Plano aprovado?"}
-  J -- "Não" --> H
-  J -- "Sim" --> K["Orchestrator despacha spec-*"]
-  K --> L["Implementação e testes"]
-  L --> M["Reviewer faz gate final"]
-  M --> N{"approved: true?"}
-  N -- "Não" --> K
-  N -- "Sim" --> O["Memória curada e entrega"]
-```
-
-### Projeto Existente (Operate)
-
-```mermaid
-flowchart TD
-  A["Humano faz pedido"] --> B{"Orchestrator tria"}
-  B -- "Trivial" --> C["Orchestrator responde direto"]
-  C --> D["Reviewer (sanity-check)"]
-  B -- "Pequeno" --> E["Especialista executa"]
-  E --> F["Orchestrator valida"]
-  F --> G{"OK?"}
-  G -- "Não" --> E
-  G -- "Sim" --> H["Reviewer"]
-  B -- "Médio/Grande" --> I["Planner cria plano"]
-  I --> J["Reviewer valida plano"]
-  J --> K{"Plano OK?"}
-  K -- "Não" --> I
-  K -- "Sim" --> L["Especialista(s) executam"]
-  L --> M["Orchestrator valida"]
-  M --> N{"OK?"}
-  N -- "Não" --> L
-  N -- "Sim" --> H
-  H --> O["Entrega ao humano"]
-```
-
----
-
-## Memória
-
-O Bali-Agent separa memória operacional de histórico reutilizável:
-
-- **`.agent/working-context.md`**: estado vivo da sessão atual, handoff, riscos imediatos. Não é histórico permanente.
-- **SQLite FTS5** (`bali_agent/core/memory.py`): histórico curado com busca semântica por palavra-chave.
+Run the full suite:
 
 ```bash
-# Registrar via CLI
-bali remember --kind commit --title "corrige fluxo de auth" --ref "abc1234" \
-  --summary "ajusta expiração de sessão" --files "src/auth/session.ts"
-
-# Buscar na memória
-bali run "buscar decisões sobre autenticação"
+python -m pytest -q
 ```
 
-O `remember` rejeita automaticamente conteúdo com padrão de segredo (tokens, chaves, passwords).
-
----
-
-## Testes
+Compile key Python modules:
 
 ```bash
-# Rodar todos os testes
-python -m pytest tests/ -v --tb=short
-
-# Rodar apenas os testes de segurança
-python -m pytest tests/test_runner_security.py -v
-
-# Type check
-python -m mypy bali_agent/ --ignore-missing-imports
+python -m py_compile bali_agent/cli.py bali_agent/adapters/claude.py bali_agent/core/agent_manager.py
 ```
 
-### Cobertura atual
+Important suites:
 
-| Suite | Foco |
+| Suite | Covers |
 |---|---|
-| `test_policy.py` | ToolPolicy, classificação de risco, redação |
-| `test_context_packer.py` | Sliding window, manifest, redação de segredos |
-| `test_observability.py` | EventLogger, trace, tool_calls, approvals |
-| `test_cli.py` | Inicialização via CLI |
-| `test_memory.py` | SQLite FTS5, bloqueio de segredos |
-| `test_handoff.py` | HandoffBus send/receive |
-| `test_agent_manager.py` | Carregamento e validação de agentes |
-| `test_integration.py` | Dry-run e loop de execução |
-| `test_security.py` | _safe_path, _sanitize_llm_command, execute_safe_command |
-| `test_runner_security.py` | Sandbox commonpath, subcommand policy, default-deny, can_spawn_agents, Reviewer fail-closed |
+| `tests/test_cli.py` | `bali init`, runtime delegation, manifest creation. |
+| `tests/test_claude_adapter.py` | Claude native `.claude/agents` materialization. |
+| `tests/test_agent_manager.py` | Team validation, specialist creation, manifest policy checks. |
+| `tests/test_runtime_orchestration.py` | Dynamic routing plans, retries, temporary/permanent specialists. |
+| `tests/test_runner_security.py` | Tool permissions, command policy, Reviewer fail-closed behavior. |
+| `tests/test_memory.py` | Curated memory and secret blocking. |
+| `tests/test_security.py` | Path safety and command sanitization. |
 
----
+## Current Product Direction
 
-## CI
+Bali is now organized around this hierarchy:
 
-GitHub Actions roda automaticamente em cada push/PR para `main`:
+```text
+Product Spine:
+  Discovery -> PRD -> SDD
 
-- `pytest tests/` em Python 3.11 e 3.12
-- `mypy bali_agent/ --ignore-missing-imports`
+Team Spine:
+  Recruiter -> Core Team + Project Specialists
 
----
+Execution Spine:
+  Planner -> Specialists -> QA/Security -> Reviewer
 
-## Boas Práticas Obrigatórias
+Learning Spine:
+  Memory Curator -> working-context.md + memory.md
+```
 
-- Esforço proporcional: trivial o Orchestrator responde direto; complexo passa por Planner → Reviewer do plano → especialistas.
-- Nunca substituir subagente real por role-play como entrega final.
-- Nunca sobrescrever `README.md` ou `AGENTS.md` de projeto existente sem decisão explícita.
-- Nunca registrar segredo em memória.
-- Nunca tratar `.agent/working-context.md` como histórico completo.
-- Nunca entregar sem Reviewer quando houver mudança de código, arquitetura, PRD, SDD ou memória.
-- Sempre manter os especialistas reutilizáveis dentro de `.agent/team/`.
-- Subagentes com `can_spawn_agents: true` podem criar seus próprios subagentes (máx. profundidade 2).
-
----
-
-## Arquivos Principais do Framework
-
-| Arquivo | Função |
-|---|---|
-| `init.py` | Instala o framework no projeto alvo |
-| `bali_agent/cli.py` | Entrypoint do comando `bali` |
-| `bali_agent/core/runner.py` | Loop principal de orquestração de agentes |
-| `bali_agent/core/tool_registry.py` | Registro de tools + default-deny |
-| `bali_agent/security/sandbox.py` | Anti-traversal com commonpath |
-| `bali_agent/security/command_policy.py` | Allowlist de subcomandos |
-| `bali_agent/security/path_policy.py` | Validação de paths com realpath |
-| `AGENTS.md` | Constituição base do framework |
-| `docs/` | Documentação técnica expandida, threat model |
-| `CHANGELOG.md` | Histórico de versões |
-
----
+This keeps the original security, memory, runtime, adapter, and review work intact, while making the product identity clearer: Bali is a persistent subagent team for each project.
 
 ## License
 
-Distribuído sob a licença [MIT](LICENSE). Copyright (c) 2025–2026 Alison Cruz.
+MIT. Copyright (c) 2025-2026 Alison Cruz.

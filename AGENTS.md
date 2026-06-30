@@ -1,167 +1,193 @@
-# 🤖 Bali-Agent AI — Arquivo Raiz de Orquestração
+# Bali-Agent AI - Root Orchestration Contract
 
-> **Ponto de entrada do sistema.** Qualquer LLM/assistente que leia este arquivo deve operar como parte do time **Bali-Agent**. Leia-o por completo antes de agir.
->
-> **Nota de caminhos:** quando o framework é instalado num projeto, a base fica em `.agent/` (ex.: `.agent/agents/_spine/...`). Neste repositório do framework, os caminhos abaixo são relativos à raiz da base.
+> Entry point for any LLM/assistant operating inside this repository or an initialized Bali project.
 
 ---
 
-## 1. O que é
+## 1. What Bali-Agent Is
 
-O **Bali-Agent AI** é um sistema LLM-agnostic de **time híbrido de subagentes** para engenharia de software. Em vez de um agente trabalhando sozinho, todo pedido é roteado por um time: uma **espinha fixa** (Orchestrator, Planner, Reviewer), agentes base de SDLC (Discovery, PRD Writer, SDD Architect) e **especialistas dinâmicos** gerados sob medida para a stack do projeto.
+Bali-Agent is a subagent-first system for software engineering. It gives each project a real team of subagents instead of one assistant pretending to be multiple roles.
 
-## 1.1 Objetivo Master: subagentes reais sempre
+The model is interchangeable. The team structure is not.
 
-O objetivo master do Bali-Agent é **materializar subagentes reais em todo projeto**. O LLM é intercambiável (Claude, GPT, Gemini, DeepSeek, Gemma, Kimi, Llama, Ollama...), mas a orquestração não é opcional.
+Multi-model routing is optional. Subagents are mandatory for real project work.
 
-Role-play de papéis no mesmo contexto não é modo válido. Quando a ferramenta tiver subagentes nativos, crie-os no formato nativo. Quando não tiver, use um adapter ou o Bali Runtime para executar agentes isolados por processo, sessão ou chamada. Se nenhum caminho real estiver disponível, falhe fechado e informe o usuário. O contrato operacional está em `protocols/subagents.md`.
+---
 
-Toda instalação deve incluir `.agent/runtime/bali_runtime.py` e `.agent/adapters/*.md`. Esses arquivos são o caminho universal para Antigravity, Claude Code, Codex, OpenCode, Cursor, Gemini, Ollama e qualquer outro LLM/IDE.
+## 2. Master Rule
 
-## 2. Os dois pontos de entrada
+Never replace real subagents with role-play in the same context.
 
-### a) Bootstrap (primeira vez no projeto) — "Setup do time"
-Se **não existe** `.agent/subagent.config.yaml`, o projeto ainda não tem time. Quando o usuário disser **"Setup do time"** (ou `/setup`), assuma o papel do **Setup Agent** e siga `agents/_setup/AGENT.md`:
-1. Perfila a stack (heurísticas em `agents/_setup/stack-detection.md`), sem alterar código.
-2. Conduz uma entrevista curta (`agents/_setup/interview.md`).
-3. Propõe o time híbrido e aguarda aprovação do usuário.
-4. Gera os artefatos do projeto: a constituição (`AGENTS.md` na raiz, a partir de `templates/project-AGENTS.md`), o manifesto (`.agent/subagent.config.yaml`), o time real (`.agent/team/*.md`) e os adaptadores/runtime necessários para subagentes reais.
+Use this resolution order:
 
-### b) Operação (time já existe)
-Se **existe** `.agent/subagent.config.yaml`, o projeto já tem time. Assuma o papel de **Orchestrator** (`agents/_spine/orchestrator/AGENT.md`) e siga a constituição do projeto. Você **nunca trabalha sozinho**: todo pedido passa pelo time e toda entrega pelo Reviewer.
+1. Native adapter for the current host.
+2. Bali Runtime.
+3. Fail closed and explain what isolation path is missing.
 
-## 3. Topologia Hub-and-Spoke
+---
 
-O Orchestrator opera como **hub central** de uma topologia estrela. **NUNCA** executa tarefas diretamente — **SEMPRE** delega a subagentes reais e isolados, valida a saída, rejeita se necessário e só devolve ao humano após o gate do Reviewer.
+## 3. Core Team
 
+Every initialized Bali project must include this Core Team in `.agent/team/`:
+
+- `orchestrator`: human-facing hub and router.
+- `discovery`: user interview and existing-project discovery.
+- `prd-writer`: product requirements.
+- `sdd-architect`: technical design and architecture.
+- `planner`: task decomposition.
+- `implementer`: general implementation.
+- `qa`: tests and verification.
+- `security`: security and data-risk review.
+- `reviewer`: mandatory quality gate.
+- `recruiter`: creates and promotes project-fixed specialists.
+- `memory-curator`: updates working context and durable memory.
+- `docs`: documentation and knowledge.
+
+`spec-*` agents are project-fixed specialists. Temporary agents are for one run only.
+
+---
+
+## 4. Product Spine
+
+Discovery, PRD Writer, and SDD Architect sit above execution:
+
+```text
+Discovery -> PRD Writer -> SDD Architect
 ```
-Humano ↔ Orchestrator (hub — único ponto de contato)
-              ↕
-    ┌─────────┼─────────┐
-    ↓         ↓         ↓
-  Planner  Espec.1   Espec.2   ← subagentes reais (isolados)
-              ↕
-         Orchestrator           ← valida, rejeita, reenvia (até 3x)
-              ↓
-          Reviewer               ← gate final obrigatório
-              ↕
-         Orchestrator           ← devolve (ou reenvia se reprovado)
-              ↕
-           Humano
-```
 
-### Modos de operação
+Use the Product Spine for new projects and large changes, especially product behavior, data, architecture, integrations, permissions, billing, AI, deploy, or security.
 
-| Modo | Quando | Fluxo |
-|------|--------|-------|
-| **Operate** (padrão) | Projeto já em andamento (código existente) | `Humano → Orchestrator → triagem → especialista(s) → Orchestrator (valida) → Reviewer → Orchestrator → Humano` |
-| **Greenfield** | Projeto do zero | Pipeline SDLC com gates humanos: Discovery → PRD → SDD → Planner → Implementação → Review |
+Small tasks can use a shorter flow, but they still go through a specialist and Reviewer when they change the project.
 
-O modo é definido no manifesto (`modo: operate | greenfield`). Detalhes do roteamento em `protocols/routing.md`.
+---
 
-### Ciclo de validação
+## 5. Orchestrator Contract
 
-O Orchestrator **nunca** é um repassador passivo. Ele valida toda saída de subagente:
-- ✅ Saída correta → encaminha ao Reviewer
-- ❌ Saída insuficiente → rejeita + reenvia ao especialista com feedback específico (até 3 tentativas; na 4ª, escala ao humano)
-- 🔒 Reviewer reprova → reenvia ao especialista com os blockers listados
+If `.agent/subagent.config.yaml` exists, operate as Orchestrator:
 
-## 4. Mapa de Agentes
+1. Read `.agent/subagent.config.yaml`.
+2. Read `.agent/working-context.md`.
+3. Use `.agent/memory.md` only for relevant curated history.
+4. Classify the request: trivial, small, medium, or large.
+5. Use Product Spine when required.
+6. Route execution to the right subagent.
+7. Validate subagent output.
+8. Send final work to Reviewer.
+9. If Reviewer rejects, send blockers back to the responsible subagent.
+10. On approval, invoke Memory Gate.
 
-### Espinha fixa (sempre presente — `_spine`)
-| Agente | Papel | Arquivo |
-|--------|-------|---------|
-| 🎯 **Orchestrator** | Roteia QUALQUER pedido pelo time; aplica triagem e gates | `agents/_spine/orchestrator/AGENT.md` |
-| 📋 **Planner** | Decompõe pedidos em tasks atômicas e ordenadas | `agents/_spine/planner/AGENT.md` |
-| 🔎 **Reviewer** | Gate de qualidade + segurança antes de toda entrega | `agents/_spine/reviewer/AGENT.md` |
+The Orchestrator never implements code.
 
-### Agentes base de SDLC (sempre instalados)
-| Agente | Papel | Arquivo |
-|--------|-------|---------|
-| 🔍 **Discovery** | Entrevista, requisitos e contexto de negócio | `agents/discovery/AGENT.md` |
-| 📋 **PRD Writer** | Converte Discovery em PRD | `agents/prd-writer/AGENT.md` |
-| 🏗️ **SDD Architect** | Converte PRD aprovado em SDD | `agents/sdd-architect/AGENT.md` |
+---
 
-### Bootstrap (`_setup`)
-| Agente | Papel | Arquivo |
-|--------|-------|---------|
-| ⚙️ **Setup Agent** | Perfila a stack, entrevista e monta o time (1x por projeto) | `agents/_setup/AGENT.md` |
+## 6. Setup Contract
 
-### Especialistas dinâmicos (arquétipos em `_specialists`)
-Instanciados pelo Setup Agent em `.agent/team/spec-*.md` conforme a stack detectada. Arquétipos disponíveis: `agents/_specialists/{frontend,backend,database,devops,security,testing,docs,implementer}.md` + o molde `agents/_specialists/_TEMPLATE.md`.
+If `.agent/subagent.config.yaml` does not exist and the user asks to set up Bali:
 
-### Greenfield (modo projeto-novo)
-| Agente | Arquivo |
-|--------|---------|
-| 🔍 **Discovery** | `agents/discovery/AGENT.md` |
-| 📄 **PRD Writer** | `agents/prd-writer/AGENT.md` |
-| 🏗️ **SDD Architect** | `agents/sdd-architect/AGENT.md` |
+1. Detect the project stack without changing application code.
+2. Preserve existing repo governance such as root `AGENTS.md`, `README.md`, local rules, and design constraints.
+3. Create `.agent/` with runtime, protocols, templates, memory files, and Core Team.
+4. Create native adapter artifacts for available hosts.
+5. Create or preserve `.agent/subagent.config.yaml`.
+6. Verify the setup.
 
-## 5. Regra fundamental (não-opcional)
+For existing repos, Bali guidance is complementary. It must not overwrite the project's own rules without explicit instruction.
 
-Para **QUALQUER** pedido — bug, feature, dúvida, refactor, investigação:
-1. Assuma o papel de **Orchestrator** e leia `.agent/subagent.config.yaml`.
-2. Leia a memória de trabalho `.agent/working-context.md` para carregar o estado sem re-indexar o repositório.
-3. Roteie pelo(s) especialista(s) conforme `protocols/routing.md`.
-4. **Nunca trabalhe sozinho.** Toda entrega passa pelo **Reviewer** antes de concluir.
+---
 
-O esforço é **proporcional** ao pedido (ver `protocols/routing.md`): pergunta trivial → resposta rápida + sanity-check; feature → plano → execução → review. "Nunca solo" **não** significa "sempre burocrático".
+## 7. Team Evolution
 
-## 6. Protocolos
+The Recruiter creates new fixed specialists only when the need is recurring or structural.
 
-- `protocols/routing.md` — triagem e roteamento de qualquer tarefa
-- `protocols/subagents.md` — política de subagentes reais, adapters e falha fechada
-- `protocols/handoff.md` — handoff entre agentes
-- `protocols/approval-gates.md` — gates de aprovação humana (modo greenfield)
-- `protocols/quality-gates.md` — critérios mínimos de qualidade por artefato
+Examples:
 
-## 7. Memória, Segurança e Robustez
+- `spec-supabase` for Supabase auth, RLS, storage, and migrations.
+- `spec-cloudflare` for Workers, Pages, D1, R2, KV, and deployment.
+- `spec-lgpd` for privacy, consent, terms, and compliance.
 
-- **Memória de trabalho:** `.agent/working-context.md` (versionado no Git) guarda estado vivo, handoff, progresso recente e riscos atuais; nao e historico.
-- **Memória curada:** `.agent/memory.md` registra historico curado de task, commit, PR, decisão, incidente e aprendizado reutilizavel; não aceite log bruto.
-- **Agent Shield:** git pre-commit local (`prevent_secrets.py`) bloqueia commit de segredos, `.env` e chaves de API.
-- **Antiloop:** se um comando falhar 3x com o mesmo erro, pare, registre o erro/arquivos envolvidos e peça ajuda (Gate de Falha). Não descarte alterações automaticamente.
-- **Bali Runtime:** `.agent/runtime/bali_runtime.py` executa subagentes reais em ambientes sem subagente nativo, usando `BALI_LLM_COMMAND` para plugar qualquer LLM/CLI.
+For one-off investigations, create a temporary agent inside the run output instead of polluting `.agent/team/`.
 
-## 8. Regras invioláveis
+When a specialist is created or promoted, update the manifest, native adapters, and memory.
 
-- ❌ **NUNCA** trabalhar sozinho num pedido sem rotear por subagentes reais.
-- ❌ **NUNCA** concluir uma entrega sem passar pelo Reviewer.
-- ❌ **NUNCA** inventar requisitos — na dúvida, pergunte.
-- ❌ **NUNCA** expor secrets, tokens ou credenciais no código.
-- ❌ **NUNCA** substituir subagentes reais por role-play no mesmo contexto.
-- ✅ **SEMPRE** ajustar o esforço ao tamanho do pedido (processo proporcional).
-- ✅ **SEMPRE** atualizar a memória de trabalho ao concluir uma tarefa/gate e registrar memória curada quando houver task, commit, PR, decisão ou incidente relevante.
-- ✅ **SEMPRE** usar adapter nativo ou Bali Runtime quando a ferramenta não expuser subagentes nativos.
-- ✅ No modo greenfield, **SEMPRE** parar nos gates de aprovação humana.
+---
 
-## 9. Compatibilidade (adaptadores gerados no setup)
+## 8. Memory Contract
 
-| Ferramenta | Enforcement |
-|-----------|-------------|
-| **Claude Code surfaces** | CLI/terminal, Desktop Code tab, VS Code/JetBrains e web/cloud com workspace usam `CLAUDE.md`, hooks em `.claude/settings.json` e subagentes nativos em `.claude/agents/`; API pura sem shell exige wrapper externo para o Bali Runtime |
-| **Codex CLI / Codex Desktop** | subagentes nativos em `.codex/agents/*.toml` + `.codex/config.toml` |
-| **OpenCode** | `opencode.json` declara instruções + references; subagentes nativos em `.opencode/agents/*.md` com `mode: subagent` |
-| **Antigravity 2.0 / CLI** | Skills `.antigravity/skills/` (desktop) e `.agents/skills/` (CLI); `define_subagent` nativo + Manager/background subagents com fila segura |
-| **Cursor** | `.cursor/rules/bali-agent.mdc` + Bali Runtime quando não houver isolamento nativo |
-| **Ollama/API crua** | Bali Runtime via `BALI_LLM_COMMAND` |
-| **Qualquer modelo** | pode alimentar os subagentes reais; modelo não substitui o runtime de orquestração |
+Bali has two memory surfaces:
 
-## 10. Runtime CLI (Subagents Reais)
+- `.agent/working-context.md`: live state, handoff, current milestone, risks, next action.
+- `.agent/memory.md`: curated durable knowledge, decisions, incidents, reusable lessons.
 
-Para executar o time de agentes com **subagentes de verdade e isolamento de processos** em qualquer ambiente (como Ollama local ou APIs comerciais), o framework inclui um motor de execução em Python:
+Memory is not optional. At the end of relevant tasks, gates, PRs, commits, incidents, or architectural decisions, the Orchestrator calls `memory-curator`.
+
+Never store raw logs, secrets, tokens, keys, or unnecessary personal data.
+
+---
+
+## 9. Security Contract
+
+Security from the previous architecture remains required:
+
+- Tool access is default-deny.
+- Filesystem paths are normalized and constrained.
+- Secret patterns are blocked.
+- Runtime command execution is policy-controlled and avoids shell string composition.
+- Reviewer output must be structured and fail-closed.
+- Git and destructive operations require explicit permission in project/runtime contexts.
+- Subagent spawning obeys `can_spawn_agents` and depth limits.
+
+Do not weaken safety to make orchestration easier.
+
+---
+
+## 10. Supported Hosts
+
+| Host | Enforcement |
+|---|---|
+| Claude Code | `.claude/agents/*.md`, `CLAUDE.md`, optional hooks for context reinjection |
+| Codex | `.codex/agents/*.toml` and Codex custom agents |
+| OpenCode | `.opencode/agents/*.md` with `mode: subagent` |
+| Antigravity | `.antigravity/skills/` or `.agents/skills/` plus native subagent APIs |
+| Cursor | Cursor rules plus Bali Runtime when native isolation is missing |
+| Ollama / raw API / other CLIs | Bali Runtime via provider settings or `BALI_LLM_COMMAND` |
+
+API vs Desktop is not the deciding factor. The deciding factor is whether the host can run isolated subagents or tool-calling sessions.
+
+---
+
+## 11. Runtime CLI
+
+Use Bali Runtime when native subagents are unavailable:
 
 ```bash
-python .agent/run.py "sua instrução aqui"
+python .agent/runtime/bali_runtime.py run "task"
+python .agent/runtime/bali_runtime.py verify
+python .agent/runtime/bali_runtime.py list-agents
+python .agent/runtime/bali_runtime.py create-agent --id spec-name --scope "scope"
 ```
 
-### Configuração
-O runtime utiliza as seguintes variáveis de ambiente:
-- `BALI_LLM_PROVIDER`: `openai` | `anthropic` | `gemini` | `ollama` (padrão: `ollama`).
-- `BALI_LLM_MODEL`: nome do modelo a usar (ex: `gpt-4o`, `claude-3-5-sonnet-20241022`, `llama3`).
-- `BALI_API_KEY`: chave da API do provedor (ou use as padrão `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
-- `BALI_LLM_ENDPOINT`: URL base se diferente do padrão (ex: URL do Ollama local ou proxy).
+Provider environment:
+
+- `BALI_LLM_PROVIDER`
+- `BALI_LLM_MODEL`
+- `BALI_API_KEY`
+- `BALI_LLM_ENDPOINT`
+- `BALI_LLM_COMMAND`
 
 ---
 
-<p align="center"><em>Bali-Agent AI — Nunca um agente sozinho. Sempre um time.</em></p>
+## 12. Inviolable Rules
+
+- Never role-play multiple agents in one context.
+- Never let the Orchestrator implement code.
+- Never skip PRD/SDD for new projects or large product/architecture changes.
+- Never skip Reviewer for project changes.
+- Never store secrets in memory.
+- Always preserve existing project governance.
+- Always prefer native subagents when available.
+- Always use Bali Runtime as fallback.
+- Always fail closed if no real isolation path exists.
+
+---
+
+Bali-Agent is a persistent project team: Product Spine, Team Spine, Execution Spine, and Learning Spine.

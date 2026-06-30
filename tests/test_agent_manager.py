@@ -20,6 +20,25 @@ def test_verify_missing_agent(temp_project_dir):
     assert len(problems) > 0
     assert any("orchestrator.md" in p for p in problems)
 
+def test_verify_requires_subagent_first_team_policies(temp_project_dir):
+    manifest = temp_project_dir / ".agent" / "subagent.config.yaml"
+    manifest.write_text("""# Manifesto antigo
+subagents_policy:
+  role_play_permitido: false
+enforcement_adapters:
+  - bali-runtime
+time:
+  espinha:
+    - orchestrator
+""", encoding="utf-8")
+
+    problems = verify(temp_project_dir)
+
+    assert any("product_spine" in p for p in problems)
+    assert any("model_policy" in p for p in problems)
+    assert any("project_fixed" in p for p in problems)
+    assert any("temporary_policy" in p for p in problems)
+
 def test_create_agent_valid(temp_project_dir):
     res = create_agent(
         temp_project_dir,

@@ -34,10 +34,27 @@ subagents_policy:
 enforcement_adapters:
   - bali-runtime
 time:
+  core:
+    - orchestrator
+    - discovery
+    - prd-writer
+    - sdd-architect
+    - planner
+    - implementer
+    - qa
+    - security
+    - reviewer
+    - recruiter
+    - memory-curator
+    - docs
   espinha:
     - orchestrator
     - planner
     - reviewer
+  product_spine:
+    - discovery
+    - prd-writer
+    - sdd-architect
   base:
     - discovery
     - prd-writer
@@ -45,11 +62,31 @@ time:
   especialistas:
     - id: spec-implementer
       arquivo: .agent/team/spec-implementer.md
-      escopo: "test escopo"
+      escopo: "Fallback geral legado para compatibilidade"
+  project_fixed: []
+  temporary_policy:
+    max_per_task: 3
+    promote_after_reuse_count: 3
+model_policy:
+  default: host-default
 """, encoding="utf-8")
 
     # Create spine and base agents
-    for name in ["orchestrator", "planner", "reviewer", "discovery", "prd-writer", "sdd-architect", "spec-implementer"]:
+    for name in [
+        "orchestrator",
+        "discovery",
+        "prd-writer",
+        "sdd-architect",
+        "planner",
+        "implementer",
+        "qa",
+        "security",
+        "reviewer",
+        "recruiter",
+        "memory-curator",
+        "docs",
+        "spec-implementer",
+    ]:
         agent_file = team_dir / f"{name}.md"
         agent_file.write_text(f"# {name} agent definition\nEscopo de teste.", encoding="utf-8")
         

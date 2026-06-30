@@ -19,10 +19,8 @@ def test_claude_adapter_documents_supported_surfaces_and_runtime_fallback():
 
     for path in docs:
         text = path.read_text(encoding="utf-8")
-        assert "Claude Code surfaces" in text
-        assert "CLI" in text
-        assert "Desktop" in text
-        assert "VS Code" in text
-        assert "JetBrains" in text
+        assert "Claude Code" in text
+        assert ".claude/agents" in text
         assert "Bali Runtime" in text
+        assert "subagentes" in text or "subagents" in text
         assert "Claude Code IDE" not in text

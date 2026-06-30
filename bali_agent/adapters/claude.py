@@ -7,6 +7,20 @@ from pathlib import Path
 from typing import Tuple, List
 
 from bali_agent.adapters.base import BaseAdapter
+from bali_agent.core.agent_manager import CORE_TEAM
+
+
+def _default_agent_prompt(agent_id: str) -> str:
+    title = agent_id.replace("-", " ").title()
+    return (
+        f"# {title}\n\n"
+        "Voce e um subagente real do time Bali-Agent.\n\n"
+        "## Contrato\n\n"
+        "- Receba contexto minimo do Orchestrator.\n"
+        "- Execute somente o escopo delegado.\n"
+        "- Entregue resultado estruturado para o proximo gate.\n"
+        "- Nao faca role-play de outros agentes no mesmo contexto.\n"
+    )
 
 class ClaudeAdapter(BaseAdapter):
     def __init__(self, target_dir: Path):
@@ -34,6 +48,14 @@ class ClaudeAdapter(BaseAdapter):
         if not claude_md.is_file():
             problems.append("Falta o arquivo de instrucoes: CLAUDE.md")
 
+        agents_dir = self.target_dir / ".claude" / "agents"
+        if not agents_dir.is_dir():
+            problems.append("Falta o diretorio de subagentes: .claude/agents/")
+        else:
+            for agent_id in CORE_TEAM:
+                if not (agents_dir / f"{agent_id}.md").is_file():
+                    problems.append(f"Falta subagente Claude Code: .claude/agents/{agent_id}.md")
+
         return len(problems) == 0, problems
 
     def setup(self) -> None:
@@ -55,11 +77,29 @@ class ClaudeAdapter(BaseAdapter):
         # Write CLAUDE.md
         claude_md = self.target_dir / "CLAUDE.md"
         if not claude_md.is_file():
+            agent_imports = "\n".join(f"@.claude/agents/{agent_id}.md" for agent_id in CORE_TEAM)
             claude_md.write_text(
                 "# Claude Code - Bali-Agent Project Instructions\n\n"
-                "Imports: @AGENTS.md\n",
+                "@AGENTS.md\n\n"
+                "# Protocolos criticos\n"
+                "@protocols/subagents.md\n"
+                "@protocols/routing.md\n"
+                "@protocols/memory.md\n"
+                "@protocols/handoff.md\n\n"
+                "# Subagentes nativos\n"
+                f"{agent_imports}\n",
                 encoding="utf-8"
             )
+
+        agents_dir = claude_dir / "agents"
+        agents_dir.mkdir(parents=True, exist_ok=True)
+        team_dir = self.target_dir / ".agent" / "team"
+        for agent_id in CORE_TEAM:
+            source = team_dir / f"{agent_id}.md"
+            body = source.read_text(encoding="utf-8") if source.is_file() else _default_agent_prompt(agent_id)
+            dest = agents_dir / f"{agent_id}.md"
+            if not dest.is_file():
+                dest.write_text(body, encoding="utf-8")
 
     def get_capabilities(self) -> dict:
         """Return adapter capabilities with verification status.

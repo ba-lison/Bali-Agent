@@ -1,49 +1,79 @@
 # Protocolo de Memoria Curada
 
-> Define como o Bali-Agent registra memoria recorrente sem transformar o projeto
-> em um deposito de logs.
+> Define como o Bali-Agent aprende com o projeto sem virar deposito de logs.
 
-## Objetivo
+---
 
-Cada task, commit e PR relevante deve deixar uma memoria curta, revisada e util
-para a proxima sessao. A memoria pertence ao projeto e fica em `.agent/memory.md`.
+## 1. Objetivo
 
-## Fonte de Verdade
+Memoria nao e opcional nem depende do usuario pedir. Todo ciclo relevante passa por Memory Gate.
 
-- `.agent/working-context.md` e estado vivo: milestone atual, handoff, proxima acao,
-  riscos ativos e progresso recente. Nao use esse arquivo como historico.
-- `.agent/memory.md` e historico curado: decisoes, tasks concluidas, commits, PRs,
-  incidentes, riscos aceitos e aprendizados reutilizaveis.
-- Se a informacao explica "onde estamos agora", atualize `working-context.md`.
-- Se a informacao explica "o que aprendemos e deve sobreviver a sessoes futuras",
-  registre em `memory.md`.
+O Bali usa duas memorias:
 
-## Quando Registrar
+- `.agent/working-context.md`: estado vivo, handoff, milestone, proxima acao, riscos ativos.
+- `.agent/memory.md`: historico curado de decisoes, tasks, commits, PRs, incidentes e aprendizados reutilizaveis.
 
-- Ao concluir uma task.
-- Ao criar ou revisar um commit.
-- Ao abrir, atualizar ou revisar um PR.
-- Ao aceitar uma decisao arquitetural ou trade-off importante.
-- Ao resolver incidente, bug nao-obvio ou regressao.
+---
 
-## O Que Registrar
+## 2. Memory Gate
 
-- ID gerado pelo runtime.
-- Referencia externa quando existir: task, commit SHA, PR, issue ou incidente.
-- Resumo do que mudou.
-- Motivo da decisao.
-- Arquivos ou artefatos criticos.
-- Verificacao executada.
-- Riscos, pendencias ou follow-ups.
+Ao concluir task, gate, decisao arquitetural, bug nao obvio, incidente, PR ou commit, o Orchestrator chama `memory-curator`.
 
-## O Que Nao Registrar
+O fluxo e:
+
+```text
+Subagent termina
+  -> Reviewer aprova
+  -> Orchestrator chama memory-curator
+  -> working-context.md recebe estado vivo
+  -> memory.md recebe aprendizado duravel quando houver
+```
+
+Especialistas podem sugerir `memory_suggestions`, mas o Memory Curator decide o que fica.
+
+---
+
+## 3. Quando Atualizar Working Context
+
+Atualize `.agent/working-context.md` quando a informacao responde "onde estamos agora":
+
+- tarefa atual;
+- agente com a bola;
+- gate atual;
+- proxima acao;
+- riscos ativos;
+- progresso recente;
+- especialistas recem-criados que afetam o roteamento imediato.
+
+---
+
+## 4. Quando Registrar Memoria Curada
+
+Registre `.agent/memory.md` quando a informacao responde "o que aprendemos e deve sobreviver":
+
+- decisao tecnica ou de produto;
+- bug nao obvio e sua causa;
+- incidente e runbook;
+- trade-off aceito;
+- especialista fixo criado e seu escopo;
+- padrao local importante;
+- comando de verificacao relevante;
+- risco aceito ou pendencia critica.
+
+---
+
+## 5. O Que Nao Registrar
 
 - Logs longos de terminal.
 - Conteudo copiado sem curadoria.
-- Segredos, tokens, payloads sensiveis ou dados pessoais sem necessidade.
-- Opinioes soltas sem decisao ou consequencia tecnica.
+- Segredos, tokens, chaves ou payloads sensiveis.
+- Dados pessoais desnecessarios.
+- Opiniao solta sem decisao ou consequencia.
+- Estado passageiro que pertence apenas ao working context.
 
-## Comando Padrao
+---
+
+## 6. Comando Padrao
 
 ```bash
 python .agent/runtime/bali_runtime.py remember \
@@ -56,10 +86,17 @@ python .agent/runtime/bali_runtime.py remember \
   --risks "riscos ou pendencias"
 ```
 
-O runtime bloqueia entradas com padroes obvios de segredo. Se precisar citar
-um dado sensivel, escreva a classe do dado e o motivo, nunca o valor.
+O runtime bloqueia padroes obvios de segredo. Se precisar citar dado sensivel, cite apenas a classe do dado e o motivo, nunca o valor.
 
-## Responsabilidade
+---
 
-O Orchestrator e responsavel por registrar a memoria. Especialistas podem
-sugerir entradas, mas o Orchestrator revisa e salva somente o que for util.
+## 7. Responsabilidade
+
+- Orchestrator garante que o Memory Gate aconteca.
+- Memory Curator escreve ou rejeita a memoria.
+- Reviewer aprova a entrega antes de memoria duravel.
+- Especialistas sugerem entradas, mas nao despejam logs.
+
+---
+
+Memoria automatica, curada e segura. Nunca log bruto.

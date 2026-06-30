@@ -1,17 +1,42 @@
-# Manifesto do time Bali-Agent (gerado pelo Setup Agent).
-# Este arquivo é a fonte de verdade do time montado para o projeto.
-# Objetivo Master: subagentes reais sempre; role-play/simulação não é modo válido.
-versao_base: "2.0.0"
+# Manifesto do time Bali-Agent.
+# Fonte de verdade do time montado para o projeto.
+versao_base: "2.1.0"
 projeto: nome-do-projeto
-modo: operate            # operate | greenfield
+modo: operate
 criado_em: "AAAA-MM-DDTHH:MM:SS-03:00"
+runtime_authority: "bali-runtime"
+
 stack_detectada:
   - linguagem: exemplo-typescript
     framework: exemplo-next.js
     sinais: ["package.json"]
+
 nao_mexer:
   - "exemplo: migrations legadas em db/legacy/"
+
+subagents_policy:
+  objetivo_master: "materializar subagentes reais em todo ambiente"
+  role_play_permitido: false
+  fallback_obrigatorio: "adapter-nativo-ou-bali-runtime"
+
 time:
+  core:
+    - orchestrator
+    - discovery
+    - prd-writer
+    - sdd-architect
+    - planner
+    - implementer
+    - qa
+    - security
+    - reviewer
+    - recruiter
+    - memory-curator
+    - docs
+  product_spine:
+    - discovery
+    - prd-writer
+    - sdd-architect
   espinha:
     - orchestrator
     - planner
@@ -21,16 +46,36 @@ time:
     - prd-writer
     - sdd-architect
   especialistas:
-    - id: spec-exemplo
-      arquivo: .agent/team/spec-exemplo.md
-      escopo: "descreva o escopo do especialista"
-subagents_policy:
-  objetivo_master: "materializar subagentes reais em todo ambiente"
-  role_play_permitido: false
-  fallback_obrigatorio: "adapter-nativo-ou-bali-runtime"
+  project_fixed: []
+  temporary_policy:
+    max_per_task: 3
+    promote_after_reuse_count: 3
+
+model_policy:
+  default: host-default
+  classes:
+    cheap-fast:
+      fallback: host-default
+    balanced:
+      fallback: host-default
+    strong-coding:
+      fallback: host-default
+    strong-reasoning:
+      fallback: host-default
+  agents:
+    orchestrator:
+      preferred: strong-reasoning
+      fallback: host-default
+    reviewer:
+      preferred: strong-reasoning
+      fallback: host-default
+    implementer:
+      preferred: strong-coding
+      fallback: host-default
+
 enforcement_adapters:
   - bali-runtime
-  - claude-code          # PADRÃO: re-injeta a constituição a cada turno via hook
+  - claude-code
   - codex
   - opencode
   - cursor

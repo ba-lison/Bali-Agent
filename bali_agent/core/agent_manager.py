@@ -8,6 +8,20 @@ import datetime as _dt
 from pathlib import Path
 from typing import List, Dict, Optional, Union
 
+CORE_TEAM = (
+    "orchestrator",
+    "discovery",
+    "prd-writer",
+    "sdd-architect",
+    "planner",
+    "implementer",
+    "qa",
+    "security",
+    "reviewer",
+    "recruiter",
+    "memory-curator",
+    "docs",
+)
 SPINE = ("orchestrator", "planner", "reviewer")
 BASE_AGENTS = ("discovery", "prd-writer", "sdd-architect")
 SPEC_ID_RE = re.compile(r"^spec-[a-z0-9][a-z0-9-]*$")
@@ -53,20 +67,17 @@ def verify(root: Path) -> List[str]:
                 problems.append("Manifesto deve exigir fallback com bali-runtime")
             if "enforcement_adapters:" not in manifest_text:
                 problems.append("Manifesto deve declarar enforcement_adapters")
+            for required_key in ("product_spine:", "project_fixed:", "temporary_policy:", "model_policy:"):
+                if required_key not in manifest_text:
+                    problems.append(f"Manifesto deve declarar {required_key.rstrip(':')}")
         except Exception as e:
             problems.append(f"Erro ao ler manifesto: {e}")
 
     agents = _agent_files(root)
-    for name in SPINE:
+    for name in CORE_TEAM:
         if name not in agents:
-            problems.append(f"Subagente obrigatorio ausente: .agent/team/{name}.md")
-    for name in BASE_AGENTS:
-        if name not in agents:
-            problems.append(f"Agente base ausente: .agent/team/{name}.md")
+            problems.append(f"Subagente core obrigatorio ausente: .agent/team/{name}.md")
             
-    if not any(name.startswith("spec-") for name in agents):
-        problems.append("Nenhum especialista real encontrado em .agent/team/spec-*.md")
-
     if not _memory_path(root).is_file():
         problems.append("Memoria curada ausente: .agent/memory.md")
 
