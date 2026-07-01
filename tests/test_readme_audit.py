@@ -1,4 +1,16 @@
+from pathlib import Path
+
 from bali_agent.readme_audit import audit_readme_text
+
+
+def test_current_readme_names_critical_capability_limits():
+    text = Path("README.md").read_text(encoding="utf-8")
+
+    assert "runtime.parallel_execution" in text
+    assert "host.universal_native_isolation" in text
+    assert "model.mandatory_multi_model" in text
+    assert "BALI_SUBAGENT_RUNNER" in text
+    assert "routing_plan" in text
 
 
 def test_readme_audit_flags_universal_native_isolation_claim():

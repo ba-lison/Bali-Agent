@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-2.2.0-green.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/CHANGELOG.md)
 
-Bali-Agent e um **orquestrador de subagentes** para trabalho de engenharia de software. Hoje ele entrega time base, contratos, adapters, runtime de orquestracao e artefatos verificaveis; ainda nao e um orquestrador autonomo completo em qualquer host sem depender do suporte real do host.
+Bali-Agent e um kit CLI/runtime e um orquestrador de subagentes para instalar, materializar e executar fluxos de subagentes em projetos de software. Ele entrega time base, contratos, adapters, runtime sequencial, memoria curada e artefatos verificaveis. Ele nao promete autonomia universal: execucao real depende do Bali Runtime configurado ou do suporte nativo do host.
 
 A ideia e simples: eu entro num projeto com um time base de agentes, uso Discovery/PRD/SDD para entender antes de sair executando, delego a implementacao para especialistas e deixo QA/Seguranca/Reviewer fecharem a entrega.
 
@@ -102,6 +102,18 @@ Nem tudo no README tem o mesmo nivel de automacao hoje. Esta e a leitura honesta
 
 ## Compatibilidade Real
 
+### Capability IDs Criticos
+
+Estes ids existem para impedir promessa solta no README:
+
+| Capability id | Estado atual | Como falar disso |
+|---|---|---|
+| `runtime.parallel_execution` | Not delivered | O runtime e sequencial: `execution_mode: sequential` e `max_parallel: 1`. |
+| `host.universal_native_isolation` | Not delivered | Bali materializa adapters; isolamento nativo depende do host. |
+| `model.mandatory_multi_model` | Not delivered | `model_policy` e declarativo; troca real de modelo depende do host/wrapper. |
+| `runtime.dynamic_routing_plan` | Contract-dependent | O Orchestrator precisa devolver `routing_plan` JSON valido. |
+| `runtime.native_or_fallback` | Contract-dependent | Use host nativo quando existir; caso contrario use Bali Runtime com runner configurado. |
+
 O que esta compativel hoje:
 
 - CLI principal (`bali --root ...`) para `init`, `verify`, `list-agents`, `create-agent`, `remember`, `run`, `run --dry-run` e `inspect-runs`.
@@ -117,6 +129,8 @@ O que nao e promessa fechada ainda:
 - Isolamento nativo garantido em todo host: Bali cria os arquivos/adapters, mas a execucao nativa depende da ferramenta.
 - Multi-modelo obrigatorio: `model_policy` e declarativo; so vira troca real de modelo quando o host ou wrapper suportar.
 - Orquestracao sem contrato: se o Orchestrator/LLM nao devolver JSON valido, o runtime para em erro em vez de fingir sucesso.
+
+O Bali Runtime executa etapas isoladas quando `BALI_SUBAGENT_RUNNER` esta configurado. Sem runner, `run --dry-run` continua util para planejar e auditar a cadeia, mas `run` nao executa trabalho inteligente.
 
 ## Fluxo de Vida
 
