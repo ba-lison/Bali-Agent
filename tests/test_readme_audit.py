@@ -20,3 +20,24 @@ def test_readme_audit_flags_mandatory_multi_model_claim():
 
     assert findings
     assert "multi-modelo" in findings[0].message.lower() or "modelo" in findings[0].message.lower()
+
+
+def test_readme_audit_flags_bare_negation_claim_with_mandatory_multi_model():
+    findings = audit_readme_text("Bali nao e limitado: sempre usa modelos diferentes por agente.\n")
+
+    assert findings
+    assert any("multi-modelo" in finding.message.lower() or "modelo" in finding.message.lower() for finding in findings)
+
+
+def test_readme_audit_flags_real_parallelism_claim():
+    findings = audit_readme_text("paralelismo real ja funciona.\n")
+
+    assert findings
+    assert "parallel" in findings[0].message.lower()
+
+
+def test_readme_audit_flags_complete_autonomy_claim():
+    findings = audit_readme_text("Bali e autonomo completo.\n")
+
+    assert findings
+    assert "autonomy" in findings[0].message.lower() or "autonom" in findings[0].message.lower()
