@@ -312,3 +312,8 @@ def test_runtime_truth_evaluation_script_documents_required_commands():
     assert re.search(r"Invoke-Step python @\('-m', 'bali_agent\.cli', '--root', \$tmp, 'verify'\)", normalized)
     assert re.search(r"Invoke-Step python @\('-m', 'bali_agent\.cli', '--root', \$tmp, 'capability-report', '--json'\)", normalized)
     assert re.search(r"Invoke-Step python @\('-m', 'bali_agent\.cli', '--root', '\.', 'audit-readme', '--readme', 'README\.md', '--strict'\)", normalized)
+    assert re.search(
+        r"try \{.*finally \{.*if \(\$null -ne \$tmp -and \(Test-Path -LiteralPath \$tmp\)\) \{.*Remove-Item -LiteralPath \$tmp -Recurse -Force",
+        text,
+        re.S,
+    )

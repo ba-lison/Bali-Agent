@@ -463,7 +463,7 @@ Auditoria completa de honestidade README/runtime:
 .\scripts\evaluate_runtime_truth.ps1
 ```
 
-Esse gate roda testes, compilacao, inicializacao em projeto temporario, `capability-report --json` e `audit-readme --strict`.
+Esse gate roda testes, compilacao, inicializacao em projeto temporario, `capability-report --json` e `audit-readme --strict`, ancora-se no repo root antes de executar e pode ser chamado por caminho absoluto mesmo fora do diretorio do projeto.
 
 ## Direcao Atual Do Produto
 

@@ -41,6 +41,11 @@ Addressed the review findings from commit `1ebaa70`:
 - kept `audit-readme --readme README.md --strict` running with `--root .` after the repo-root push;
 - strengthened `tests/test_cli.py::test_runtime_truth_evaluation_script_documents_required_commands` to check the anchor, wrapper, and fail-closed structure instead of loose substrings.
 
+Addressed the re-review note from commit `37e7b1d`:
+
+- expanded the CLI test to assert the temp cleanup structure explicitly, including the nested `finally`, `Test-Path`, and `Remove-Item` path;
+- clarified the README gate paragraph so it says the script anchors itself to the repo root and can be invoked by path from outside the repository.
+
 ## Follow-up Verification
 
 - `python -m pytest tests/test_cli.py::test_runtime_truth_evaluation_script_documents_required_commands -q`
