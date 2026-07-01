@@ -238,12 +238,14 @@ def verify_command(root: Path) -> int:
     print("[VERIFY] OK: time e adaptadores instalados corretamente.")
     return 0
 
-def run_command(root: Path, task: str, workflow: str = "operate", specialist: Optional[str] = None) -> int:
+def run_command(root: Path, task: str, workflow: str = "operate", specialist: Optional[str] = None, dry_run: bool = False) -> int:
     """Run execution task loop."""
     print(f"[*] Iniciando execucao da tarefa: {task}...", file=sys.stderr)
     runtime_script = root / ".agent" / "runtime" / "bali_runtime.py"
     if runtime_script.is_file():
-        command = [sys.executable, str(runtime_script), "run", "--workflow", workflow]
+        command = [sys.executable, str(runtime_script), "--root", str(root), "run", "--workflow", workflow]
+        if dry_run:
+            command.append("--dry-run")
         if specialist:
             command.extend(["--specialist", specialist])
         command.append(task)
@@ -273,29 +275,48 @@ def run_command(root: Path, task: str, workflow: str = "operate", specialist: Op
 
 def inspect_runs(root: Path) -> int:
     """Inspect execution trace files and manifests."""
-    runs_dir = root / ".agent" / "runs"
-    if not runs_dir.is_dir():
+    runtime_dir = root / ".agent" / "output" / "runtime"
+    legacy_dir = root / ".agent" / "runs"
+    run_dirs = []
+    for candidate in (runtime_dir, legacy_dir):
+        if candidate.is_dir():
+            run_dirs.extend(path for path in candidate.iterdir() if path.is_dir())
+
+    if not run_dirs:
         print("Nenhuma execucao registrada ainda.")
         return 0
-        
-    for run_folder in sorted(runs_dir.iterdir(), reverse=True):
-        if run_folder.is_dir():
-            manifest = run_folder / "context_manifest.json"
-            trace = run_folder / "trace.jsonl"
-            print(f"\nRun ID: {run_folder.name}")
-            if manifest.is_file():
-                try:
-                    with manifest.open("r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    print(f"  Agente: {data.get('agent')} | Redactions: {data.get('redactions')} | Tokens: {data.get('estimated_tokens_used')}")
-                except Exception:
-                    pass
-            if trace.is_file():
-                try:
-                    lines = trace.read_text(encoding="utf-8").splitlines()
-                    print(f"  Total Eventos: {len(lines)}")
-                except Exception:
-                    pass
+
+    for run_folder in sorted(run_dirs, reverse=True):
+        manifest = run_folder / "run_manifest.json"
+        legacy_manifest = run_folder / "context_manifest.json"
+        trace = run_folder / "trace.jsonl"
+        print(f"\nRun ID: {run_folder.name}")
+        if manifest.is_file():
+            try:
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+                agents = [step.get("agent") for step in data.get("steps", []) if step.get("agent")]
+                artifacts = data.get("artifacts") or []
+                print(f"  Workflow: {data.get('workflow')} | Status: {data.get('status')}")
+                print(f"  Tarefa: {data.get('task')}")
+                if agents:
+                    print(f"  Agentes: {', '.join(agents)}")
+                if artifacts:
+                    print(f"  Artefatos: {', '.join(artifacts)}")
+            except Exception as exc:
+                print(f"  [!] Manifesto invalido: {exc}")
+        elif legacy_manifest.is_file():
+            try:
+                with legacy_manifest.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                print(f"  Agente: {data.get('agent')} | Redactions: {data.get('redactions')} | Tokens: {data.get('estimated_tokens_used')}")
+            except Exception:
+                pass
+        if trace.is_file():
+            try:
+                lines = trace.read_text(encoding="utf-8").splitlines()
+                print(f"  Total Eventos: {len(lines)}")
+            except Exception:
+                pass
     return 0
 
 def verify_adapter(root: Path, name: str) -> int:
@@ -347,6 +368,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     run = sub.add_parser("run")
     run.add_argument("--workflow", choices=["operate", "greenfield"], default="operate")
     run.add_argument("--specialist")
+    run.add_argument("--dry-run", action="store_true")
     run.add_argument("task", nargs="+")
     
     v_adapter = sub.add_parser("verify-adapter")
@@ -372,7 +394,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     elif args.command == "run":
         sys.exit(run_command(
             root, " ".join(args.task),
-            workflow=args.workflow, specialist=args.specialist
+            workflow=args.workflow, specialist=args.specialist, dry_run=args.dry_run
         ))
     elif args.command == "inspect-runs":
         sys.exit(inspect_runs(root))

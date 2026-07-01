@@ -41,6 +41,13 @@ from templates.core.memory import remember
 SPINE = ("orchestrator", "planner", "reviewer")
 BASE_AGENTS = ("discovery", "prd-writer", "sdd-architect")
 REVIEW_REQUIRED_CHECKS = ("scope", "tests", "security", "regression")
+AGENT_ARTIFACTS = {
+    "discovery": "discovery.md",
+    "prd-writer": "prd.md",
+    "sdd-architect": "sdd.md",
+    "planner": "tasks.md",
+    "memory-curator": "memory-summary.md",
+}
 
 def _root(path: str) -> Path:
     return Path(path).resolve()
@@ -290,6 +297,75 @@ def _write_failure_event(run_dir: Path, agent_name: str, exc: Exception) -> None
         event["next_retry_at"] = (_dt.datetime.now() + _dt.timedelta(seconds=30)).isoformat()
     _write(run_dir / "agent_failed.json", json.dumps(event, indent=2, ensure_ascii=False))
 
+def _artifact_for_agent(agent_name: str) -> Optional[str]:
+    return AGENT_ARTIFACTS.get(agent_name)
+
+def _persist_agent_artifact(run_dir: Path, agent_name: str, content: str) -> Optional[str]:
+    artifact_name = _artifact_for_agent(agent_name)
+    if not artifact_name:
+        return None
+    artifact_path = run_dir / "artifacts" / artifact_name
+    _write(artifact_path, content)
+    return str(artifact_path.relative_to(run_dir)).replace("\\", "/")
+
+def _write_run_manifest(
+    run_dir: Path,
+    *,
+    workflow: str,
+    task: str,
+    status: str,
+    plan: Optional[dict],
+    steps: list,
+    artifacts: list,
+) -> None:
+    manifest = {
+        "workflow": workflow,
+        "task": task,
+        "status": status,
+        "created_at": _dt.datetime.now().isoformat(),
+        "classification": plan.get("classification") if plan else None,
+        "steps": steps,
+        "artifacts": sorted(set(artifacts)),
+    }
+    _write(run_dir / "run_manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+
+def _run_memory_curator(
+    root: Path,
+    run_dir: Path,
+    command_template: str,
+    agents: dict,
+    task: str,
+    prior: str,
+    artifacts: list,
+    steps: list,
+) -> None:
+    if "memory-curator" not in agents:
+        return
+    prompt = "\n".join(
+        [
+            "Atualize a memoria curada deste run aprovado.",
+            "",
+            f"Tarefa: {task}",
+            f"Artefatos: {', '.join(artifacts) if artifacts else '(none)'}",
+            f"Agentes: {', '.join(step.get('agent', '(unknown)') for step in steps) if steps else '(none)'}",
+        ]
+    )
+    prompt_path = _write_prompt(run_dir, "memory-curator", agents["memory-curator"], prompt, prior)
+    output_path = run_dir / "memory-curator.output.md"
+    _run_llm(command_template, prompt_path, output_path, "memory-curator")
+    memory_text = _read(output_path)
+    artifact = _persist_agent_artifact(run_dir, "memory-curator", memory_text)
+    if artifact:
+        artifacts.append(artifact)
+    remember(
+        root,
+        "task",
+        f"Bali Runtime: {task[:80]}",
+        memory_text[:1200] or "Run aprovado pelo Bali Runtime.",
+        ref=str(run_dir.relative_to(root)),
+        files=", ".join(sorted(set(artifacts))) if artifacts else None,
+    )
+
 def _write_prompt(
     run_dir: Path,
     agent_name: str,
@@ -449,6 +525,9 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
 
     prior = ""
     current_agent = "orchestrator"
+    plan = None
+    executed_steps = []
+    artifacts = []
     try:
         orchestrator_prompt = _write_prompt(run_dir, "orchestrator", agents["orchestrator"], task, prior)
         orchestrator_output = run_dir / "orchestrator.output.md"
@@ -458,6 +537,15 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
         agents = _materialize_plan_specialists(root, run_dir, agents, plan)
 
         if plan["classification"] == "trivial":
+            _write_run_manifest(
+                run_dir,
+                workflow=workflow,
+                task=task,
+                status="completed",
+                plan=plan,
+                steps=[{"agent": "orchestrator"}],
+                artifacts=artifacts,
+            )
             print(orchestrator_text)
             print(f"Bali Runtime concluido: {run_dir.relative_to(root)}")
             return 0
@@ -486,6 +574,18 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
                 output_path = run_dir / f"{index:02d}-{agent_name}-attempt-{attempt + 1}.output.md"
                 _run_llm(command_template, prompt_path, output_path, agent_name)
                 prior = _read(output_path)
+                artifact = _persist_agent_artifact(run_dir, agent_name, prior)
+                if artifact:
+                    artifacts.append(artifact)
+                executed_steps.append(
+                    {
+                        "id": step.get("id"),
+                        "agent": agent_name,
+                        "attempt": attempt + 1,
+                        "review": bool(step.get("review", True)),
+                        "output": str(output_path.relative_to(run_dir)).replace("\\", "/"),
+                    }
+                )
 
                 if not step.get("review", True):
                     approved = True
@@ -504,7 +604,26 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
 
             if not approved:
                 raise RuntimeError(f"Reviewer reprovou {agent_name}: {feedback}")
+        _run_memory_curator(root, run_dir, command_template, agents, task, prior, artifacts, executed_steps)
+        _write_run_manifest(
+            run_dir,
+            workflow=workflow,
+            task=task,
+            status="completed",
+            plan=plan,
+            steps=executed_steps,
+            artifacts=artifacts,
+        )
     except Exception as exc:
+        _write_run_manifest(
+            run_dir,
+            workflow=workflow,
+            task=task,
+            status="failed",
+            plan=plan,
+            steps=executed_steps,
+            artifacts=artifacts,
+        )
         _write_failure_event(run_dir, current_agent, exc)
         print(f"[!] Bali Runtime falhou: {exc}", file=sys.stderr)
         sys.exit(1)  # Grave estado ao sys.exit(1) em vez de abortar silenciosamente (Fase 6)

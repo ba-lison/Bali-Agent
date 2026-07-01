@@ -5,7 +5,9 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-2.2.0-green.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/CHANGELOG.md)
 
-Bali-Agent e um framework **subagent-first** para trabalho de engenharia de software. A ideia e simples: eu entro num projeto com um time base de agentes, uso Discovery/PRD/SDD para entender antes de sair executando, delego a implementacao para especialistas e deixo QA/Seguranca/Reviewer fecharem a entrega.
+Bali-Agent e uma fundacao funcional **subagent-first** para trabalho de engenharia de software. Hoje ele entrega runtime, contratos, adapters e artefatos verificaveis; ainda nao e um orquestrador autonomo completo em qualquer host sem depender do contrato do LLM/host.
+
+A ideia e simples: eu entro num projeto com um time base de agentes, uso Discovery/PRD/SDD para entender antes de sair executando, delego a implementacao para especialistas e deixo QA/Seguranca/Reviewer fecharem a entrega.
 
 O foco nao e "usar varios modelos a qualquer custo". O foco e ter separacao real de responsabilidade. Se o host deixar escolher modelo por agente, eu uso `model_policy`. Se nao deixar, todo mundo roda no modelo atual do host e o fluxo continua.
 
@@ -24,7 +26,7 @@ Humano
   -> Humano
 ```
 
-Na pratica, eu falo com o Orchestrator. Dali, o trabalho e organizado, os agentes certos entram em cena, as saidas sao revisadas e o que ficou incompleto volta para ajuste.
+Na pratica, eu falo com o Orchestrator. Dali, o trabalho e organizado, os agentes certos entram em cena, as saidas sao revisadas e o que ficou incompleto volta para ajuste. Quando o Bali Runtime esta no controle, essa organizacao depende de uma resposta `routing_plan` em JSON valido; se o LLM devolver apenas texto solto, o runtime falha de forma explicita em vez de fingir coordenacao.
 
 ## O Que E Um Subagente
 
@@ -88,13 +90,31 @@ Nem tudo no README tem o mesmo nivel de automacao hoje. Esta e a leitura honesta
 | `verify` / `list-agents` | Funcional | Valida manifesto, time obrigatorio e arquivos principais. |
 | `create-agent` | Funcional | Cria especialista fixo `spec-*`, registra no manifesto e espelha para Claude/Codex/OpenCode quando as pastas existem. |
 | `remember` | Funcional | Escreve memoria curada e bloqueia padroes obvios de segredo. |
-| Runtime `run --dry-run` | Funcional via `.agent/runtime/bali_runtime.py` | Gera cadeia e artefatos sem chamar LLM. |
+| `bali run --dry-run` | Funcional via CLI e `.agent/runtime/bali_runtime.py` | Gera cadeia e artefatos sem chamar LLM. |
 | Runtime com LLM | Funcional quando `BALI_LLM_COMMAND` esta configurado | Executa agentes por comando externo, com prompts/outputs isolados. |
-| Product Spine `greenfield` | Funcional como cadeia de runtime | Roda `orchestrator -> discovery -> prd-writer -> sdd-architect -> planner -> especialista -> reviewer`. |
+| Product Spine `greenfield` | Funcional com artefatos de run | Roda pelo `routing_plan` do Orchestrator e persiste `artifacts/discovery.md`, `artifacts/prd.md`, `artifacts/sdd.md` e `artifacts/tasks.md` quando esses agentes executam. |
 | Routing dinamico do Orchestrator | Parcial | O runtime ja entende routing plan JSON, cria especialistas temporarios/permanentes e faz retry com Reviewer, mas depende do Orchestrator/LLM devolver o contrato certo. |
 | Multi-modelo por agente | Parcial/depende do host | `model_policy` existe no manifesto; aplicar modelo diferente por agente depende do adapter/host suportar isso. |
 | Subagentes nativos por host | Depende do host | Bali materializa arquivos para Claude, Codex e OpenCode, mas quem executa isolamento nativo e a ferramenta. Se nao houver isolamento nativo, use Bali Runtime. |
-| Memoria automatica no fim de toda task | Parcial | A infraestrutura existe (`remember`, `memory-curator`, templates e protocolos). A chamada 100% automatica em todo caminho ainda depende do fluxo/runtime usado. |
+| Memoria automatica no fim de task aprovada | Funcional no Bali Runtime | Depois de um run aprovado, o runtime chama `memory-curator`, grava `artifacts/memory-summary.md` e registra entrada em `.agent/memory.md`. Em hosts nativos, ainda depende do adapter/host seguir o protocolo. |
+| `inspect-runs` | Funcional para o runtime atual | Le `.agent/output/runtime/*/run_manifest.json` e ainda aceita manifests legados em `.agent/runs`. |
+
+## Compatibilidade Real
+
+O que esta compativel hoje:
+
+- CLI principal (`bali --root ...`) para `init`, `verify`, `list-agents`, `create-agent`, `remember`, `run`, `run --dry-run` e `inspect-runs`.
+- Bali Runtime instalado em `.agent/runtime/bali_runtime.py`, com `--root` explicito, manifests em `.agent/output/runtime/*/run_manifest.json` e artefatos por agente.
+- Product Spine em modo `greenfield` quando o Orchestrator devolve `routing_plan` valido.
+- Memoria automatica ao fim de runs aprovados pelo Bali Runtime.
+- Adapters que materializam arquivos para hosts como Claude Code, Codex e OpenCode.
+
+O que nao e promessa fechada ainda:
+
+- Paralelismo real entre agentes: o runtime aceita apenas `execution_mode: sequential` e `max_parallel: 1`.
+- Isolamento nativo garantido em todo host: Bali cria os arquivos/adapters, mas a execucao nativa depende da ferramenta.
+- Multi-modelo obrigatorio: `model_policy` e declarativo; so vira troca real de modelo quando o host ou wrapper suportar.
+- Orquestracao sem contrato: se o Orchestrator/LLM nao devolver JSON valido, o runtime para em erro em vez de fingir sucesso.
 
 ## Fluxo de Vida
 
@@ -110,7 +130,7 @@ Nem tudo no README tem o mesmo nivel de automacao hoje. Esta e a leitura honesta
 7. Especialistas implementam.
 8. QA e Security validam quando relevante.
 9. Reviewer aprova ou rejeita.
-10. Memory Curator atualiza a memoria do projeto.
+10. Memory Curator atualiza a memoria do projeto quando o run e aprovado.
 ```
 
 ### Projeto Existente
@@ -124,7 +144,7 @@ Nem tudo no README tem o mesmo nivel de automacao hoje. Esta e a leitura honesta
 6. Recruiter cria especialista fixo apenas quando a necessidade e recorrente.
 7. Agentes temporarios cuidam de investigacoes pontuais.
 8. Reviewer faz o gate da entrega.
-9. Memory Curator registra o que deve sobreviver para sessoes futuras.
+9. Memory Curator registra o que deve sobreviver para sessoes futuras quando o run e aprovado.
 ```
 
 ## Hosts E Adapters
@@ -181,7 +201,7 @@ pip install -e .
 Inicialize um projeto alvo:
 
 ```bash
-bali init /caminho/do/projeto
+bali --root /caminho/do/projeto init
 ```
 
 Verifique a instalacao:
@@ -200,13 +220,13 @@ bali --root /caminho/do/projeto <comando>
 |---|---|
 | `init` | Instala `.agent/`, runtime, templates, protocolos, time, memoria e adapters. |
 | `verify` | Valida time obrigatorio, manifesto, runtime, memoria e contrato de adapters. |
-| `verify-adapter <nome>` | Verifica um adapter como `claude`, `codex` ou `antigravity`. |
+| `verify-adapter <nome>` | Verifica um adapter como `claude-code`, `codex` ou `antigravity`. |
 | `list-agents` | Lista agentes registrados em `.agent/team/`. |
 | `create-agent --id spec-name --scope "..."` | Cria especialista fixo do projeto. |
 | `run "tarefa"` | Executa o fluxo do Orchestrator. |
 | `run --workflow greenfield "tarefa"` | Executa o fluxo greenfield com Product Spine. |
 | `remember` | Adiciona entrada curada de memoria. |
-| `inspect-runs` | Mostra traces de execucoes registradas. |
+| `inspect-runs` | Mostra runs do Bali Runtime em `.agent/output/runtime` e runs legados em `.agent/runs`. |
 
 Exemplos:
 

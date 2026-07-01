@@ -157,7 +157,91 @@ def test_runtime_executes_orchestrator_dynamic_plan(temp_project_dir, monkeypatc
     res = runtime.run_task(temp_project_dir, "Corrigir logins", dry_run=False, workflow="operate")
 
     assert res == 0
-    assert calls == ["orchestrator", "spec-implementer", "reviewer"]
+    assert calls == ["orchestrator", "spec-implementer", "reviewer", "memory-curator"]
+
+
+def test_greenfield_runtime_persists_product_spine_artifacts(temp_project_dir, monkeypatch):
+    calls = []
+
+    def fake_run_llm(command_template, prompt_path, output_path, agent_name):
+        calls.append(agent_name)
+        if agent_name == "orchestrator":
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "classification": "large",
+                        "max_retries": 1,
+                        "steps": [
+                            {"agent": "discovery", "prompt": "Descobrir produto", "review": False},
+                            {"agent": "prd-writer", "prompt": "Escrever PRD", "review": False},
+                            {"agent": "sdd-architect", "prompt": "Escrever SDD", "review": False},
+                            {"agent": "planner", "prompt": "Quebrar tasks", "review": False},
+                            {"agent": "spec-implementer", "prompt": "Implementar", "review": True},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+        elif agent_name == "reviewer":
+            output_path.write_text(_reviewer_verdict(), encoding="utf-8")
+        else:
+            output_path.write_text(f"Saida controlada de {agent_name}.", encoding="utf-8")
+
+    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
+
+    res = runtime.run_task(temp_project_dir, "Criar produto novo", dry_run=False, workflow="greenfield")
+
+    assert res == 0
+    run_dirs = list((temp_project_dir / ".agent" / "output" / "runtime").iterdir())
+    artifacts = run_dirs[0] / "artifacts"
+    assert (artifacts / "discovery.md").read_text(encoding="utf-8") == "Saida controlada de discovery."
+    assert (artifacts / "prd.md").read_text(encoding="utf-8") == "Saida controlada de prd-writer."
+    assert (artifacts / "sdd.md").read_text(encoding="utf-8") == "Saida controlada de sdd-architect."
+    assert (artifacts / "tasks.md").read_text(encoding="utf-8") == "Saida controlada de planner."
+    manifest = json.loads((run_dirs[0] / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["workflow"] == "greenfield"
+    assert "artifacts/prd.md" in manifest["artifacts"]
+    assert "artifacts/sdd.md" in manifest["artifacts"]
+
+
+def test_runtime_calls_memory_curator_after_approved_run(temp_project_dir, monkeypatch):
+    calls = []
+
+    def fake_run_llm(command_template, prompt_path, output_path, agent_name):
+        calls.append(agent_name)
+        if agent_name == "orchestrator":
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "classification": "small",
+                        "steps": [
+                            {"agent": "spec-implementer", "prompt": "Corrigir logins", "review": True}
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+        elif agent_name == "reviewer":
+            output_path.write_text(_reviewer_verdict(), encoding="utf-8")
+        elif agent_name == "memory-curator":
+            output_path.write_text("Memoria curada do run.", encoding="utf-8")
+        else:
+            output_path.write_text("Implementacao concluida.", encoding="utf-8")
+
+    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
+
+    res = runtime.run_task(temp_project_dir, "Corrigir logins", dry_run=False, workflow="operate")
+
+    assert res == 0
+    assert calls == ["orchestrator", "spec-implementer", "reviewer", "memory-curator"]
+    run_dirs = list((temp_project_dir / ".agent" / "output" / "runtime").iterdir())
+    assert (run_dirs[0] / "artifacts" / "memory-summary.md").read_text(encoding="utf-8") == "Memoria curada do run."
+    memory_text = (temp_project_dir / ".agent" / "memory.md").read_text(encoding="utf-8")
+    assert "Bali Runtime: Corrigir logins" in memory_text
 
 
 def test_runtime_retries_step_when_reviewer_rejects(temp_project_dir, monkeypatch):
@@ -210,6 +294,8 @@ def test_runtime_retries_step_when_reviewer_rejects(temp_project_dir, monkeypatc
                 )
             else:
                 output_path.write_text(_reviewer_verdict(), encoding="utf-8")
+        elif agent_name == "memory-curator":
+            output_path.write_text("Memoria do retry aprovado.", encoding="utf-8")
 
     monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
     monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
@@ -218,7 +304,7 @@ def test_runtime_retries_step_when_reviewer_rejects(temp_project_dir, monkeypatc
     res = runtime.run_task(temp_project_dir, "Corrigir logins", dry_run=False, workflow="operate")
 
     assert res == 0
-    assert calls == ["orchestrator", "spec-implementer", "reviewer", "spec-implementer", "reviewer"]
+    assert calls == ["orchestrator", "spec-implementer", "reviewer", "spec-implementer", "reviewer", "memory-curator"]
 
 
 def test_runtime_materializes_permanent_and_temporary_specialists(temp_project_dir, monkeypatch):
@@ -267,7 +353,7 @@ def test_runtime_materializes_permanent_and_temporary_specialists(temp_project_d
     run_dirs = list((temp_project_dir / ".agent" / "output" / "runtime").iterdir())
     assert len(run_dirs) == 1
     assert (run_dirs[0] / "temp-agents" / "spec-one-shot.md").is_file()
-    assert calls == ["orchestrator", "spec-payments", "spec-one-shot"]
+    assert calls == ["orchestrator", "spec-payments", "spec-one-shot", "memory-curator"]
 
 
 def test_runtime_passes_contract_metadata_to_dependent_step(temp_project_dir, monkeypatch):
@@ -323,7 +409,7 @@ def test_runtime_passes_contract_metadata_to_dependent_step(temp_project_dir, mo
     res = runtime.run_task(temp_project_dir, "Criar painel", dry_run=False, workflow="operate")
 
     assert res == 0
-    assert calls == ["orchestrator", "spec-backend", "spec-frontend"]
+    assert calls == ["orchestrator", "spec-backend", "spec-frontend", "memory-curator"]
     run_dirs = list((temp_project_dir / ".agent" / "output" / "runtime").iterdir())
     frontend_prompt = (run_dirs[0] / "spec-frontend.prompt.md").read_text(encoding="utf-8")
     assert "## Step Contract" in frontend_prompt

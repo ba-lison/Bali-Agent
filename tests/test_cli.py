@@ -6,7 +6,7 @@ import shutil
 import tempfile
 import sys
 from pathlib import Path
-from bali_agent.cli import init_command, verify_command
+from bali_agent.cli import init_command, verify_command, inspect_runs
 import templates.verify_setup as verify_setup
 
 
@@ -95,17 +95,51 @@ def test_cli_run_delegates_to_installed_runtime(temp_project_dir, monkeypatch):
     monkeypatch.setattr(cli, "Runner", BombRunner)
     monkeypatch.setattr(cli, "subprocess", type("Subprocess", (), {"run": fake_run}), raising=False)
 
-    res = cli.run_command(temp_project_dir, "Corrigir logins", workflow="operate", specialist="spec-implementer")
+    res = cli.run_command(
+        temp_project_dir,
+        "Corrigir logins",
+        workflow="operate",
+        specialist="spec-implementer",
+        dry_run=True,
+    )
 
     assert res == 0
     assert calls
     assert calls[0] == [
         sys.executable,
         str(runtime),
+        "--root",
+        str(temp_project_dir),
         "run",
         "--workflow",
         "operate",
+        "--dry-run",
         "--specialist",
         "spec-implementer",
         "Corrigir logins",
     ]
+
+
+def test_inspect_runs_reads_runtime_output_directory(temp_project_dir, capsys):
+    run_dir = temp_project_dir / ".agent" / "output" / "runtime" / "20260630-120000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run_manifest.json").write_text(
+        """{
+  "workflow": "greenfield",
+  "task": "Criar produto",
+  "status": "completed",
+  "steps": [{"agent": "prd-writer"}, {"agent": "reviewer"}],
+  "artifacts": ["artifacts/prd.md", "artifacts/sdd.md"]
+}""",
+        encoding="utf-8",
+    )
+
+    res = inspect_runs(temp_project_dir)
+
+    output = capsys.readouterr().out
+    assert res == 0
+    assert "Run ID: 20260630-120000" in output
+    assert "Workflow: greenfield" in output
+    assert "Status: completed" in output
+    assert "Agentes: prd-writer, reviewer" in output
+    assert "Artefatos: artifacts/prd.md, artifacts/sdd.md" in output
