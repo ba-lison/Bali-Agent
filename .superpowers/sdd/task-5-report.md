@@ -30,3 +30,19 @@ The script now:
 
 - The audit-readme root correction from the brief was applied explicitly.
 - No open concerns.
+
+## Follow-up Fix
+
+Addressed the review findings from commit `1ebaa70`:
+
+- wrapped every `python` invocation in `scripts/evaluate_runtime_truth.ps1` with `Invoke-Step` so native command failures now stop the gate;
+- anchored the script to the repo root with `$PSScriptRoot`, `Split-Path -Parent`, `Push-Location`, and `Pop-Location`;
+- kept temp directory cleanup inside `finally`;
+- kept `audit-readme --readme README.md --strict` running with `--root .` after the repo-root push;
+- strengthened `tests/test_cli.py::test_runtime_truth_evaluation_script_documents_required_commands` to check the anchor, wrapper, and fail-closed structure instead of loose substrings.
+
+## Follow-up Verification
+
+- `python -m pytest tests/test_cli.py::test_runtime_truth_evaluation_script_documents_required_commands -q`
+- `.\scripts\evaluate_runtime_truth.ps1` from repo root
+- `& 'C:\Users\suporte2\Documents\.Inovaxao_Totalcad\.agent\Bali-Agent\scripts\evaluate_runtime_truth.ps1'` from `C:\Users\suporte2\Documents\.Inovaxao_Totalcad\.agent`

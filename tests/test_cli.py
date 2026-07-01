@@ -2,6 +2,7 @@
 """Unit tests for the CLI commands."""
 
 import pytest
+import re
 import shutil
 import tempfile
 import sys
@@ -291,8 +292,23 @@ def test_runtime_truth_evaluation_script_documents_required_commands():
 
     script = Path("scripts/evaluate_runtime_truth.ps1")
     text = script.read_text(encoding="utf-8")
+    normalized = re.sub(r"\s+", " ", text)
 
-    assert "python -m pytest -q" in text
-    assert "capability-report --json" in text
-    assert "audit-readme --readme README.md --strict" in text
-    assert "py_compile" in text
+    assert "$scriptRoot = $PSScriptRoot" in normalized
+    assert "$repoRoot = Split-Path -Parent $scriptRoot" in normalized
+    assert "Push-Location $repoRoot" in normalized
+    assert "Pop-Location" in normalized
+    assert "function Invoke-Step" in normalized
+    assert "$LASTEXITCODE" in normalized
+    assert "throw" in normalized
+    assert not re.search(r"(?m)^\s*python\s", text)
+    assert re.search(r"Invoke-Step python @\('-m', 'pytest', '-q'\)", normalized)
+    assert re.search(
+        r"Invoke-Step python @\('-m', 'py_compile', 'bali_agent\\cli\.py', 'bali_agent\\capabilities\.py', "
+        r"'bali_agent\\readme_audit\.py', 'bali_agent\\templates\\runtime\\bali_runtime\.py'\)",
+        normalized,
+    )
+    assert re.search(r"Invoke-Step python @\('-m', 'bali_agent\.cli', '--root', \$tmp, 'init'\)", normalized)
+    assert re.search(r"Invoke-Step python @\('-m', 'bali_agent\.cli', '--root', \$tmp, 'verify'\)", normalized)
+    assert re.search(r"Invoke-Step python @\('-m', 'bali_agent\.cli', '--root', \$tmp, 'capability-report', '--json'\)", normalized)
+    assert re.search(r"Invoke-Step python @\('-m', 'bali_agent\.cli', '--root', '\.', 'audit-readme', '--readme', 'README\.md', '--strict'\)", normalized)
