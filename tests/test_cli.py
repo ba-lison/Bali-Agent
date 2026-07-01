@@ -284,3 +284,15 @@ def test_audit_readme_command_passes_current_readme(capsys):
 
     assert res == 0
     assert "README audit OK" in capsys.readouterr().out
+
+
+def test_runtime_truth_evaluation_script_documents_required_commands():
+    from pathlib import Path
+
+    script = Path("scripts/evaluate_runtime_truth.ps1")
+    text = script.read_text(encoding="utf-8")
+
+    assert "python -m pytest -q" in text
+    assert "capability-report --json" in text
+    assert "audit-readme --readme README.md --strict" in text
+    assert "py_compile" in text

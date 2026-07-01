@@ -457,6 +457,14 @@ Suites importantes:
 | `tests/test_memory.py` | Memoria curada e bloqueio de segredos. |
 | `tests/test_security.py` | Seguranca de path e sanitizacao de comandos. |
 
+Auditoria completa de honestidade README/runtime:
+
+```powershell
+.\scripts\evaluate_runtime_truth.ps1
+```
+
+Esse gate roda testes, compilacao, inicializacao em projeto temporario, `capability-report --json` e `audit-readme --strict`.
+
 ## Direcao Atual Do Produto
 
 Bali agora esta organizado por esta hierarquia:
