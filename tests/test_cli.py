@@ -262,3 +262,25 @@ def test_pre_commit_hook_template_supports_installed_and_source_repo_paths():
         assert ".agent/hooks/prevent_secrets.py" in content
         assert "templates/prevent_secrets.py" in content
         assert "bali_agent/templates/prevent_secrets.py" in content
+
+
+def test_audit_readme_command_strict_fails_on_unqualified_claim(tmp_path, capsys):
+    from bali_agent.cli import audit_readme_command
+
+    readme = tmp_path / "README.md"
+    readme.write_text("Bali garante isolamento nativo em qualquer host.\n", encoding="utf-8")
+
+    res = audit_readme_command(tmp_path, readme="README.md", strict=True)
+
+    assert res == 1
+    assert "promessas" in capsys.readouterr().out
+
+
+def test_audit_readme_command_passes_current_readme(capsys):
+    from pathlib import Path
+    from bali_agent.cli import audit_readme_command
+
+    res = audit_readme_command(Path.cwd(), readme="README.md", strict=True)
+
+    assert res == 0
+    assert "README audit OK" in capsys.readouterr().out

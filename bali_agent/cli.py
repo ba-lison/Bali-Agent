@@ -14,6 +14,7 @@ from typing import List, Optional
 
 import bali_agent
 from bali_agent.capabilities import build_capability_report
+from bali_agent.readme_audit import audit_readme_file
 from bali_agent.core.runner import Runner
 from bali_agent.core.agent_manager import CORE_TEAM, list_agents, create_agent
 from bali_agent.core.memory import remember
@@ -400,6 +401,26 @@ def capability_report(root: Path, as_json: bool = False, strict: bool = False) -
         return 1 if unavailable_delivered or not_delivered else 0
     return 0
 
+def audit_readme_command(root: Path, readme: str = "README.md", strict: bool = False) -> int:
+    """Audit README claims against the supported runtime contract."""
+    readme_path = Path(readme)
+    if not readme_path.is_absolute():
+        readme_path = root / readme_path
+    if not readme_path.is_file():
+        print(f"README nao encontrado: {readme_path}", file=sys.stderr)
+        return 2
+
+    findings = audit_readme_file(readme_path)
+    if not findings:
+        print("README audit OK: nenhuma promessa sem qualificacao encontrada.")
+        return 0
+
+    print("README audit encontrou promessas que precisam de ajuste:")
+    for finding in findings:
+        print(f"- line {finding.line}: {finding.message}")
+        print(f"  texto: {finding.text}")
+    return 1 if strict else 0
+
 def verify_adapter(root: Path, name: str) -> int:
     """Verify a specific surface adapter configuration."""
     if name not in ADAPTERS:
@@ -433,6 +454,9 @@ def main(argv: Optional[List[str]] = None) -> None:
     capability = sub.add_parser("capability-report")
     capability.add_argument("--json", action="store_true", dest="as_json")
     capability.add_argument("--strict", action="store_true")
+    audit_readme = sub.add_parser("audit-readme")
+    audit_readme.add_argument("--readme", default="README.md")
+    audit_readme.add_argument("--strict", action="store_true")
     
     create = sub.add_parser("create-agent")
     create.add_argument("--id", required=True)
@@ -484,6 +508,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         sys.exit(inspect_runs(root))
     elif args.command == "capability-report":
         sys.exit(capability_report(root, as_json=args.as_json, strict=args.strict))
+    elif args.command == "audit-readme":
+        sys.exit(audit_readme_command(root, readme=args.readme, strict=args.strict))
     elif args.command == "verify-adapter":
         sys.exit(verify_adapter(root, args.name))
 
