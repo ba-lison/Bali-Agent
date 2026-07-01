@@ -52,7 +52,7 @@ O retorno e `0` porque a ausencia de capacidade nao e erro do relatorio. Erros c
 | Estrutura `.agent` | `.agent/` e arquivos principais |
 | Core Team | `bali_agent.core.agent_manager.verify(root)` |
 | Runtime instalado | `.agent/runtime/bali_runtime.py` |
-| Subagent runner | `BALI_SUBAGENT_RUNNER` |
+| Contrato de runner | capacidade marcada como dependente de contrato quando o Runtime esta instalado; `BALI_SUBAGENT_RUNNER` continua documentado no README como configuracao necessaria para execucao real |
 | Adapters nativos | `ADAPTERS[name](root).verify()` |
 | Paralelismo | constante documental: ainda nao implementado |
 | Multi-modelo real | constante documental: depende do host/wrapper |
