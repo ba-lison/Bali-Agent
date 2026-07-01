@@ -98,12 +98,14 @@ Nem tudo no README tem o mesmo nivel de automacao hoje. Esta e a leitura honesta
 | Subagentes nativos por host | Depende do host | Bali materializa arquivos para Claude, Codex e OpenCode, mas quem executa isolamento nativo e a ferramenta. Se nao houver isolamento nativo, use Bali Runtime. |
 | Memoria automatica no fim de task aprovada | Funcional no Bali Runtime | Depois de um run aprovado, o runtime chama `memory-curator`, grava `artifacts/memory-summary.md` e registra entrada em `.agent/memory.md`. Em hosts nativos, ainda depende do adapter/host seguir o protocolo. |
 | `inspect-runs` | Funcional para o runtime atual | Le `.agent/output/runtime/*/run_manifest.json` e ainda aceita manifests legados em `.agent/runs`. |
+| `capability-report` | Funcional | Mostra o que esta entregue, o que depende de contrato com LLM, o que depende do host e o que ainda nao foi entregue. |
 
 ## Compatibilidade Real
 
 O que esta compativel hoje:
 
 - CLI principal (`bali --root ...`) para `init`, `verify`, `list-agents`, `create-agent`, `remember`, `run`, `run --dry-run` e `inspect-runs`.
+- Auditoria local com `capability-report`, para separar capacidade entregue de dependencia externa.
 - Bali Runtime instalado em `.agent/runtime/bali_runtime.py`, com `--root` explicito, manifests em `.agent/output/runtime/*/run_manifest.json` e artefatos por agente.
 - Product Spine em modo `greenfield` quando o Orchestrator devolve `routing_plan` valido.
 - Memoria automatica ao fim de runs aprovados pelo Bali Runtime.
@@ -227,11 +229,13 @@ bali --root /caminho/do/projeto <comando>
 | `run --workflow greenfield "tarefa"` | Executa o fluxo greenfield com Product Spine. |
 | `remember` | Adiciona entrada curada de memoria. |
 | `inspect-runs` | Mostra runs do Bali Runtime em `.agent/output/runtime` e runs legados em `.agent/runs`. |
+| `capability-report` | Mostra uma matriz de maturidade: Delivered, Contract-dependent, Host-dependent e Not delivered. |
 
 Exemplos:
 
 ```bash
 bali --root . verify
+bali --root . capability-report
 bali --root . create-agent --id spec-supabase --scope "Supabase auth, RLS, storage, migrations"
 bali --root . run "corrigir bug de redirect no login"
 bali --root . remember --kind decision --title "Usar Supabase RLS" --summary "Dados de auth ficam protegidos por politica no banco"
@@ -406,13 +410,14 @@ Uso o Bali Runtime como fallback quando subagentes nativos nao estao disponiveis
 
 O runtime registra artefatos de run em `.agent/output/` ou pastas especificas, incluindo prompts, outputs, traces, eventos de falha, handoffs e dry-run output.
 
-O Runtime suporta:
+A superficie Runtime/CLI suporta:
 
 - `verify`
 - `list-agents`
 - `create-agent`
 - `run`
 - `remember`
+- `capability-report` pela CLI principal, para auditar maturidade operacional sem chamar LLM
 
 Quando provider mode e usado, a execucao passa por `.agent/templates/run.py` para evitar loops recursivos de bootstrap.
 

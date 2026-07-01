@@ -319,6 +319,75 @@ def inspect_runs(root: Path) -> int:
                 pass
     return 0
 
+def _availability_label(available: bool, detail: str = "") -> str:
+    status = "available" if available else "unavailable"
+    return f"{status} ({detail})" if detail else status
+
+def _verify_commandless(root: Path) -> List[str]:
+    from bali_agent.core.agent_manager import verify
+    return verify(root)
+
+def capability_report(root: Path) -> int:
+    """Print an operational capability report without enforcing a setup gate."""
+    agent_root = root / ".agent"
+    runtime_script = agent_root / "runtime" / "bali_runtime.py"
+    manifest = agent_root / "subagent.config.yaml"
+    memory = agent_root / "memory.md"
+    output_runtime = agent_root / "output" / "runtime"
+
+    verify_problems = _verify_commandless(root)
+    delivered = [
+        ("CLI installed structure", agent_root.is_dir(), ".agent directory"),
+        ("Core team and manifest", not verify_problems and manifest.is_file(), "; ".join(verify_problems[:3]) if verify_problems else "verify passes"),
+        ("Bali Runtime script", runtime_script.is_file(), ".agent/runtime/bali_runtime.py"),
+        ("Curated memory file", memory.is_file(), ".agent/memory.md"),
+        ("Runtime manifests", output_runtime.is_dir(), ".agent/output/runtime exists after runs"),
+    ]
+
+    contract_dependent = [
+        ("Runtime with external LLM command", bool(os.environ.get("BALI_LLM_COMMAND")), "BALI_LLM_COMMAND"),
+        ("Provider mode", bool(os.environ.get("BALI_LLM_PROVIDER")), "BALI_LLM_PROVIDER"),
+        ("Dynamic routing plan", runtime_script.is_file(), "requires Orchestrator JSON routing_plan"),
+        ("Reviewer fail-closed gate", runtime_script.is_file(), "requires structured Reviewer JSON"),
+    ]
+
+    host_dependent = []
+    for name, adapter_cls in ADAPTERS.items():
+        if name == "bali-runtime":
+            continue
+        try:
+            valid, problems = adapter_cls(root).verify()
+            detail = "adapter verify passes" if valid else "; ".join(problems[:2])
+            host_dependent.append((f"{name} native adapter", valid, detail))
+        except Exception as exc:
+            host_dependent.append((f"{name} native adapter", False, str(exc)))
+
+    not_delivered = [
+        ("Parallel agent execution", "not implemented", "runtime requires execution_mode sequential and max_parallel 1"),
+        ("Guaranteed native isolation in every host", "not guaranteed", "Bali materializes files; host executes native isolation"),
+        ("Mandatory multi-model execution", "not implemented", "model_policy is declarative unless host/wrapper supports it"),
+    ]
+
+    print("Bali Capability Report")
+    print(f"Root: {root}")
+    print("")
+    print("[Delivered]")
+    for label, available, detail in delivered:
+        print(f"- {label}: {_availability_label(available, detail)}")
+    print("")
+    print("[Contract-dependent]")
+    for label, available, detail in contract_dependent:
+        print(f"- {label}: {_availability_label(available, detail)}")
+    print("")
+    print("[Host-dependent]")
+    for label, available, detail in host_dependent:
+        print(f"- {label}: {_availability_label(available, detail)}")
+    print("")
+    print("[Not delivered]")
+    for label, status, detail in not_delivered:
+        print(f"- {label}: {status} ({detail})")
+    return 0
+
 def verify_adapter(root: Path, name: str) -> int:
     """Verify a specific surface adapter configuration."""
     if name not in ADAPTERS:
@@ -349,6 +418,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     sub.add_parser("verify")
     sub.add_parser("list-agents")
     sub.add_parser("inspect-runs")
+    sub.add_parser("capability-report")
     
     create = sub.add_parser("create-agent")
     create.add_argument("--id", required=True)
@@ -398,6 +468,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         ))
     elif args.command == "inspect-runs":
         sys.exit(inspect_runs(root))
+    elif args.command == "capability-report":
+        sys.exit(capability_report(root))
     elif args.command == "verify-adapter":
         sys.exit(verify_adapter(root, args.name))
 

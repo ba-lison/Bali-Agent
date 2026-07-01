@@ -6,7 +6,7 @@ import shutil
 import tempfile
 import sys
 from pathlib import Path
-from bali_agent.cli import init_command, verify_command, inspect_runs
+from bali_agent.cli import init_command, verify_command, inspect_runs, capability_report
 import templates.verify_setup as verify_setup
 
 
@@ -143,6 +143,24 @@ def test_inspect_runs_reads_runtime_output_directory(temp_project_dir, capsys):
     assert "Status: completed" in output
     assert "Agentes: prd-writer, reviewer" in output
     assert "Artefatos: artifacts/prd.md, artifacts/sdd.md" in output
+
+
+def test_capability_report_separates_delivered_contract_host_and_missing(temp_project_dir, capsys, monkeypatch):
+    monkeypatch.delenv("BALI_LLM_COMMAND", raising=False)
+    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
+
+    res = capability_report(temp_project_dir)
+
+    output = capsys.readouterr().out
+    assert res == 0
+    assert "Bali Capability Report" in output
+    assert "[Delivered]" in output
+    assert "[Contract-dependent]" in output
+    assert "[Host-dependent]" in output
+    assert "[Not delivered]" in output
+    assert "Bali Runtime script: available" in output
+    assert "Runtime with external LLM command: unavailable" in output
+    assert "Parallel agent execution: not implemented" in output
 
 
 def test_pre_commit_hook_template_supports_installed_and_source_repo_paths():
