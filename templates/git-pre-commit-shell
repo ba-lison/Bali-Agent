@@ -1,3 +1,16 @@
 #!/bin/sh
 # Bootstrap pre-commit hook para acionar o prevent_secrets.py do Bali-Agent
-python .agent/hooks/prevent_secrets.py
+if [ -f ".agent/hooks/prevent_secrets.py" ]; then
+  exec python .agent/hooks/prevent_secrets.py
+fi
+
+if [ -f "templates/prevent_secrets.py" ]; then
+  exec python templates/prevent_secrets.py
+fi
+
+if [ -f "bali_agent/templates/prevent_secrets.py" ]; then
+  exec python bali_agent/templates/prevent_secrets.py
+fi
+
+echo "Bali-Agent pre-commit hook: prevent_secrets.py nao encontrado." >&2
+exit 1

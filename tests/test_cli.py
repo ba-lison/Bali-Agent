@@ -143,3 +143,16 @@ def test_inspect_runs_reads_runtime_output_directory(temp_project_dir, capsys):
     assert "Status: completed" in output
     assert "Agentes: prd-writer, reviewer" in output
     assert "Artefatos: artifacts/prd.md, artifacts/sdd.md" in output
+
+
+def test_pre_commit_hook_template_supports_installed_and_source_repo_paths():
+    template_paths = [
+        Path("templates/git-pre-commit-shell"),
+        Path("bali_agent/templates/git-pre-commit-shell"),
+    ]
+
+    for path in template_paths:
+        content = path.read_text(encoding="utf-8")
+        assert ".agent/hooks/prevent_secrets.py" in content
+        assert "templates/prevent_secrets.py" in content
+        assert "bali_agent/templates/prevent_secrets.py" in content
