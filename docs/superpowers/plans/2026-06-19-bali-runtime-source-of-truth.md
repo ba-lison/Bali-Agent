@@ -71,7 +71,7 @@ Expected: PASS.
 
 - [ ] **Step 1: Write failing provider routing test**
 
-Add a test that sets `BALI_LLM_PROVIDER`, monkeypatches `subprocess.run`, invokes `run_task`, and asserts the command path ends with `.agent/templates/run.py`.
+Add a test that sets `BALI_SUBAGENT_PROVIDER`, monkeypatches `subprocess.run`, invokes `run_task`, and asserts the command path ends with `.agent/templates/run.py`.
 
 - [ ] **Step 2: Run test to verify it fails**
 

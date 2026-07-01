@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Bali Runtime: fallback universal para subagentes reais.
+"""Bali Runtime: executor local para orquestracao de subagentes.
 
 Este runtime existe para ambientes sem subagentes nativos. Ele executa cada
 agente como uma etapa isolada, com prompt e output próprios. Qualquer LLM/CLI
-pode ser plugado via BALI_LLM_COMMAND.
+preserva contrato, artefatos e revisao separados por agente.
 """
 
 import argparse
@@ -471,12 +471,12 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
             print(f"[!] {problem}", file=sys.stderr)
         return 1
 
-    if not dry_run and os.environ.get("BALI_LLM_PROVIDER"):
+    if not dry_run and os.environ.get("BALI_SUBAGENT_PROVIDER"):
         run_script = root / ".agent" / "templates" / "run.py"
         if not run_script.is_file():
             run_script = root / "templates" / "run.py"
         if run_script.is_file():
-            print("[*] BALI_LLM_PROVIDER detectado. Roteando para o motor agêntico...", file=sys.stderr)
+            print("[*] BALI_SUBAGENT_PROVIDER detectado. Roteando para o motor agentico...", file=sys.stderr)
             completed = subprocess.run([sys.executable, str(run_script), task])
             return completed.returncode
 
@@ -514,11 +514,11 @@ def run_task(root: Path, task: str, dry_run: bool = False, specialist_name: Opti
         print("\n".join(plan))
         return 0
 
-    command_template = os.environ.get("BALI_LLM_COMMAND")
+    command_template = os.environ.get("BALI_SUBAGENT_RUNNER")
     if not command_template:
         print(
-            "[!] BALI_LLM_COMMAND nao configurado. Defina um comando de LLM com "
-            "{prompt_file}, {output_file} e {agent}, ou rode com --dry-run.",
+            "[!] Runner de subagente nao configurado. Configure BALI_SUBAGENT_RUNNER "
+            "com {prompt_file}, {output_file} e {agent}, ou rode com --dry-run.",
             file=sys.stderr,
         )
         return 2

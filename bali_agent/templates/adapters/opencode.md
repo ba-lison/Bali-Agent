@@ -19,4 +19,5 @@ Contrato:
 python .agent/runtime/bali_runtime.py run "descreva a tarefa"
 ```
 
-Defina `BALI_LLM_COMMAND` para plugar o provedor/modelo desejado.
+Se o OpenCode atual nao puder criar child sessions, configure o Bali Runtime
+como runner de subagente. Nao substitua subagentes por um prompt generico.

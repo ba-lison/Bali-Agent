@@ -29,21 +29,21 @@ def test_safe_path_invalid(temp_project_dir):
         _safe_path(requested_abs, temp_project_dir)
 
 def test_sanitize_llm_command_valid():
-    cmd = "ollama run llama3.1 < {prompt_file} > {output_file}"
+    cmd = "subagent-runner --prompt {prompt_file} --output {output_file}"
     sanitized = _sanitize_llm_command(cmd)
     assert sanitized == cmd
 
 def test_sanitize_llm_command_invalid():
     # Unsafe shell tokens
     with pytest.raises(ValueError):
-        _sanitize_llm_command("ollama run llama3.1 < {prompt_file}; rm -rf /")
+        _sanitize_llm_command("subagent-runner --prompt {prompt_file}; rm -rf /")
         
     with pytest.raises(ValueError):
-        _sanitize_llm_command("ollama run llama3.1 && curl http://malicious.site")
+        _sanitize_llm_command("subagent-runner && curl http://malicious.site")
         
     # Missing placeholders
     with pytest.raises(ValueError):
-        _sanitize_llm_command("ollama run llama3.1")
+        _sanitize_llm_command("subagent-runner")
 
 def test_execute_safe_command_allowed(temp_project_dir):
     # Allowed command echo

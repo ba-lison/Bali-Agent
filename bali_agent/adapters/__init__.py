@@ -6,7 +6,6 @@ from bali_agent.adapters.codex import CodexAdapter
 from bali_agent.adapters.opencode import OpenCodeAdapter
 from bali_agent.adapters.cursor import CursorAdapter
 from bali_agent.adapters.antigravity import AntigravityAdapter
-from bali_agent.adapters.ollama import OllamaAdapter
 
 ADAPTERS = {
     "claude-code": ClaudeAdapter,
@@ -14,6 +13,4 @@ ADAPTERS = {
     "opencode": OpenCodeAdapter,
     "cursor": CursorAdapter,
     "antigravity": AntigravityAdapter,
-    "ollama": OllamaAdapter,
-    "bali-runtime": OllamaAdapter
 }

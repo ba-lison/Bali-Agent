@@ -202,7 +202,6 @@ enforcement_adapters:
   - opencode
   - cursor
   - antigravity
-  - ollama
 """
 
 def _read_text(path: str) -> str:

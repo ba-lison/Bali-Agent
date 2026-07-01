@@ -73,7 +73,6 @@ def verify(project_root):
         "claude-code.md",
         "codex.md",
         "cursor.md",
-        "ollama.md",
         "opencode.md",
     ):
         if not os.path.isfile(os.path.join(adapters_dir, adapter_file)):

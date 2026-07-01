@@ -34,7 +34,7 @@ Root: /repo
 - Core team manifest: available
 
 [Contract-dependent]
-- Runtime with LLM command: unavailable (BALI_LLM_COMMAND not configured)
+- Runtime subagent runner: unavailable (runner not configured)
 
 [Host-dependent]
 - claude-code native adapter: unavailable (...)
@@ -52,8 +52,7 @@ O retorno e `0` porque a ausencia de capacidade nao e erro do relatorio. Erros c
 | Estrutura `.agent` | `.agent/` e arquivos principais |
 | Core Team | `bali_agent.core.agent_manager.verify(root)` |
 | Runtime instalado | `.agent/runtime/bali_runtime.py` |
-| LLM command | `BALI_LLM_COMMAND` |
-| Provider mode | `BALI_LLM_PROVIDER` |
+| Subagent runner | `BALI_SUBAGENT_RUNNER` |
 | Adapters nativos | `ADAPTERS[name](root).verify()` |
 | Paralelismo | constante documental: ainda nao implementado |
 | Multi-modelo real | constante documental: depende do host/wrapper |

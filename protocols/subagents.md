@@ -133,9 +133,9 @@ O comando `verify` deve checar:
 | OpenCode | Subagentes nativos com `mode: subagent` | `.opencode/agents/*.md` |
 | Antigravity | `define_subagent` e background subagents com fila segura | `.antigravity/skills/` ou `.agents/skills/` |
 | Cursor | Bali Runtime quando nao houver isolamento nativo | `.cursor/rules/bali-agent.mdc` + Runtime |
-| Ollama/API crua/outros | Bali Runtime via `BALI_LLM_COMMAND` | `.agent/runtime/bali_runtime.py` |
+| Hosts sem subagente nativo | Bali Runtime com runner de subagente, ou falha fechada | `.agent/runtime/bali_runtime.py` |
 
-API vs Desktop nao e o criterio principal. O criterio e: existe mecanismo real de subagente/tool calling isolado? Se sim, adapter nativo. Se nao, Runtime. Se nenhum existe, falha fechada.
+API vs Desktop nao e o criterio principal. O criterio e: existe mecanismo real de subagente/tool calling isolado? Se sim, adapter nativo. Se nao, Runtime com runner de subagente. Se nenhum existe, falha fechada.
 
 ---
 

@@ -345,8 +345,7 @@ def capability_report(root: Path) -> int:
     ]
 
     contract_dependent = [
-        ("Runtime with external LLM command", bool(os.environ.get("BALI_LLM_COMMAND")), "BALI_LLM_COMMAND"),
-        ("Provider mode", bool(os.environ.get("BALI_LLM_PROVIDER")), "BALI_LLM_PROVIDER"),
+        ("Native subagent orchestration", runtime_script.is_file(), "requires native adapter or Bali Runtime"),
         ("Dynamic routing plan", runtime_script.is_file(), "requires Orchestrator JSON routing_plan"),
         ("Reviewer fail-closed gate", runtime_script.is_file(), "requires structured Reviewer JSON"),
     ]

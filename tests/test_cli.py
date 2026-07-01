@@ -146,8 +146,8 @@ def test_inspect_runs_reads_runtime_output_directory(temp_project_dir, capsys):
 
 
 def test_capability_report_separates_delivered_contract_host_and_missing(temp_project_dir, capsys, monkeypatch):
-    monkeypatch.delenv("BALI_LLM_COMMAND", raising=False)
-    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("BALI_SUBAGENT_RUNNER", raising=False)
+    monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
 
     res = capability_report(temp_project_dir)
 
@@ -159,7 +159,9 @@ def test_capability_report_separates_delivered_contract_host_and_missing(temp_pr
     assert "[Host-dependent]" in output
     assert "[Not delivered]" in output
     assert "Bali Runtime script: available" in output
-    assert "Runtime with external LLM command: unavailable" in output
+    assert "Native subagent orchestration: available" in output
+    assert "Runtime with external LLM command" not in output
+    assert "BALI_LLM_COMMAND" not in output
     assert "Parallel agent execution: not implemented" in output
 
 

@@ -15,7 +15,7 @@ Claude Code surfaces suportadas pelo Bali-Agent:
 | **Web/cloud** | `.claude/agents/*.md` quando o workspace esta montado | Se nao houver shell/tools, exponha Bali por wrapper externo. |
 | **API pura sem shell** | Wrapper externo obrigatorio | Use MCP, CI job, webhook ou servico que execute o Bali Runtime. |
 
-- **Fallback universal**: Bali Runtime com `BALI_LLM_COMMAND` ou `bali --root . run`.
+- **Fallback de subagente**: Bali Runtime via `bali --root . run` quando a superficie nao oferece subagente nativo.
 - **Subagentes Nativos**: Sim (`.claude/agents/*.md`).
 - **Hooks**: `SessionStart` e `UserPromptSubmit` via `.agent/hooks/claude_hook.py` — re-injeta regras invioláveis a cada prompt.
 - **Configuração**: `.claude/settings.json` com `context.alwaysInclude` + `hooks`.
@@ -54,9 +54,9 @@ Suporta todas as superfícies Antigravity:
 - Tarefas acopladas usam produtor antes do consumidor: backend/API/schema em `produces`, frontend/UI em `depends_on` + `consumes`.
 - Falhas de quota, timeout ou crash devem virar `agent_failed` estruturado antes de qualquer novo dispatch.
 
-### 6. Ollama / API crua (`bali_agent/adapters/ollama.py`)
+### 6. Hosts sem subagente nativo
 - **Subagentes Nativos**: Não.
-- **Fallback**: Bali Runtime com `BALI_LLM_COMMAND` para subagentes isolados por processo.
+- **Contrato**: API sem mecanismo de subagente, modelo local ou CLI generico nao sao hosts Bali suficientes por si so. Use Bali Runtime apenas quando houver runner de subagente configurado; caso contrario, falhe fechado e explique o adapter ausente.
 
 ---
 

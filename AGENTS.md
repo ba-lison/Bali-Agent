@@ -149,7 +149,7 @@ Do not weaken safety to make orchestration easier.
 | OpenCode | `.opencode/agents/*.md` with `mode: subagent` |
 | Antigravity | `.antigravity/skills/` or `.agents/skills/` plus native subagent APIs |
 | Cursor | Cursor rules plus Bali Runtime when native isolation is missing |
-| Ollama / raw API / other CLIs | Bali Runtime via provider settings or `BALI_LLM_COMMAND` |
+| Hosts without native subagents | Bali Runtime when a subagent runner is configured; otherwise fail closed |
 
 API vs Desktop is not the deciding factor. The deciding factor is whether the host can run isolated subagents or tool-calling sessions.
 
@@ -166,13 +166,10 @@ python .agent/runtime/bali_runtime.py list-agents
 python .agent/runtime/bali_runtime.py create-agent --id spec-name --scope "scope"
 ```
 
-Provider environment:
+Runtime environment:
 
-- `BALI_LLM_PROVIDER`
-- `BALI_LLM_MODEL`
-- `BALI_API_KEY`
-- `BALI_LLM_ENDPOINT`
-- `BALI_LLM_COMMAND`
+- `BALI_SUBAGENT_RUNNER`
+- `BALI_SUBAGENT_DEPTH`
 
 ---
 

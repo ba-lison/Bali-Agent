@@ -80,4 +80,3 @@ enforcement_adapters:
   - opencode
   - cursor
   - antigravity
-  - ollama

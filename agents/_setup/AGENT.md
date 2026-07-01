@@ -39,7 +39,7 @@ O Setup Agent deve **materializar subagentes reais sempre**. Não trate Orchestr
      - `.agent/team/spec-<stack>.md` (gerados a partir dos arquétipos locais em `.agent/agents/_specialists/` preenchidos com o escopo e contexto concreto do projeto)
      - `.agent/subagent.config.yaml` (o manifesto preenchido)
      - `.agent/memory.md` (memória curada persistente do projeto)
-     - `.agent/runtime/bali_runtime.py` (fallback universal para IDEs/LLMs sem subagente nativo)
+     - `.agent/runtime/bali_runtime.py` (runtime de orquestracao para hosts sem subagente nativo)
      - `.agent/adapters/*.md` (contratos para Antigravity, Claude Code, Codex, OpenCode, Cursor, Gemini, Ollama)
    - Preserve a política `subagents_policy.role_play_permitido: false` no manifesto.
    - Copie também a pasta `protocols/` para `.agent/protocols/`.
@@ -54,7 +54,7 @@ O Setup Agent deve **materializar subagentes reais sempre**. Não trate Orchestr
       - **Codex CLI / Codex Desktop**: O `init.py` cria `.codex/agents/*.toml` e `.codex/config.toml`; use esses custom agents para spawn real.
       - **OpenCode**: O `init.py` cria `opencode.json` com instruções críticas e `.opencode/agents/*.md` com `mode: subagent`; use @mention/comandos com subtask.
       - **Antigravity 2.0 / CLI**: O `init.py` cria skills em `.antigravity/skills/` (desktop) e `.agents/skills/` (CLI); use `define_subagent`/Manager view/background subagents nativos com fila segura (`max_parallel: 1`) para agentes de escrita.
-     - **Ollama / API crua**: Não há orquestrador nativo; use Bali Runtime com `BALI_LLM_COMMAND`.
+     - **Hosts sem subagente nativo**: API sem mecanismo de subagente, modelo local ou CLI generico nao bastam. Use Bali Runtime com runner de subagente configurado; caso contrario, pare e explique o adapter ausente.
      - **Memória de Trabalho (`.agent/working-context.md`)**:
        - Atualize o arquivo `.agent/working-context.md` de forma a definir o `Status Atual do Projeto` como "Setup do time concluído".
        - Preencha a seção `Stack Tecnológica & Convenções Locais` com a lista concreta de linguagens/frameworks detectados e as convenções alinhadas durante a entrevista.

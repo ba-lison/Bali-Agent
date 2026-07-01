@@ -20,18 +20,18 @@ def _safe_path(requested: Union[str, Path], root: Union[str, Path]) -> str:
     return requested_abs
 
 def _sanitize_llm_command(cmd_template: str) -> str:
-    """Validate that BALI_LLM_COMMAND contains only expected placeholders and is safe."""
+    """Validate that a subagent runner contains expected placeholders and is safe."""
     if not cmd_template:
-        raise ValueError("BALI_LLM_COMMAND nao pode ser vazio")
+        raise ValueError("Runner de subagente nao pode ser vazio")
         
     if "{prompt_file}" not in cmd_template or "{output_file}" not in cmd_template:
-        raise ValueError("BALI_LLM_COMMAND deve conter {prompt_file} e {output_file}")
+        raise ValueError("Runner de subagente deve conter {prompt_file} e {output_file}")
         
     # Unsafe shell injection characters check
     unsafe_patterns = [r"\$\(", r"`", r";", r"&&", r"\|\|"]
     for pattern in unsafe_patterns:
         if re.search(pattern, cmd_template):
-            raise ValueError(f"BALI_LLM_COMMAND contem metacaracteres inseguros: {cmd_template}")
+            raise ValueError(f"Runner de subagente contem metacaracteres inseguros: {cmd_template}")
             
     return cmd_template
 

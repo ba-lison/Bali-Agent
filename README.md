@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-2.2.0-green.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/CHANGELOG.md)
 
-Bali-Agent e uma fundacao funcional **subagent-first** para trabalho de engenharia de software. Hoje ele entrega runtime, contratos, adapters e artefatos verificaveis; ainda nao e um orquestrador autonomo completo em qualquer host sem depender do contrato do LLM/host.
+Bali-Agent e um **orquestrador de subagentes** para trabalho de engenharia de software. Hoje ele entrega time base, contratos, adapters, runtime de orquestracao e artefatos verificaveis; ainda nao e um orquestrador autonomo completo em qualquer host sem depender do suporte real do host.
 
 A ideia e simples: eu entro num projeto com um time base de agentes, uso Discovery/PRD/SDD para entender antes de sair executando, delego a implementacao para especialistas e deixo QA/Seguranca/Reviewer fecharem a entrega.
 
@@ -91,7 +91,7 @@ Nem tudo no README tem o mesmo nivel de automacao hoje. Esta e a leitura honesta
 | `create-agent` | Funcional | Cria especialista fixo `spec-*`, registra no manifesto e espelha para Claude/Codex/OpenCode quando as pastas existem. |
 | `remember` | Funcional | Escreve memoria curada e bloqueia padroes obvios de segredo. |
 | `bali run --dry-run` | Funcional via CLI e `.agent/runtime/bali_runtime.py` | Gera cadeia e artefatos sem chamar LLM. |
-| Runtime com LLM | Funcional quando `BALI_LLM_COMMAND` esta configurado | Executa agentes por comando externo, com prompts/outputs isolados. |
+| Runtime de subagentes | Funcional com runner de subagente configurado | Executa cada agente como etapa isolada, com prompts, outputs, artefatos e revisao separados. |
 | Product Spine `greenfield` | Funcional com artefatos de run | Roda pelo `routing_plan` do Orchestrator e persiste `artifacts/discovery.md`, `artifacts/prd.md`, `artifacts/sdd.md` e `artifacts/tasks.md` quando esses agentes executam. |
 | Routing dinamico do Orchestrator | Parcial | O runtime ja entende routing plan JSON, cria especialistas temporarios/permanentes e faz retry com Reviewer, mas depende do Orchestrator/LLM devolver o contrato certo. |
 | Multi-modelo por agente | Parcial/depende do host | `model_policy` existe no manifesto; aplicar modelo diferente por agente depende do adapter/host suportar isso. |
@@ -160,7 +160,7 @@ Bali mantem um time de projeto e materializa esse time para cada host.
 | OpenCode | `.opencode/agents/*.md` | Usa `mode: subagent`. |
 | Antigravity | `.antigravity/skills/` ou `.agents/skills/` | Usa `define_subagent` e background subagents com fila segura. |
 | Cursor | Cursor rules + Bali Runtime | Rules dao contexto; Runtime da isolamento quando nao houver subagente nativo. |
-| Ollama / API crua / outros CLIs | Bali Runtime | Usa `BALI_LLM_COMMAND` ou configuracao de provider para chamadas isoladas. |
+| Hosts sem subagente nativo | Bali Runtime ou falha fechada | Use o Runtime apenas para preservar isolamento de subagentes. API sem mecanismo de subagente/modelo local sozinho nao e host Bali suficiente. |
 
 Para escolher o caminho, eu olho menos para "desktop ou API?" e mais para isto: o host consegue rodar subagente isolado ou tool-calling de verdade? Se sim, vale usar o adapter nativo. Se nao, entra o Bali Runtime. Se nenhum caminho real existir, melhor parar do que fingir isolamento.
 
@@ -245,11 +245,7 @@ bali --root . remember --kind decision --title "Usar Supabase RLS" --summary "Da
 
 | Variavel | Funcao |
 |---|---|
-| `BALI_LLM_PROVIDER` | Provider: `openai`, `anthropic`, `gemini` ou `ollama`. |
-| `BALI_LLM_MODEL` | Nome do modelo usado pelo provider do Runtime. |
-| `BALI_API_KEY` | Chave do provider, ou use env vars especificas do provider. |
-| `BALI_LLM_ENDPOINT` | Endpoint customizado opcional. |
-| `BALI_LLM_COMMAND` | Template de comando para CLI/modelo local com `{prompt_file}`, `{output_file}` e `{agent}`. |
+| `BALI_SUBAGENT_RUNNER` | Runner local usado pelo Bali Runtime para executar uma etapa de subagente com `{prompt_file}`, `{output_file}` e `{agent}`. Nao substitui adapter nativo quando ele existe. |
 | `BALI_SUBAGENT_DEPTH` | Profundidade interna de subagentes spawnados. O maximo esperado e 2. |
 
 ## O Que `bali init` Instala

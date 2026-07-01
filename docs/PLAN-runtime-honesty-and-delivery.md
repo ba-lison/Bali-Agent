@@ -14,7 +14,7 @@ Este plano segue o fluxo descrito no guia `PR, PRD, SDD, IA no SDLC e Vibe Codin
 
 O README atual ja e mais honesto do que uma landing page de produto, mas a honestidade ainda vive majoritariamente em texto. Um usuario pode ler "subagentes reais" e assumir isolamento nativo universal, paralelismo ou multi-modelo garantido, quando o codigo entrega uma combinacao mais precisa:
 
-- Runtime isolado por processo/chamada quando `BALI_LLM_COMMAND` esta configurado.
+- Runtime isolado por etapa de subagente quando um runner de subagente esta configurado.
 - Materializacao de arquivos para hosts nativos, com execucao dependente do host.
 - Product Spine e memoria automatica verificaveis no Bali Runtime.
 - Routing dinamico dependente de `routing_plan` JSON valido.

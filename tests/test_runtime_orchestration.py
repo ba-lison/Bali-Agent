@@ -150,8 +150,8 @@ def test_runtime_executes_orchestrator_dynamic_plan(temp_project_dir, monkeypatc
         else:
             output_path.write_text(f"Unexpected agent: {agent_name}", encoding="utf-8")
 
-    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
-    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_SUBAGENT_RUNNER", "fake {prompt_file} {output_file} {agent}")
     monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
 
     res = runtime.run_task(temp_project_dir, "Corrigir logins", dry_run=False, workflow="operate")
@@ -187,8 +187,8 @@ def test_greenfield_runtime_persists_product_spine_artifacts(temp_project_dir, m
         else:
             output_path.write_text(f"Saida controlada de {agent_name}.", encoding="utf-8")
 
-    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
-    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_SUBAGENT_RUNNER", "fake {prompt_file} {output_file} {agent}")
     monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
 
     res = runtime.run_task(temp_project_dir, "Criar produto novo", dry_run=False, workflow="greenfield")
@@ -230,8 +230,8 @@ def test_runtime_calls_memory_curator_after_approved_run(temp_project_dir, monke
         else:
             output_path.write_text("Implementacao concluida.", encoding="utf-8")
 
-    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
-    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_SUBAGENT_RUNNER", "fake {prompt_file} {output_file} {agent}")
     monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
 
     res = runtime.run_task(temp_project_dir, "Corrigir logins", dry_run=False, workflow="operate")
@@ -297,8 +297,8 @@ def test_runtime_retries_step_when_reviewer_rejects(temp_project_dir, monkeypatc
         elif agent_name == "memory-curator":
             output_path.write_text("Memoria do retry aprovado.", encoding="utf-8")
 
-    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
-    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_SUBAGENT_RUNNER", "fake {prompt_file} {output_file} {agent}")
     monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
 
     res = runtime.run_task(temp_project_dir, "Corrigir logins", dry_run=False, workflow="operate")
@@ -341,8 +341,8 @@ def test_runtime_materializes_permanent_and_temporary_specialists(temp_project_d
         else:
             output_path.write_text(f"Output de {agent_name}", encoding="utf-8")
 
-    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
-    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_SUBAGENT_RUNNER", "fake {prompt_file} {output_file} {agent}")
     monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
 
     res = runtime.run_task(temp_project_dir, "Ajustar checkout", dry_run=False, workflow="operate")
@@ -402,8 +402,8 @@ def test_runtime_passes_contract_metadata_to_dependent_step(temp_project_dir, mo
         else:
             output_path.write_text(f"Output de {agent_name}", encoding="utf-8")
 
-    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
-    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_SUBAGENT_RUNNER", "fake {prompt_file} {output_file} {agent}")
     monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
 
     res = runtime.run_task(temp_project_dir, "Criar painel", dry_run=False, workflow="operate")
@@ -435,8 +435,8 @@ def test_runtime_writes_structured_failure_event(temp_project_dir, monkeypatch):
             return
         raise RuntimeError("RESOURCE_EXHAUSTED: quota exceeded")
 
-    monkeypatch.delenv("BALI_LLM_PROVIDER", raising=False)
-    monkeypatch.setenv("BALI_LLM_COMMAND", "fake {prompt_file} {output_file} {agent}")
+    monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
+    monkeypatch.setenv("BALI_SUBAGENT_RUNNER", "fake {prompt_file} {output_file} {agent}")
     monkeypatch.setattr(runtime, "_run_llm", fake_run_llm)
 
     with pytest.raises(SystemExit) as exc:

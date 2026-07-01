@@ -26,7 +26,7 @@ def test_cli_dry_run(temp_project_dir):
     assert len(run_dirs) == 1
     assert (run_dirs[0] / "dry-run.txt").is_file()
 
-def test_runtime_provider_uses_templates_run_bridge(temp_project_dir, monkeypatch):
+def test_runtime_subagent_provider_uses_templates_run_bridge(temp_project_dir, monkeypatch):
     bridge = temp_project_dir / ".agent" / "templates" / "run.py"
     bridge.parent.mkdir(parents=True, exist_ok=True)
     bridge.write_text("# runtime bridge", encoding="utf-8")
@@ -42,7 +42,7 @@ def test_runtime_provider_uses_templates_run_bridge(temp_project_dir, monkeypatc
 
     import templates.runtime.bali_runtime as bali_runtime
 
-    monkeypatch.setenv("BALI_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("BALI_SUBAGENT_PROVIDER", "openai")
     monkeypatch.setattr(bali_runtime.subprocess, "run", fake_run)
 
     res = run_task(temp_project_dir, task="Corrigir logins", dry_run=False)

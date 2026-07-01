@@ -102,8 +102,8 @@ def _trim_history(messages: List[dict]) -> List[dict]:
 
 def call_llm_api(messages: List[dict], tools: Optional[List[dict]] = None) -> Optional[dict]:
     """Call the configured LLM API with built-in exponential backoff retries for failures."""
-    provider = os.environ.get("BALI_LLM_PROVIDER", "ollama").lower()
-    model = os.environ.get("BALI_LLM_MODEL")
+    provider = os.environ.get("BALI_SUBAGENT_PROVIDER", "local").lower()
+    model = os.environ.get("BALI_SUBAGENT_MODEL")
     api_key = os.environ.get("BALI_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("GEMINI_API_KEY")
     endpoint = os.environ.get("BALI_LLM_ENDPOINT")
 
@@ -169,7 +169,7 @@ def call_llm_api(messages: List[dict], tools: Optional[List[dict]] = None) -> Op
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
 
-    else:  # default: ollama
+    else:  # default: local OpenAI-compatible runner
         url = endpoint or "http://localhost:11434/v1/chat/completions"
         headers = {
             "Content-Type": "application/json"
