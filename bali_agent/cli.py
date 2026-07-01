@@ -364,28 +364,40 @@ def _not_delivered_label(item_id: str) -> str:
     }
     return labels.get(item_id, "not implemented")
 
-def capability_report(root: Path) -> int:
-    """Print an operational capability report without enforcing a setup gate."""
+def capability_report(root: Path, as_json: bool = False, strict: bool = False) -> int:
+    """Print an operational capability report without enforcing a setup gate by default."""
     report = build_capability_report(root)
 
-    print("Bali Capability Report")
-    print(f"Root: {root}")
-    print("")
-    print("[Delivered]")
-    for item in report["delivered"]:
-        print(f"- {item.title}: {_availability_label(item.available, item.detail)}")
-    print("")
-    print("[Contract-dependent]")
-    for item in report["contract_dependent"]:
-        print(f"- {item.title}: {_availability_label(item.available, item.detail)}")
-    print("")
-    print("[Host-dependent]")
-    for item in report["host_dependent"]:
-        print(f"- {item.title}: {_availability_label(item.available, item.detail)}")
-    print("")
-    print("[Not delivered]")
-    for item in report["not_delivered"]:
-        print(f"- {item.title}: {_not_delivered_label(item.id)} ({item.detail})")
+    if as_json:
+        print(json.dumps(
+            {section: [item.to_dict() for item in items] for section, items in report.items()},
+            indent=2,
+            ensure_ascii=False,
+        ))
+    else:
+        print("Bali Capability Report")
+        print(f"Root: {root}")
+        print("")
+        print("[Delivered]")
+        for item in report["delivered"]:
+            print(f"- {item.title}: {_availability_label(item.available, item.detail)}")
+        print("")
+        print("[Contract-dependent]")
+        for item in report["contract_dependent"]:
+            print(f"- {item.title}: {_availability_label(item.available, item.detail)}")
+        print("")
+        print("[Host-dependent]")
+        for item in report["host_dependent"]:
+            print(f"- {item.title}: {_availability_label(item.available, item.detail)}")
+        print("")
+        print("[Not delivered]")
+        for item in report["not_delivered"]:
+            print(f"- {item.title}: {_not_delivered_label(item.id)} ({item.detail})")
+
+    if strict:
+        unavailable_delivered = [item for item in report["delivered"] if not item.available]
+        not_delivered = list(report["not_delivered"])
+        return 1 if unavailable_delivered or not_delivered else 0
     return 0
 
 def verify_adapter(root: Path, name: str) -> int:
@@ -418,7 +430,9 @@ def main(argv: Optional[List[str]] = None) -> None:
     sub.add_parser("verify")
     sub.add_parser("list-agents")
     sub.add_parser("inspect-runs")
-    sub.add_parser("capability-report")
+    capability = sub.add_parser("capability-report")
+    capability.add_argument("--json", action="store_true", dest="as_json")
+    capability.add_argument("--strict", action="store_true")
     
     create = sub.add_parser("create-agent")
     create.add_argument("--id", required=True)
@@ -469,7 +483,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     elif args.command == "inspect-runs":
         sys.exit(inspect_runs(root))
     elif args.command == "capability-report":
-        sys.exit(capability_report(root))
+        sys.exit(capability_report(root, as_json=args.as_json, strict=args.strict))
     elif args.command == "verify-adapter":
         sys.exit(verify_adapter(root, args.name))
 

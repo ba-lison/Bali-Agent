@@ -229,6 +229,28 @@ def test_capability_report_requires_real_runtime_manifest(temp_project_dir, caps
     assert "run_manifest.json not found" in output
 
 
+def test_capability_report_json_output(temp_project_dir, capsys):
+    from bali_agent.cli import capability_report
+    import json
+
+    res = capability_report(temp_project_dir, as_json=True)
+
+    assert res == 0
+    data = json.loads(capsys.readouterr().out)
+    assert "delivered" in data
+    assert "not_delivered" in data
+    assert any(item["id"] == "runtime.parallel_execution" for item in data["not_delivered"])
+
+
+def test_capability_report_strict_fails_when_not_delivered_exists(temp_project_dir, capsys):
+    from bali_agent.cli import capability_report
+
+    res = capability_report(temp_project_dir, strict=True)
+
+    assert res == 1
+    assert "Parallel agent execution" in capsys.readouterr().out
+
+
 def test_pre_commit_hook_template_supports_installed_and_source_repo_paths():
     template_paths = [
         Path("templates/git-pre-commit-shell"),
