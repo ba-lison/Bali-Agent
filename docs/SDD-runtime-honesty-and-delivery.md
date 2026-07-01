@@ -91,10 +91,10 @@ Mudanca compativel com versoes anteriores. Nenhum comando existente muda de comp
 
 ## 9. Futuro
 
-- Exportar `--json` para automacoes.
-- Usar o relatorio em CI.
-- Ligar cada claim do README a uma capability id.
-- Criar `bali audit-readme` quando houver uma taxonomia estavel de promessas.
+- Integrar o relatorio em CI.
+- Ampliar a taxonomia de claims para cobrir casos sem ambiguidade.
+- Tornar a auditoria semantica do README mais rica e precisa.
+- Exportar formatos maquina-legiveis alem do JSON atual, quando houver necessidade real.
 
 ## 10. Capability Catalog
 
