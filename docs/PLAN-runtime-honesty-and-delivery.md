@@ -67,3 +67,16 @@ O README atual ja e mais honesto do que uma landing page de produto, mas a hones
 - README atualizado.
 - Teste automatizado cobrindo o relatorio.
 - `pytest` verde.
+
+## 9. Extensao: Loop de Auditoria README/Runtime
+
+Depois da auditoria senior, o projeto passa a tratar honestidade de README como contrato testavel.
+
+Novos entregaveis:
+
+- Catalogo estruturado em `bali_agent/capabilities.py`.
+- `capability-report --json` para automacoes.
+- `audit-readme --strict` para bloquear promessas sem qualificacao.
+- `scripts/evaluate_runtime_truth.ps1` como gate completo.
+
+O objetivo nao e deixar o README menos ambicioso; e separar com precisao entrega comprovada, dependencia contratual, dependencia de host e trabalho ainda nao entregue.

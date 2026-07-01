@@ -95,3 +95,18 @@ Mudanca compativel com versoes anteriores. Nenhum comando existente muda de comp
 - Usar o relatorio em CI.
 - Ligar cada claim do README a uma capability id.
 - Criar `bali audit-readme` quando houver uma taxonomia estavel de promessas.
+
+## 10. Capability Catalog
+
+`bali_agent/capabilities.py` e a fonte estruturada para status de capacidades. O README deve se alinhar aos ids desse catalogo.
+
+Categorias:
+
+- `delivered`: existe evidencia local por arquivo, comando ou teste.
+- `contract_dependent`: o codigo suporta o fluxo, mas depende de LLM/runner/JSON valido.
+- `host_dependent`: Bali materializa configuracao, mas a execucao e do host.
+- `not_delivered`: explicitamente fora da entrega atual.
+
+## 11. README Audit
+
+`audit-readme --strict` bloqueia frases que transformam dependencia em garantia. Ele nao substitui revisao humana, mas pega promessas obvias como isolamento nativo universal, paralelismo real entregue e multi-modelo obrigatorio.
