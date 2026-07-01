@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from bali_agent.capabilities import build_capability_report
+from bali_agent.capabilities import Capability, build_capability_report
 
 
 def test_capability_report_has_stable_sections(temp_project_dir):
@@ -12,6 +12,24 @@ def test_capability_report_has_stable_sections(temp_project_dir):
         "host_dependent",
         "not_delivered",
     }
+    expected_status_by_bucket = {
+        "delivered": "delivered",
+        "contract_dependent": "contract_dependent",
+        "host_dependent": "host_dependent",
+        "not_delivered": "not_delivered",
+    }
+
+    for bucket_name, items in report.items():
+        assert items
+        for item in items:
+            assert isinstance(item, Capability)
+            assert item.status == expected_status_by_bucket[bucket_name]
+            assert item.id
+            assert item.title
+            assert item.detail
+            assert item.evidence
+            assert all(isinstance(evidence, str) and evidence for evidence in item.evidence)
+
     assert any(item.id == "cli.installed_structure" for item in report["delivered"])
     assert any(item.id == "runtime.dynamic_routing_plan" for item in report["contract_dependent"])
     assert any(item.id == "runtime.parallel_execution" for item in report["not_delivered"])
