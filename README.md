@@ -90,14 +90,14 @@ Nem tudo no README tem o mesmo nivel de automacao hoje. Esta e a leitura honesta
 | `verify` / `list-agents` | Funcional | Valida manifesto, time obrigatorio e arquivos principais. |
 | `create-agent` | Funcional | Cria especialista fixo `spec-*`, registra no manifesto e espelha para Claude/Codex/OpenCode quando as pastas existem. |
 | `remember` | Funcional | Escreve memoria curada e bloqueia padroes obvios de segredo. |
-| `bali run --dry-run` | Funcional via CLI e `.agent/runtime/bali_runtime.py` | Gera cadeia e artefatos sem chamar LLM. |
+| `bali run --dry-run` | Funcional via CLI e `.agent/runtime/bali_runtime.py` | Gera a cadeia planejada e `dry-run.txt` sem chamar LLM. |
 | Runtime de subagentes | Funcional com runner de subagente configurado | Executa cada agente como etapa isolada, com prompts, outputs, artefatos e revisao separados. |
 | Product Spine `greenfield` | Funcional com artefatos de run | Roda pelo `routing_plan` do Orchestrator e persiste `artifacts/discovery.md`, `artifacts/prd.md`, `artifacts/sdd.md` e `artifacts/tasks.md` quando esses agentes executam. |
 | Routing dinamico do Orchestrator | Parcial | O runtime ja entende routing plan JSON, cria especialistas temporarios/permanentes e faz retry com Reviewer, mas depende do Orchestrator/LLM devolver o contrato certo. |
 | Multi-modelo por agente | Parcial/depende do host | `model_policy` existe no manifesto; aplicar modelo diferente por agente depende do adapter/host suportar isso. |
 | Subagentes nativos por host | Depende do host | Bali materializa arquivos para Claude, Codex e OpenCode, mas quem executa isolamento nativo e a ferramenta. Se nao houver isolamento nativo, use Bali Runtime. |
 | Memoria automatica no fim de task aprovada | Funcional no Bali Runtime | Depois de um run aprovado, o runtime chama `memory-curator`, grava `artifacts/memory-summary.md` e registra entrada em `.agent/memory.md`. Em hosts nativos, ainda depende do adapter/host seguir o protocolo. |
-| `inspect-runs` | Funcional para o runtime atual | Le `.agent/output/runtime/*/run_manifest.json` e ainda aceita manifests legados em `.agent/runs`. |
+| `inspect-runs` | Funcional para o runtime atual | Le `.agent/output/runtime/*/run_manifest.json`, mostra dry-runs e ainda aceita manifests legados em `.agent/runs`. |
 | `capability-report` | Funcional | Mostra o que esta entregue, o que depende de contrato com LLM, o que depende do host e o que ainda nao foi entregue. |
 
 ## Compatibilidade Real
@@ -228,7 +228,7 @@ bali --root /caminho/do/projeto <comando>
 | `run "tarefa"` | Executa o fluxo do Orchestrator. |
 | `run --workflow greenfield "tarefa"` | Executa o fluxo greenfield com Product Spine. |
 | `remember` | Adiciona entrada curada de memoria. |
-| `inspect-runs` | Mostra runs do Bali Runtime em `.agent/output/runtime` e runs legados em `.agent/runs`. |
+| `inspect-runs` | Mostra runs do Bali Runtime em `.agent/output/runtime`, dry-runs e runs legados em `.agent/runs`. |
 | `capability-report` | Mostra uma matriz de maturidade: Delivered, Contract-dependent, Host-dependent e Not delivered. |
 
 Exemplos:
@@ -404,7 +404,7 @@ O Reviewer trabalha com JSON estruturado valido. Se a saida vier malformada, sem
 
 Uso o Bali Runtime como fallback quando subagentes nativos nao estao disponiveis.
 
-O runtime registra artefatos de run em `.agent/output/` ou pastas especificas, incluindo prompts, outputs, traces, eventos de falha, handoffs e dry-run output.
+O runtime registra artefatos de run em `.agent/output/` ou pastas especificas, incluindo prompts, outputs, `run_manifest.json`, artefatos canonicos, eventos de falha e dry-run output.
 
 A superficie Runtime/CLI suporta:
 

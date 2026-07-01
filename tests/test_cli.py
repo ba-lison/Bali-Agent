@@ -120,6 +120,31 @@ def test_cli_run_delegates_to_installed_runtime(temp_project_dir, monkeypatch):
     ]
 
 
+def test_cli_run_dry_run_fallback_does_not_call_runner(tmp_path, monkeypatch, capsys):
+    import bali_agent.cli as cli
+
+    calls = []
+
+    class BombRunner:
+        def __init__(self, root):
+            self.root = root
+
+        def run_agent(self, agent_id, prompt):
+            calls.append((agent_id, prompt))
+            raise AssertionError("dry-run fallback must not call Runner.run_agent")
+
+    monkeypatch.setattr(cli, "Runner", BombRunner)
+
+    res = cli.run_command(tmp_path, "Criar modulo", workflow="greenfield", dry_run=True)
+
+    output = capsys.readouterr().out
+    assert res == 0
+    assert calls == []
+    assert "Bali Runtime dry-run" in output
+    assert "Workflow: greenfield" in output
+    assert "Agentes: orchestrator, discovery, prd-writer, sdd-architect, planner, spec-implementer, reviewer" in output
+
+
 def test_inspect_runs_reads_runtime_output_directory(temp_project_dir, capsys):
     run_dir = temp_project_dir / ".agent" / "output" / "runtime" / "20260630-120000"
     run_dir.mkdir(parents=True)
@@ -145,6 +170,32 @@ def test_inspect_runs_reads_runtime_output_directory(temp_project_dir, capsys):
     assert "Artefatos: artifacts/prd.md, artifacts/sdd.md" in output
 
 
+def test_inspect_runs_reports_dry_run_output(temp_project_dir, capsys):
+    run_dir = temp_project_dir / ".agent" / "output" / "runtime" / "20260701-120000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "dry-run.txt").write_text(
+        """Bali Runtime dry-run
+Workflow: greenfield
+Task: Criar modulo de login
+Chain:
+1. orchestrator
+2. discovery
+3. prd-writer
+Run dir: .agent/output/runtime/20260701-120000""",
+        encoding="utf-8",
+    )
+
+    res = inspect_runs(temp_project_dir)
+
+    output = capsys.readouterr().out
+    assert res == 0
+    assert "Run ID: 20260701-120000" in output
+    assert "Tipo: dry-run" in output
+    assert "Workflow: greenfield" in output
+    assert "Tarefa: Criar modulo de login" in output
+    assert "Agentes: orchestrator, discovery, prd-writer" in output
+
+
 def test_capability_report_separates_delivered_contract_host_and_missing(temp_project_dir, capsys, monkeypatch):
     monkeypatch.delenv("BALI_SUBAGENT_RUNNER", raising=False)
     monkeypatch.delenv("BALI_SUBAGENT_PROVIDER", raising=False)
@@ -163,6 +214,19 @@ def test_capability_report_separates_delivered_contract_host_and_missing(temp_pr
     assert "Runtime with external LLM command" not in output
     assert "BALI_LLM_COMMAND" not in output
     assert "Parallel agent execution: not implemented" in output
+
+
+def test_capability_report_requires_real_runtime_manifest(temp_project_dir, capsys):
+    run_dir = temp_project_dir / ".agent" / "output" / "runtime" / "20260701-120000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "dry-run.txt").write_text("Bali Runtime dry-run\n", encoding="utf-8")
+
+    res = capability_report(temp_project_dir)
+
+    output = capsys.readouterr().out
+    assert res == 0
+    assert "Runtime manifests: unavailable" in output
+    assert "run_manifest.json not found" in output
 
 
 def test_pre_commit_hook_template_supports_installed_and_source_repo_paths():

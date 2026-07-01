@@ -252,12 +252,18 @@ def run_command(root: Path, task: str, workflow: str = "operate", specialist: Op
         completed = subprocess.run(command)
         return completed.returncode
 
-    runner = Runner(root)
-    
-    # Build chain
     chain = ["orchestrator", "planner", specialist or "spec-implementer", "reviewer"]
     if workflow == "greenfield":
         chain = ["orchestrator", "discovery", "prd-writer", "sdd-architect", "planner", specialist or "spec-implementer", "reviewer"]
+
+    if dry_run:
+        print("Bali Runtime dry-run")
+        print(f"Workflow: {workflow}")
+        print(f"Task: {task}")
+        print(f"Agentes: {', '.join(chain)}")
+        return 0
+
+    runner = Runner(root)
         
     try:
         prior = ""
@@ -289,6 +295,7 @@ def inspect_runs(root: Path) -> int:
     for run_folder in sorted(run_dirs, reverse=True):
         manifest = run_folder / "run_manifest.json"
         legacy_manifest = run_folder / "context_manifest.json"
+        dry_run = run_folder / "dry-run.txt"
         trace = run_folder / "trace.jsonl"
         print(f"\nRun ID: {run_folder.name}")
         if manifest.is_file():
@@ -311,6 +318,30 @@ def inspect_runs(root: Path) -> int:
                 print(f"  Agente: {data.get('agent')} | Redactions: {data.get('redactions')} | Tokens: {data.get('estimated_tokens_used')}")
             except Exception:
                 pass
+        elif dry_run.is_file():
+            lines = dry_run.read_text(encoding="utf-8").splitlines()
+            fields = {}
+            agents = []
+            in_chain = False
+            for line in lines:
+                if line == "Chain:":
+                    in_chain = True
+                    continue
+                if in_chain and ". " in line:
+                    _, agent = line.split(". ", 1)
+                    if agent:
+                        agents.append(agent)
+                    continue
+                if ": " in line:
+                    key, value = line.split(": ", 1)
+                    fields[key] = value
+            print("  Tipo: dry-run")
+            if fields.get("Workflow"):
+                print(f"  Workflow: {fields['Workflow']}")
+            if fields.get("Task"):
+                print(f"  Tarefa: {fields['Task']}")
+            if agents:
+                print(f"  Agentes: {', '.join(agents)}")
         if trace.is_file():
             try:
                 lines = trace.read_text(encoding="utf-8").splitlines()
@@ -334,6 +365,7 @@ def capability_report(root: Path) -> int:
     manifest = agent_root / "subagent.config.yaml"
     memory = agent_root / "memory.md"
     output_runtime = agent_root / "output" / "runtime"
+    runtime_manifests = list(output_runtime.glob("*/run_manifest.json")) if output_runtime.is_dir() else []
 
     verify_problems = _verify_commandless(root)
     delivered = [
@@ -341,7 +373,7 @@ def capability_report(root: Path) -> int:
         ("Core team and manifest", not verify_problems and manifest.is_file(), "; ".join(verify_problems[:3]) if verify_problems else "verify passes"),
         ("Bali Runtime script", runtime_script.is_file(), ".agent/runtime/bali_runtime.py"),
         ("Curated memory file", memory.is_file(), ".agent/memory.md"),
-        ("Runtime manifests", output_runtime.is_dir(), ".agent/output/runtime exists after runs"),
+        ("Runtime manifests", bool(runtime_manifests), "run_manifest.json found" if runtime_manifests else "run_manifest.json not found"),
     ]
 
     contract_dependent = [
