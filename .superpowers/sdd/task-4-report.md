@@ -6,6 +6,7 @@ Changes:
 - Updated `README.md` opening copy to keep the honest capability framing while still naming the project as an orchestrator of subagents.
 - Added a `Capability IDs Criticos` section under `## Compatibilidade Real` with the requested capability ids and state labels.
 - Added the requested README coverage test to `tests/test_readme_audit.py`.
+- Strengthened `tests/test_readme_audit.py` so `test_current_readme_names_critical_capability_limits` now parses the capability table rows and checks the state plus the required wording for each critical capability id.
 
 Verification:
 - `python -m pytest tests/test_readme_audit.py::test_current_readme_names_critical_capability_limits -q`
@@ -13,6 +14,8 @@ Verification:
 - `python -m bali_agent.cli --root . audit-readme --readme README.md --strict`
 - `python -m pytest -q`
 - `git diff --check`
+- `python -m pytest tests/test_readme_audit.py -q`
+- `python -m bali_agent.cli --root . audit-readme --readme README.md --strict`
 
 Notes:
 - `python -m pytest -q` finished cleanly after preserving the existing README phrasing expected by `tests/test_subagent_orchestrator_contract.py`.

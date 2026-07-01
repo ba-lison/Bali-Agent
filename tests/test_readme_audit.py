@@ -3,14 +3,79 @@ from pathlib import Path
 from bali_agent.readme_audit import audit_readme_text
 
 
+def _read_capability_rows(text: str) -> dict[str, tuple[str, str, str]]:
+    rows: dict[str, tuple[str, str, str]] = {}
+    in_capability_table = False
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line == "| Capability id | Estado atual | Como falar disso |":
+            in_capability_table = True
+            continue
+
+        if not in_capability_table:
+            continue
+
+        if not line.startswith("|"):
+            break
+
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) != 3:
+            continue
+        if set(cells[0]) <= {"-"}:
+            continue
+
+        rows[cells[0].strip("`")] = (cells[0], cells[1], cells[2])
+
+    return rows
+
+
+def _paragraph_containing(text: str, fragment: str) -> str:
+    for paragraph in text.split("\n\n"):
+        if fragment in paragraph:
+            return paragraph
+    raise AssertionError(fragment)
+
+
 def test_current_readme_names_critical_capability_limits():
     text = Path("README.md").read_text(encoding="utf-8")
+    rows = _read_capability_rows(text)
 
-    assert "runtime.parallel_execution" in text
-    assert "host.universal_native_isolation" in text
-    assert "model.mandatory_multi_model" in text
-    assert "BALI_SUBAGENT_RUNNER" in text
-    assert "routing_plan" in text
+    capability_expectations = {
+        "runtime.parallel_execution": (
+            "Not delivered",
+            ("sequencial", "max_parallel: 1"),
+        ),
+        "host.universal_native_isolation": (
+            "Not delivered",
+            ("isolamento nativo", "depende do host"),
+        ),
+        "model.mandatory_multi_model": (
+            "Not delivered",
+            ("model_policy", "declarativo", "host/wrapper"),
+        ),
+        "runtime.dynamic_routing_plan": (
+            "Contract-dependent",
+            ("routing_plan", "JSON valido"),
+        ),
+        "runtime.native_or_fallback": (
+            "Contract-dependent",
+            ("Bali Runtime", "runner"),
+        ),
+    }
+
+    for capability_id, (expected_state, required_phrases) in capability_expectations.items():
+        assert capability_id in rows, capability_id
+        row_id, state, guidance = rows[capability_id]
+        assert row_id == f"`{capability_id}`"
+        assert state == expected_state
+        for phrase in required_phrases:
+            assert phrase in guidance, (capability_id, phrase, guidance)
+
+    runtime_paragraph = _paragraph_containing(text, "BALI_SUBAGENT_RUNNER")
+    assert "BALI_SUBAGENT_RUNNER" in runtime_paragraph
+    assert "run --dry-run" in runtime_paragraph
+    assert "nao executa trabalho inteligente" in runtime_paragraph
 
 
 def test_readme_audit_flags_universal_native_isolation_claim():
