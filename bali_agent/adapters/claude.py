@@ -105,11 +105,12 @@ class ClaudeAdapter(BaseAdapter):
         """Return adapter capabilities with verification status.
 
         capability_status values:
-          - "verified"  : Checked at runtime by verify() method.
+          - "materialized": Required files are present; host execution remains host-dependent.
+          - "verified"  : Checked structurally by verify() method.
           - "declared"  : Documented by Claude Code but not verified by bali verify.
         """
         return {
-            "native_subagents":   {"value": True,  "status": "verified"},
+            "native_subagents":   {"value": True,  "status": "materialized"},
             "pre_tool_hooks":     {"value": True,  "status": "verified"},   # checked via settings.json hooks
             "post_tool_hooks":    {"value": True,  "status": "declared"},   # hook format varies by CC version
             "session_hooks":      {"value": True,  "status": "verified"},   # SessionStart/UserPromptSubmit in verify()

@@ -412,7 +412,7 @@ def _run_llm(command_template: str, prompt_path: Path, output_path: Path, agent_
                 # Security: shlex.split the command and run with shell=False when possible
                 # But Ollama / external CLIs usually need shell=True or parsing.
                 # To align with Fase 1, we split the command and run with shell=False.
-                tokens = shlex.split(command)
+                tokens = shlex.split(command, posix=(os.name != "nt"))
                 
                 # Resolve executable wrapper on Windows
                 if os.name == "nt" and tokens:

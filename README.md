@@ -5,11 +5,33 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-2.2.0-green.svg)](https://github.com/ba-lison/Bali-Agent/blob/main/CHANGELOG.md)
 
-Bali-Agent e um kit CLI/runtime e um orquestrador de subagentes para instalar, materializar e executar fluxos de subagentes em projetos de software. Ele entrega time base, contratos, adapters, runtime sequencial, memoria curada e artefatos verificaveis. Ele nao promete autonomia universal: execucao real depende do Bali Runtime configurado ou do suporte nativo do host.
+Bali-Agent e um orquestrador universal de subagentes para projetos de software. Ele define, instala, materializa, coordena e audita times de subagentes em diferentes hosts. A universalidade esta no contrato de orquestracao e na estrutura de subagentes, nao na promessa de que qualquer ambiente execute subagentes nativos sozinho.
+
+Ele tambem entrega um kit CLI/runtime para tornar essa orquestracao executavel quando houver um caminho real de execucao: Bali Runtime configurado ou suporte nativo do host. Bali-Agent nao e um agente autonomo universal, nao promete substituir o host e nao finge isolamento quando o ambiente nao oferece runner, adapter nativo ou mecanismo equivalente.
 
 A ideia e simples: eu entro num projeto com um time base de agentes, uso Discovery/PRD/SDD para entender antes de sair executando, delego a implementacao para especialistas e deixo QA/Seguranca/Reviewer fecharem a entrega.
 
 O foco nao e "usar varios modelos a qualquer custo". O foco e ter separacao real de responsabilidade. Se o host deixar escolher modelo por agente, eu uso `model_policy`. Se nao deixar, todo mundo roda no modelo atual do host e o fluxo continua.
+
+## Proposta Precisa
+
+Bali-Agent deve ser lido como **orquestrador universal de subagentes**, nao como agente universal autonomo.
+
+Isso significa:
+
+- ele cria uma linguagem comum para subagentes, times, handoffs, memoria, gates e adapters;
+- ele instala essa estrutura em projetos novos ou existentes;
+- ele materializa o time para hosts diferentes, como Claude Code, Codex, OpenCode, Antigravity, Cursor ou Bali Runtime;
+- ele audita o que esta configurado, o que depende de contrato externo e o que ainda nao esta entregue.
+
+Isso nao significa:
+
+- que todo host passa a ter isolamento nativo garantido;
+- que todo ambiente executa subagentes sem runner/configuracao;
+- que Bali-Agent e uma IA autonoma capaz de resolver qualquer tarefa sozinho;
+- que multi-modelo, paralelismo ou background agents existem independentemente do host.
+
+Resumo: Bali-Agent universaliza a **orquestracao de subagentes**. A **execucao** acontece quando o host suporta subagentes nativos ou quando o Bali Runtime esta configurado para rodar as etapas.
 
 ## Ideia Central
 
@@ -239,8 +261,8 @@ bali --root /caminho/do/projeto <comando>
 | `verify-adapter <nome>` | Verifica um adapter como `claude-code`, `codex` ou `antigravity`. |
 | `list-agents` | Lista agentes registrados em `.agent/team/`. |
 | `create-agent --id spec-name --scope "..."` | Cria especialista fixo do projeto. |
-| `run "tarefa"` | Executa o fluxo do Orchestrator. |
-| `run --workflow greenfield "tarefa"` | Executa o fluxo greenfield com Product Spine. |
+| `run "tarefa"` | Orquestra o fluxo do Orchestrator; executa etapas reais apenas com Bali Runtime/runner configurado ou host nativo compativel. |
+| `run --workflow greenfield "tarefa"` | Orquestra o fluxo greenfield com Product Spine; executa etapas reais apenas com runner/host compativel. |
 | `remember` | Adiciona entrada curada de memoria. |
 | `inspect-runs` | Mostra runs do Bali Runtime em `.agent/output/runtime`, dry-runs e runs legados em `.agent/runs`. |
 | `capability-report` | Mostra uma matriz de maturidade: Delivered, Contract-dependent, Host-dependent e Not delivered. |

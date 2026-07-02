@@ -1,12 +1,8 @@
-# Guia de Segurança e Controles de Permissão
+# Guia de Seguranca e Controles de Permissao
 
-Este documento detalha o funcionamento e configuração do sistema de segurança do **Bali-Agent**.
+Este documento descreve os controles de seguranca do **Bali-Agent**. Eles sao aplicados diretamente quando o Bali Runtime/tools locais conduzem a execucao. Em hosts nativos, Bali materializa politicas e instrucoes, mas a aplicacao final depende dos controles oferecidos pelo host.
 
-## O Manifesto de Permissões (`subagent.config.yaml`)
-
-O controle de segurança de cada subagente é definido no arquivo `subagent.config.yaml` localizado na raiz do projeto alvo.
-
-### Exemplo de Configuração de Subagente
+## Manifesto de Permissoes (`subagent.config.yaml`)
 
 ```yaml
 id: spec-frontend
@@ -25,18 +21,15 @@ requires_review_by: reviewer
 can_spawn_agents: false
 ```
 
-- **allowed_tools**: Lista de ferramentas que o subagente pode invocar. Se tentar chamar uma ferramenta fora da lista, a execução é abortada pela engine.
-- **denied_paths**: Lista de subdiretórios ou arquivos específicos que são bloqueados para leitura/escrita.
-- **can_spawn_agents**: Indica se este subagente tem permissão de criar dinamicamente novos subagentes.
+- **allowed_tools**: lista de ferramentas que o subagente pode invocar. No Bali Runtime/tools locais, ferramenta fora da lista aborta a execucao.
+- **denied_paths**: subdiretorios ou arquivos bloqueados para leitura/escrita.
+- **can_spawn_agents**: indica se este subagente pode criar novos subagentes.
 
-## Fluxo de Aprovação Humana (Approval System)
+## Fluxo de Aprovacao Humana
 
-Quando uma ferramenta tenta realizar uma ação crítica:
+Quando o Bali Runtime e o executor:
+
 1. O runtime avalia o comando contra a classe de risco.
-2. Se for detectado um comando fora da lista de permitidos R2 (como builds/testes básicos) ou se houver tentativa de modificar arquivos de configuração críticos (`pyproject.toml`, `package.json`, etc.), o Bali-Agent aciona a ferramenta de aprovação interativa.
-3. A execução é congelada, e o terminal do usuário exibe um prompt contendo:
-   - Ação solicitada.
-   - Justificativa do subagente.
-   - Riscos detectados.
-   - Um diff de alterações no caso de escritas.
-4. O usuário deve aceitar ou recusar formalmente. Se recusar, o subagente recebe um retorno de erro de permissão e deve tentar uma abordagem alternativa.
+2. Se detectar comando fora da lista permitida ou alteracao critica, aciona aprovacao interativa quando disponivel.
+3. A execucao e congelada e o usuario recebe acao solicitada, justificativa, riscos e diff quando houver escrita.
+4. Se o usuario recusar, o subagente recebe erro de permissao e deve tentar uma abordagem alternativa.

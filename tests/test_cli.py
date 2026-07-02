@@ -47,6 +47,8 @@ def test_cli_init_command():
         ]
         for agent_id in core_team:
             assert (proj_path / ".agent" / "team" / f"{agent_id}.md").is_file()
+            assert (proj_path / ".codex" / "agents" / f"{agent_id}.toml").is_file()
+            assert (proj_path / ".opencode" / "agents" / f"{agent_id}.md").is_file()
         assert (proj_path / ".agent" / "runtime" / "bali_runtime.py").is_file()
         assert (proj_path / ".agent" / "verify_setup.py").is_file()
         assert (proj_path / ".agent" / "run.py").is_file()

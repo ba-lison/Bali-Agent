@@ -434,7 +434,7 @@ def verify_adapter(root: Path, name: str) -> int:
     print(f"\nAdapter: {name}")
     print(f"Capacidades: {capabilities}")
     if valid:
-        print("Status: VALIDADO OK")
+        print("Status: MATERIALIZACAO VALIDADA (execucao nativa depende do host)")
         return 0
     else:
         print("Status: INCOMPLETO")

@@ -1,33 +1,37 @@
-# Modelo de Ameaças (Threat Model) e Segurança
+# Modelo de Ameacas e Seguranca
 
-Dar acesso a ferramentas de shell, sistema de arquivos e criação de processos para uma LLM apresenta riscos de segurança críticos (Excessive Agency, Prompt Injection, Vazamento de Credenciais). O **Bali-Agent** aborda esses riscos através de mitigação em código.
+Dar acesso a ferramentas de shell, sistema de arquivos e criacao de processos para uma LLM apresenta riscos criticos: excessive agency, prompt injection e vazamento de credenciais. Quando o Bali Runtime executa o fluxo, o **Bali-Agent** mitiga esses riscos em codigo. Em adapters nativos, Bali materializa politicas e instrucoes, mas a aplicacao final depende dos controles do host.
 
-## Principais Vetores de Ameaça e Mitigações
+## Principais Vetores e Mitigacoes
 
-### 1. Execução Excessiva ou Destrutiva de Comandos (Excessive Agency)
-- **Ameaça**: A LLM gera um comando destrutivo como `rm -rf /` ou tenta abrir conexões reversas de rede com `nc`/`bash`.
-- **Mitigação**:
-  - `shell=True` está desativado por padrão. Comandos são parseados em tokens seguros via `shlex.split`.
-  - Classificação por classe de risco:
-    - **R2 (Permitido)**: Comandos de testes/linters explícitos (`pytest`, `npm test`).
-    - **R4 (Bloqueado/Requer Aprovação)**: Comandos contendo executáveis como `rm`, `del`, `format`, `curl`, `wget`, ou operadores de encadeamento de shell (`&&`, `||`, `;`, `|`).
-  - O runtime exige uma aprovação humana interativa estruturada para comandos considerados fora da lista R2.
+### 1. Execucao Excessiva ou Destrutiva
+
+- **Ameaca**: a LLM gera comando destrutivo como `rm -rf /` ou tenta abrir conexoes reversas.
+- **Mitigacao no Runtime**:
+  - `shell=True` fica desativado por padrao.
+  - Comandos sao parseados em tokens seguros.
+  - Comandos de alto risco, operadores de shell e ferramentas de rede sao bloqueados ou exigem aprovacao.
 
 ### 2. Path Traversal e Acesso Fora do Workspace
-- **Ameaça**: A LLM tenta ler `/etc/passwd`, chaves SSH do usuário em `~/.ssh/`, ou sobrescrever arquivos de sistema fora do repositório.
-- **Mitigação**:
-  - Resolução forçada de caminhos via `Path(path).resolve()`.
-  - Bloqueio imediato com exceção `PermissionError` caso o caminho resolvido esteja fora do diretório raiz do projeto (`root_dir`).
 
-### 3. Vazamento de Credenciais e Segredos (Secret Disclosure)
-- **Ameaça**: Chaves de API de nuvem (OpenAI, AWS, GitHub) ou arquivos `.env` são lidos e repassados no histórico de mensagens da LLM ou salvos na memória operacional.
-- **Mitigação**:
-  - `ToolPolicy.can_read` e `can_write` bloqueiam automaticamente o acesso a arquivos contendo `.env` ou diretórios do Git (`.git/`).
-  - `ContextPacker` e `ToolPolicy` escaneiam todas as saídas de ferramentas e conteúdos de mensagens usando regexes pré-definidos para segredos.
-  - Substituição instantânea de strings detectadas por tokens de redação como `[REDACTED OPENAI / ANTHROPIC API KEY]`.
+- **Ameaca**: a LLM tenta ler chaves SSH, arquivos do sistema ou sobrescrever arquivos fora do repositorio.
+- **Mitigacao no Runtime**:
+  - caminhos sao resolvidos antes do acesso;
+  - acessos fora do diretorio raiz sao bloqueados;
+  - paths sensiveis como `.env`, `.git/` e `secrets/` sao negados.
 
-### 4. Loops Infinitos de Execução (Model Denial of Service)
-- **Ameaça**: Agentes entram em um loop recursivo infinito chamando uns aos outros ou repetindo tool calls infrutíferas.
-- **Mitigação**:
-  - Configuração estrita de `max_iterations` no manifesto YAML (padrão: 6 a 10).
-  - Controle rígido de profundidade de criação de agentes para evitar loops em cascata.
+### 3. Vazamento de Credenciais
+
+- **Ameaca**: chaves de API ou `.env` entram no historico da LLM ou na memoria.
+- **Mitigacao no Runtime**:
+  - leitura e escrita em paths sensiveis sao bloqueadas;
+  - conteudos passam por scanner de segredos;
+  - valores detectados sao redigidos antes de persistir contexto/memoria.
+
+### 4. Loops Infinitos
+
+- **Ameaca**: agentes entram em loop recursivo ou repetem tool calls sem progresso.
+- **Mitigacao no Runtime**:
+  - `max_iterations` limita repeticoes;
+  - profundidade de criacao de subagentes e controlada;
+  - Reviewer e manifests tornam falhas auditaveis.

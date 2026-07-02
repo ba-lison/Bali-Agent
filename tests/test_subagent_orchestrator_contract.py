@@ -35,7 +35,7 @@ def test_product_contract_does_not_present_bali_as_generic_llm_command_wrapper()
 def test_readme_leads_with_subagent_orchestration_contract():
     text = Path("README.md").read_text(encoding="utf-8")
 
-    assert "orquestrador de subagents" in text or "orquestrador de subagentes" in text
+    assert "orquestrador universal de subagentes" in text or "orquestrador de subagentes" in text
     assert "paperclip" not in text.lower()
     assert "executor generico" not in text.lower()
     assert "executor genérico" not in text.lower()

@@ -109,14 +109,14 @@ def build_capability_report(root: Path) -> dict[str, list[Capability]]:
     for name, adapter_cls in ADAPTERS.items():
         try:
             valid, problems = adapter_cls(root).verify()
-            detail = "adapter verify passes" if valid else "; ".join(problems[:2])
+            detail = "adapter materialization present; host execution unverified" if valid else "; ".join(problems[:2])
         except Exception as exc:  # pragma: no cover - defensive for host-specific adapters
             valid = False
             detail = str(exc)
         host_dependent.append(
             Capability(
                 f"adapter.{name}",
-                f"{name} native adapter",
+                f"{name} adapter materialization",
                 "host_dependent",
                 valid,
                 detail,

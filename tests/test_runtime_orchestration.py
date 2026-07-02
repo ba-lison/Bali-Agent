@@ -449,3 +449,31 @@ def test_runtime_writes_structured_failure_event(temp_project_dir, monkeypatch):
     assert failure["agent"] == "spec-implementer"
     assert failure["error_type"] == "rate_limit"
     assert failure["retryable"] is True
+
+
+def test_run_llm_preserves_windows_style_runner_paths(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake_run(tokens, **kwargs):
+        captured["tokens"] = tokens
+
+        class Completed:
+            returncode = 0
+            stderr = ""
+
+        return Completed()
+
+    monkeypatch.setattr(runtime.subprocess, "run", fake_run)
+
+    prompt_path = tmp_path / "prompt.md"
+    output_path = tmp_path / "output.md"
+    prompt_path.write_text("prompt", encoding="utf-8")
+
+    runtime._run_llm(
+        r"python C:\Users\suporte2\AppData\Local\Temp\bali-controlled-runner.py {prompt_file} {output_file} {agent}",
+        prompt_path,
+        output_path,
+        "orchestrator",
+    )
+
+    assert captured["tokens"][1] == r"C:\Users\suporte2\AppData\Local\Temp\bali-controlled-runner.py"
